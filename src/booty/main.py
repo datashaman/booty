@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 
+from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
@@ -33,7 +34,9 @@ async def process_job(job: Job) -> None:
     ) as workspace:
         logger.info("workspace_ready", path=workspace.path, branch=workspace.branch)
 
-        # Phase 2 will add LLM code generation here
+        # Process issue through full pipeline
+        pr_number = await process_issue_to_pr(job, workspace, settings)
+        logger.info("pr_created", pr_number=pr_number)
 
         logger.info("job_completed")
 
