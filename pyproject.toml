@@ -18,6 +18,8 @@ dependencies = [
     "PyGithub",
     "anthropic",
     "pathspec",
+    "pyyaml",
+    "tenacity",
 ]
 
 [project.optional-dependencies]
