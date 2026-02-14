@@ -61,7 +61,7 @@ async def execute_tests(
             )
 
             return TestResult(
-                exit_code=proc.returncode,
+                exit_code=proc.returncode if proc.returncode is not None else -1,
                 stdout=stdout_bytes.decode("utf-8", errors="replace"),
                 stderr=stderr_bytes.decode("utf-8", errors="replace"),
                 timed_out=False,
