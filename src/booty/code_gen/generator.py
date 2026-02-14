@@ -1,6 +1,5 @@
 """Main orchestrator for issue-to-PR pipeline."""
 
-import asyncio
 import os
 from pathlib import Path
 
