@@ -1,5 +1,7 @@
 """Token counting and budget management for LLM context."""
 
+import os
+
 import anthropic
 
 from booty.logging import get_logger
@@ -10,23 +12,21 @@ logger = get_logger()
 class TokenBudget:
     """Manage token budgets and context window limits for LLM calls."""
 
-    def __init__(self, model: str, max_context_tokens: int, max_output_tokens: int):
+    def __init__(self, max_context_tokens: int):
         """Initialize token budget manager.
 
         Args:
-            model: Anthropic model ID (e.g., "claude-sonnet-4")
             max_context_tokens: Maximum tokens for input context
-            max_output_tokens: Maximum tokens for output generation
         """
-        self.model = model
+        self.model = os.environ.get("MAGENTIC_ANTHROPIC_MODEL", "claude-sonnet-4-5")
         self.max_context_tokens = max_context_tokens
-        self.max_output_tokens = max_output_tokens
+        self.max_output_tokens = int(os.environ.get("MAGENTIC_ANTHROPIC_MAX_TOKENS", "4096"))
         self.client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
         logger.info(
             "TokenBudget initialized",
-            model=model,
+            model=self.model,
             max_context_tokens=max_context_tokens,
-            max_output_tokens=max_output_tokens,
+            max_output_tokens=self.max_output_tokens,
         )
 
     def estimate_tokens(self, system_prompt: str, user_content: str) -> int:

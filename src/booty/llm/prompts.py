@@ -4,24 +4,9 @@ import asyncio
 
 from anthropic import APITimeoutError, RateLimitError
 from magentic import prompt
-from magentic.chat_model.anthropic_chat_model import AnthropicChatModel
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from booty.llm.models import CodeGenerationPlan, IssueAnalysis
-
-
-def get_llm_model(model: str, temperature: float, max_tokens: int) -> AnthropicChatModel:
-    """Build configured Anthropic chat model instance.
-
-    Args:
-        model: Model ID (e.g., "claude-sonnet-4")
-        temperature: Sampling temperature (0.0 = deterministic)
-        max_tokens: Maximum output tokens
-
-    Returns:
-        Configured AnthropicChatModel instance
-    """
-    return AnthropicChatModel(model, temperature=temperature, max_tokens=max_tokens)
 
 
 @prompt(
@@ -58,7 +43,7 @@ Provide file paths relative to the repository root.
     max_retries=3,
 )
 def analyze_issue(
-    issue_title: str, issue_body: str, repo_file_list: str, model: AnthropicChatModel
+    issue_title: str, issue_body: str, repo_file_list: str
 ) -> IssueAnalysis:
     """Analyze GitHub issue and extract structured requirements.
 
@@ -66,7 +51,6 @@ def analyze_issue(
         issue_title: Issue title text
         issue_body: Issue body/description text
         repo_file_list: Newline-separated list of files in repository
-        model: Configured AnthropicChatModel instance
 
     Returns:
         IssueAnalysis with structured understanding of what needs to change
@@ -79,7 +63,6 @@ def generate_code_changes(
     file_contents: dict[str, str],
     issue_title: str,
     issue_body: str,
-    model: AnthropicChatModel,
 ) -> CodeGenerationPlan:
     """Generate code changes as complete file contents.
 
@@ -88,7 +71,6 @@ def generate_code_changes(
         file_contents: Dict of file path -> current content for files to modify
         issue_title: Issue title text
         issue_body: Issue body/description text
-        model: Configured AnthropicChatModel instance
 
     Returns:
         CodeGenerationPlan with complete file contents for all changes
@@ -97,7 +79,7 @@ def generate_code_changes(
     file_contents_formatted = _format_file_contents(file_contents)
 
     return _generate_code_changes_impl(
-        analysis_summary, file_contents_formatted, issue_title, issue_body, model
+        analysis_summary, file_contents_formatted, issue_title, issue_body
     )
 
 
@@ -141,7 +123,6 @@ def _generate_code_changes_impl(
     file_contents_formatted: str,
     issue_title: str,
     issue_body: str,
-    model: AnthropicChatModel,
 ) -> CodeGenerationPlan:
     """Internal implementation of code generation with formatted file contents.
 
@@ -150,7 +131,6 @@ def _generate_code_changes_impl(
         file_contents_formatted: Pre-formatted string of file contents
         issue_title: Issue title text
         issue_body: Issue body/description text
-        model: Configured AnthropicChatModel instance
 
     Returns:
         CodeGenerationPlan with complete file contents for all changes
@@ -180,7 +160,6 @@ def regenerate_code_changes(
     failed_files: str,
     issue_title: str,
     issue_body: str,
-    model: AnthropicChatModel,
 ) -> CodeGenerationPlan:
     """Regenerate code for failing tests.
 
@@ -191,7 +170,6 @@ def regenerate_code_changes(
         failed_files: Comma-separated list of files identified in failures
         issue_title: Issue title text
         issue_body: Issue body/description text
-        model: Configured AnthropicChatModel instance
 
     Returns:
         CodeGenerationPlan with regenerated file contents for failing files
@@ -206,7 +184,6 @@ def regenerate_code_changes(
         failed_files,
         issue_title,
         issue_body,
-        model,
     )
 
 
@@ -264,7 +241,6 @@ def _regenerate_code_changes_impl(
     failed_files: str,
     issue_title: str,
     issue_body: str,
-    model: AnthropicChatModel,
 ) -> CodeGenerationPlan:
     """Internal implementation of code regeneration with retry logic.
 
@@ -275,7 +251,6 @@ def _regenerate_code_changes_impl(
         failed_files: Comma-separated list of files identified in failures
         issue_title: Issue title text
         issue_body: Issue body/description text
-        model: Configured AnthropicChatModel instance
 
     Returns:
         CodeGenerationPlan with regenerated file contents for failing files

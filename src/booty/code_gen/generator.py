@@ -15,7 +15,7 @@ from booty.github.pulls import (
     format_self_modification_pr_body,
 )
 from booty.jobs import Job
-from booty.llm.prompts import analyze_issue, generate_code_changes, get_llm_model
+from booty.llm.prompts import analyze_issue, generate_code_changes
 from booty.llm.token_budget import TokenBudget
 from booty.logging import get_logger
 from booty.repositories import Workspace
@@ -90,13 +90,7 @@ async def process_issue_to_pr(
         issue_body = job.payload["issue"]["body"] or ""
         repo_file_list = "\n".join(repo_files)
 
-        model = get_llm_model(
-            settings.LLM_MODEL,
-            settings.LLM_TEMPERATURE,
-            settings.LLM_MAX_TOKENS,
-        )
-
-        analysis = analyze_issue(issue_title, issue_body, repo_file_list, model)
+        analysis = analyze_issue(issue_title, issue_body, repo_file_list)
         logger.info(
             "issue_analyzed",
             files_to_modify=len(analysis.files_to_modify),
@@ -156,11 +150,7 @@ async def process_issue_to_pr(
 
         # Step 6: Token budget check
         logger.info("checking_token_budget")
-        budget = TokenBudget(
-            settings.LLM_MODEL,
-            settings.LLM_MAX_CONTEXT_TOKENS,
-            settings.LLM_MAX_TOKENS,
-        )
+        budget = TokenBudget(settings.LLM_MAX_CONTEXT_TOKENS)
 
         # Build base content for budget check
         base_content = f"Task: {analysis.task_description}\n\nIssue: {issue_title}\n{issue_body}"
@@ -182,7 +172,7 @@ async def process_issue_to_pr(
                 "You are a code generation assistant.",
                 base_content,
                 file_contents,
-                settings.LLM_MAX_CONTEXT_TOKENS - settings.LLM_MAX_TOKENS,
+                settings.LLM_MAX_CONTEXT_TOKENS - budget.max_output_tokens,
             )
 
             # Check if even base content fits
@@ -200,7 +190,6 @@ async def process_issue_to_pr(
             file_contents,
             issue_title,
             issue_body,
-            model,
         )
         logger.info(
             "code_generated",
@@ -281,7 +270,6 @@ async def process_issue_to_pr(
             analysis.task_description,
             issue_title,
             issue_body,
-            model,
         )
 
         # Step 10b: Self-modification quality checks
