@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Booty is a self-managing software system built on AI agents. It starts with a Builder agent that picks up GitHub issues, writes code, runs tests, and opens PRs — against any configurable repo, including its own. More agents (Verifier, Planner, Architect, etc.) get added as the system evolves and the pain reveals what's needed next.
+Booty is a self-managing software builder powered by AI. It receives GitHub issues via webhook, analyzes them with an LLM, generates code changes, runs tests with iterative refinement, and opens pull requests — including against its own repository with additional safety gates.
 
 ## Core Value
 
@@ -12,19 +12,19 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Builder agent picks up labeled GitHub issues via webhook — v1.0
+- ✓ Builder clones target repo fresh for each task — v1.0
+- ✓ Builder uses LLM (via magentic) to understand issue and produce code — v1.0
+- ✓ Builder runs tests against the generated code — v1.0
+- ✓ Builder opens a PR with the changes — v1.0
+- ✓ Target repo is configurable (not hardcoded) — v1.0
+- ✓ Builder can work on its own repo (self-management) — v1.0
+- ✓ Issue filtering via specific GitHub label (e.g. `agent:builder`) — v1.0
+- ✓ Webhook listener receives GitHub issue events — v1.0
 
 ### Active
 
-- [ ] Builder agent picks up labeled GitHub issues via webhook
-- [ ] Builder clones target repo fresh for each task
-- [ ] Builder uses LLM (via magentic) to understand issue and produce code
-- [ ] Builder runs tests against the generated code
-- [ ] Builder opens a PR with the changes
-- [ ] Target repo is configurable (not hardcoded)
-- [ ] Builder can work on its own repo (self-management)
-- [ ] Issue filtering via specific GitHub label (e.g. `agent:builder`)
-- [ ] Webhook listener receives GitHub issue events
+(None yet — define with `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -36,11 +36,10 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 
 ## Context
 
-- Vision inspired by modeling a high-performing software org as specialized AI agents organized in control theory layers (strategic/tactical/reality loops)
-- The ChatGPT analysis identified 11 agent roles; we're starting with just the Builder to avoid protocol/abstraction quicksand
-- Magentic chosen for LLM abstraction — decorator-based, type-safe, multi-backend support
-- Self-managing: Booty's first real test is building more of itself
-- The minimum viable agent stack (Architect, Planner, Builder, Verifier, Observability) is the north star, but we get there by feeling the pain, not by planning it all upfront
+Shipped v1.0 with 3,012 LOC Python across 77 files.
+Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings.
+All 17 requirements satisfied. 4 phases, 13 plans executed in a single day.
+Self-modification capability active with protected paths and quality gates.
 
 ## Constraints
 
@@ -54,11 +53,16 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Start with Builder only | Avoid protocol/abstraction quicksand; let pain reveal what's needed | — Pending |
-| Magentic for LLM abstraction | Decorator-based, type-safe, multi-backend; keeps agent code clean | — Pending |
-| GitHub webhooks for triggering | Event-driven is cleaner than polling; integrates with existing workflow | — Pending |
-| Fresh clone per task | Isolation prevents stale state leaking between tasks; simplicity over speed | — Pending |
-| Label-based issue filtering | Not every issue should trigger a build; explicit opt-in via label | — Pending |
+| Start with Builder only | Avoid protocol/abstraction quicksand; let pain reveal what's needed | ✓ Good — shipped complete pipeline |
+| Magentic for LLM abstraction | Decorator-based, type-safe, multi-backend; keeps agent code clean | ✓ Good — clean prompt functions |
+| GitHub webhooks for triggering | Event-driven is cleaner than polling; integrates with existing workflow | ✓ Good — FastAPI + HMAC working |
+| Fresh clone per task | Isolation prevents stale state leaking between tasks; simplicity over speed | ✓ Good — clean workspace per job |
+| Label-based issue filtering | Not every issue should trigger a build; explicit opt-in via label | ✓ Good — configurable trigger label |
+| Pydantic Settings for config | Type-safe environment variable validation | ✓ Good — all config centralized |
+| Full file generation (not diffs) | LLMs struggle with diffs; full file content is more reliable | ✓ Good — clean file writes |
+| pathspec for path restrictions | Gitignore-style patterns with ** support | ✓ Good — reused for self-mod safety |
+| Anthropic token counting API | Accurate budget management for context windows | ✓ Good — prevents overflow |
+| giturlparse for self-detection | Handles HTTPS/SSH/.git/case variants for repo URL matching | ✓ Good — reliable self-target detection |
 
 ---
-*Last updated: 2026-02-14 after initialization*
+*Last updated: 2026-02-14 after v1.0 milestone*
