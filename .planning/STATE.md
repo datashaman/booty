@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Phase 3: Test-Driven Refinement — VERIFIED ✓
+**Current focus:** Phase 4: Self-Modification — In Progress
 
 ## Current Position
 
-Phase: 3 of 4 (Test-Driven Refinement) — VERIFIED ✓
-Plan: 3 of 3 in current phase
-Status: Phase 3 complete, verified (6/6 must-haves)
-Last activity: 2026-02-14 — Phase 3 verified, ready for Phase 4
+Phase: 4 of 4 (Self-Modification)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-14 — Completed 04-01-PLAN.md
 
-Progress: [███████░░░] 75%
+Progress: [████████░░] 78%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 2.1 min
-- Total execution time: 0.35 hours
+- Total execution time: 0.37 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [███████░░░] 75%
 | Phase 1 | 2/2 | 5 min | 3 min |
 | Phase 2 | 5/5 | 11 min | 2 min |
 | Phase 3 | 3/3 | 7 min | 2 min |
+| Phase 4 | 1/3 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-04 (3min), 02-05 (2min), 03-01 (2min), 03-02 (2min), 03-03 (3min)
-- Trend: Consistent 2-3 min velocity maintained throughout Phase 3
+- Last 5 plans: 02-05 (2min), 03-01 (2min), 03-02 (2min), 03-03 (3min), 04-01 (2min)
+- Trend: Consistent 2-3 min velocity maintained into Phase 4
 
 *Updated after each plan completion*
 
@@ -78,6 +79,12 @@ Recent decisions affecting current work:
 - Last-failure-only context in refinement (03-03): Each iteration passes only latest test output to LLM, not cumulative history
 - Tenacity retry for API errors (03-03): Exponential backoff for RateLimitError, APITimeoutError with 5 attempts max
 - Draft PR on test failure (03-03): Failed tests create draft PR with error context, successful tests create ready PR
+- giturlparse for URL normalization (04-01): Handles HTTPS/SSH/.git/case variants automatically for self-detection
+- Empty BOOTY_OWN_REPO_URL disables detection (04-01): Safe default, explicit opt-in required for self-modification
+- Triple comparison for fork protection (04-01): Must match host/owner/repo to prevent fork false positives
+- PathRestrictor reuse for safety (04-01): Proven pattern from Phase 2 applied to protected path enforcement
+- load_booty_config returns defaults if missing (04-01): Allows self-modification on repos without .booty.yml
+- Minimum protected_paths enforced (04-01): Never empty, always protects critical infrastructure
 
 ### Pending Todos
 
@@ -89,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-14 (phase execution)
-Stopped at: Phase 3 verified, ready for Phase 4
+Last session: 2026-02-14 (plan execution)
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
