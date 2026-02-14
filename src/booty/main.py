@@ -111,3 +111,17 @@ async def health_check():
         dict: Status OK
     """
     return {"status": "ok"}
+
+
+@app.get("/jobs")
+async def list_jobs():
+    """List recent job history.
+
+    Returns:
+        dict: JSON response with list of recent jobs including issue_number, status, and timestamp
+    """
+    if job_queue is None:
+        return {"jobs": [], "error": "Job queue not initialized"}
+
+    jobs = job_queue.get_recent_jobs(limit=100)
+    return {"jobs": jobs, "total": len(jobs)}

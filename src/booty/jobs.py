@@ -185,3 +185,33 @@ class JobQueue:
             Job if found, None otherwise
         """
         return self.jobs.get(job_id)
+
+    def get_recent_jobs(self, limit: int = 100) -> list[dict]:
+        """Get recent jobs sorted by creation time (newest first).
+
+        Args:
+            limit: Maximum number of jobs to return
+
+        Returns:
+            List of job dictionaries with relevant fields
+        """
+        sorted_jobs = sorted(
+            self.jobs.values(),
+            key=lambda j: j.created_at,
+            reverse=True
+        )
+
+        recent_jobs = sorted_jobs[:limit]
+
+        return [
+            {
+                "job_id": job.job_id,
+                "issue_number": job.issue_number,
+                "issue_url": job.issue_url,
+                "state": job.state.value,
+                "created_at": job.created_at.isoformat(),
+                "error": job.error,
+                "is_self_modification": job.is_self_modification,
+            }
+            for job in recent_jobs
+        ]
