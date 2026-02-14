@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "booty"
+version = "0.1.0"
+description = "GitHub issue to PR agent pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]",
+    "pydantic-settings",
+    "gitpython",
+    "structlog",
+    "asgi-correlation-id",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[project.scripts]
+booty = "booty.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
