@@ -30,6 +30,8 @@ class Job:
     state: JobState = JobState.QUEUED
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     error: str | None = None
+    is_self_modification: bool = False
+    repo_url: str = ""
 
 
 class JobQueue:

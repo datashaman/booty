@@ -3,12 +3,14 @@
 import hmac
 import hashlib
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from booty.config import get_settings
+from booty.github.comments import post_self_modification_disabled_comment
 from booty.jobs import Job
 from booty.logging import get_logger
+from booty.self_modification.detector import is_self_modification
 
 
 router = APIRouter(prefix="/webhooks")
@@ -41,7 +43,7 @@ def verify_signature(
 
 
 @router.post("/github")
-async def github_webhook(request: Request):
+async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle GitHub webhook events.
 
     Verifies HMAC signature, filters for labeled issues, deduplicates
@@ -99,6 +101,25 @@ async def github_webhook(request: Request):
         )
         return {"status": "ignored"}
 
+    # Self-modification detection
+    repo_url = payload.get("repository", {}).get("html_url", "")
+    is_self = is_self_modification(repo_url, settings.BOOTY_OWN_REPO_URL)
+
+    if is_self and not settings.BOOTY_SELF_MODIFY_ENABLED:
+        issue = payload["issue"]
+        logger.info("self_modification_rejected", issue_number=issue["number"])
+        background_tasks.add_task(
+            post_self_modification_disabled_comment,
+            settings.GITHUB_TOKEN,
+            repo_url,
+            issue["number"],
+        )
+        return {
+            "status": "ignored",
+            "reason": "self_modification_disabled",
+            "issue_number": issue["number"],
+        }
+
     # Mark delivery as processed
     if delivery_id:
         job_queue.mark_processed(delivery_id)
@@ -111,6 +132,8 @@ async def github_webhook(request: Request):
         issue_url=issue["html_url"],
         issue_number=issue["number"],
         payload=payload,
+        is_self_modification=is_self,
+        repo_url=repo_url,
     )
 
     enqueued = await job_queue.enqueue(job)
