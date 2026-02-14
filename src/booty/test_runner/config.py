@@ -32,6 +32,19 @@ class BootyConfig(BaseModel):
         description="Maximum number of refinement attempts before giving up",
     )
 
+    protected_paths: list[str] = Field(
+        default_factory=lambda: [
+            ".github/workflows/**",
+            ".env",
+            ".env.*",
+            "**/*.env",
+            "**/secrets.*",
+            "Dockerfile",
+            "docker-compose*.yml",
+        ],
+        description="Paths protected from self-modification",
+    )
+
     @field_validator("test_command")
     @classmethod
     def validate_command_not_empty(cls, v: str) -> str:
@@ -39,6 +52,14 @@ class BootyConfig(BaseModel):
         if not v.strip():
             raise ValueError("test_command cannot be empty")
         return v.strip()
+
+    @field_validator("protected_paths")
+    @classmethod
+    def validate_protected_paths_not_empty(cls, v: list[str]) -> list[str]:
+        """Ensure protected_paths always has minimum defaults."""
+        if not v:
+            return [".github/workflows/**", ".env", ".env.*"]
+        return v
 
 
 def load_booty_config(workspace_path: Path) -> BootyConfig:
@@ -48,24 +69,24 @@ def load_booty_config(workspace_path: Path) -> BootyConfig:
         workspace_path: Path to workspace root directory
 
     Returns:
-        Validated BootyConfig instance
+        Validated BootyConfig instance. If .booty.yml doesn't exist, returns
+        default config with echo command (allows self-modification on repos
+        without tests).
 
     Raises:
-        FileNotFoundError: If .booty.yml doesn't exist
         yaml.YAMLError: If YAML is malformed
         ValidationError: If config schema is invalid
     """
     config_path = workspace_path / ".booty.yml"
 
     if not config_path.exists():
-        raise FileNotFoundError(
-            f"No .booty.yml configuration found in {workspace_path}. "
-            "Test-driven refinement requires a .booty.yml file specifying "
-            "how to run tests. Example:\n\n"
-            "test_command: pytest tests/\n"
-            "timeout: 300\n"
-            "max_retries: 3\n"
+        # Return default config instead of raising error
+        # This allows self-modification to work on repos without .booty.yml
+        logger.info(
+            "No .booty.yml found, using default config",
+            workspace_path=str(workspace_path),
         )
+        return BootyConfig(test_command="echo 'No tests configured'")
 
     with open(config_path) as f:
         data = yaml.safe_load(f)
