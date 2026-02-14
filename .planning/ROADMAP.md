@@ -14,8 +14,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Webhook-to-Workspace Pipeline** - Foundation infrastructure without LLM complexity
 - [x] **Phase 2: LLM Code Generation** - Core value delivery with issue-to-PR automation
-- [ ] **Phase 3: Test-Driven Refinement** - Quality assurance through testing and iteration
-- [ ] **Phase 4: Self-Modification** - Booty builds Booty
+- [x] **Phase 3: Test-Driven Refinement** - Quality assurance through testing and iteration
+- [x] **Phase 4: Self-Modification** - Booty builds Booty
 
 ## Phase Details
 
@@ -160,9 +160,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Self-target detection, config settings, protected paths, safety module
-- [ ] 04-02-PLAN.md — Quality gate runner (ruff), PR label/reviewer support, rejection comments
-- [ ] 04-03-PLAN.md — Pipeline integration: webhook wiring, protected path validation, quality checks, draft PR flow
+- [x] 04-01-PLAN.md — Self-target detection, config settings, protected paths, safety module
+- [x] 04-02-PLAN.md — Quality gate runner (ruff), PR label/reviewer support, rejection comments
+- [x] 04-03-PLAN.md — Pipeline integration: webhook wiring, protected path validation, quality checks, draft PR flow
 
 ## Progress
 
@@ -173,5 +173,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Webhook-to-Workspace Pipeline | 2/2 | Complete | 2026-02-14 |
 | 2. LLM Code Generation | 5/5 | Complete | 2026-02-14 |
-| 3. Test-Driven Refinement | 0/3 | Not started | - |
-| 4. Self-Modification | 0/TBD | Not started | - |
+| 3. Test-Driven Refinement | 3/3 | Complete | 2026-02-14 |
+| 4. Self-Modification | 3/3 | Complete | 2026-02-14 |
