@@ -21,7 +21,9 @@ class TokenBudget:
         self.model = os.environ.get("MAGENTIC_ANTHROPIC_MODEL", "claude-sonnet-4-5")
         self.max_context_tokens = max_context_tokens
         self.max_output_tokens = int(os.environ.get("MAGENTIC_ANTHROPIC_MAX_TOKENS", "4096"))
-        self.client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
+        self.client = anthropic.Anthropic(
+            api_key=os.environ.get("MAGENTIC_ANTHROPIC_API_KEY"),
+        )
         logger.info(
             "TokenBudget initialized",
             model=self.model,
