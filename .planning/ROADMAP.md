@@ -50,10 +50,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - Non-deterministic configuration: Hardcoded values prevent reproducibility
   - Mitigation: All params configurable, temperature=0 default, sorted file lists
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] TBD during planning
+- [ ] 01-01-PLAN.md — Project skeleton, configuration store, and structured logging
+- [ ] 01-02-PLAN.md — Webhook handler, async job queue, and repository manager
 
 ### Phase 2: LLM Code Generation
 
