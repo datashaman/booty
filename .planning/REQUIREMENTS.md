@@ -122,9 +122,9 @@ Run only tests related to changed files instead of full suite.
 | REQ-10 | Phase 2 | Complete |
 | REQ-11 | Phase 2 | Complete |
 | REQ-15 | Phase 2 | Complete |
-| REQ-12 | Phase 3 | Pending |
-| REQ-13 | Phase 3 | Pending |
-| REQ-14 | Phase 3 | Pending |
+| REQ-12 | Phase 3 | Complete |
+| REQ-13 | Phase 3 | Complete |
+| REQ-14 | Phase 3 | Complete |
 | REQ-16 | Phase 4 | Pending |
 
 **Coverage:** 17/17 v1 requirements mapped (100%)
