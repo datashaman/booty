@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     # Logging configuration
     LOG_LEVEL: str = "INFO"
 
+    # Phase 2: LLM Code Generation
+    ANTHROPIC_API_KEY: str  # Required, no default
+    LLM_MAX_TOKENS: int = 4096  # Max output tokens for generation
+    LLM_MAX_CONTEXT_TOKENS: int = 180000  # Context window budget, conservative buffer
+    MAX_FILES_PER_ISSUE: int = 10  # File count cap
+    RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock"  # Comma-separated denylist patterns
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

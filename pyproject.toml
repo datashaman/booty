@@ -14,6 +14,10 @@ dependencies = [
     "structlog",
     "asgi-correlation-id",
     "uvicorn",
+    "magentic[anthropic]",
+    "PyGithub",
+    "anthropic",
+    "pathspec",
 ]
 
 [project.optional-dependencies]
