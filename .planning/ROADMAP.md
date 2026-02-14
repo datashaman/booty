@@ -13,7 +13,7 @@ Booty evolves from webhook handler to self-managing builder in four phases. Phas
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Webhook-to-Workspace Pipeline** - Foundation infrastructure without LLM complexity
-- [ ] **Phase 2: LLM Code Generation** - Core value delivery with issue-to-PR automation
+- [x] **Phase 2: LLM Code Generation** - Core value delivery with issue-to-PR automation
 - [ ] **Phase 3: Test-Driven Refinement** - Quality assurance through testing and iteration
 - [ ] **Phase 4: Self-Modification** - Booty builds Booty
 
@@ -90,11 +90,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Dependencies, config settings, and Pydantic LLM models
-- [ ] 02-02-PLAN.md — Path security restrictions and code validation
-- [ ] 02-03-PLAN.md — Git commit/push operations and PR creation
-- [ ] 02-04-PLAN.md — LLM prompts (issue analysis, code generation) and token budget
-- [ ] 02-05-PLAN.md — Orchestrator wiring into process_job pipeline
+- [x] 02-01-PLAN.md — Dependencies, config settings, and Pydantic LLM models
+- [x] 02-02-PLAN.md — Path security restrictions and code validation
+- [x] 02-03-PLAN.md — Git commit/push operations and PR creation
+- [x] 02-04-PLAN.md — LLM prompts (issue analysis, code generation) and token budget
+- [x] 02-05-PLAN.md — Orchestrator wiring into process_job pipeline
 
 ### Phase 3: Test-Driven Refinement
 
@@ -168,6 +168,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Webhook-to-Workspace Pipeline | 2/2 | Complete | 2026-02-14 |
-| 2. LLM Code Generation | 0/5 | Not started | - |
+| 2. LLM Code Generation | 5/5 | Complete | 2026-02-14 |
 | 3. Test-Driven Refinement | 0/TBD | Not started | - |
 | 4. Self-Modification | 0/TBD | Not started | - |
