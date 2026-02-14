@@ -5,7 +5,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Callable
+from typing import Awaitable, Callable
 
 from booty.logging import get_logger
 
@@ -108,7 +108,7 @@ class JobQueue:
             return False
 
     async def worker(
-        self, worker_id: int, process_fn: Callable[[Job], None]
+        self, worker_id: int, process_fn: Callable[[Job], Awaitable[None]]
     ) -> None:
         """Worker loop that processes jobs.
 
@@ -152,7 +152,7 @@ class JobQueue:
                 # Continue running to prevent worker death
 
     async def start_workers(
-        self, num_workers: int, process_fn: Callable[[Job], None]
+        self, num_workers: int, process_fn: Callable[[Job], Awaitable[None]]
     ) -> None:
         """Start worker tasks.
 

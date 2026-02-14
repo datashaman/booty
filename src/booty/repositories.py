@@ -1,7 +1,6 @@
 """Repository management with workspace isolation."""
 
 import asyncio
-import os
 import tempfile
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -57,12 +56,10 @@ async def prepare_workspace(
             clone_url = repo_url.replace("https://", f"https://{github_token}@")
 
         # Clone repository (blocking I/O, run in executor)
-        loop = asyncio.get_event_loop()
-
         def _clone():
             return git.Repo.clone_from(clone_url, temp_dir.name, branch=branch)
 
-        repo = await loop.run_in_executor(None, _clone)
+        repo = await asyncio.get_running_loop().run_in_executor(None, _clone)
         logger.info("clone_complete", branch=branch, path=temp_dir.name)
 
         # Create and checkout feature branch

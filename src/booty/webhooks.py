@@ -4,6 +4,7 @@ import hmac
 import hashlib
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from booty.config import get_settings
 from booty.jobs import Job
@@ -118,4 +119,6 @@ async def github_webhook(request: Request):
         raise HTTPException(status_code=500, detail="Failed to enqueue job")
 
     logger.info("job_accepted", job_id=job_id, issue_number=issue["number"])
-    return {"status": "accepted", "job_id": job_id}
+    return JSONResponse(
+        status_code=202, content={"status": "accepted", "job_id": job_id}
+    )
