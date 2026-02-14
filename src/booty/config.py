@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     MAX_FILES_PER_ISSUE: int = 10  # File count cap
     RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock"  # Comma-separated denylist patterns
 
+    # Phase 4: Self-modification configuration
+    BOOTY_OWN_REPO_URL: str = ""  # Empty means self-modification detection disabled
+    BOOTY_SELF_MODIFY_ENABLED: bool = False  # Explicit opt-in required
+    BOOTY_SELF_MODIFY_REVIEWER: str = ""  # GitHub username for review requests on self-PRs
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
