@@ -37,7 +37,7 @@ async def process_job(job: Job) -> None:
 
         # Process issue through full pipeline
         pr_number, tests_passed, error_message = await process_issue_to_pr(
-            job, workspace, settings
+            job, workspace, settings, is_self_modification=job.is_self_modification
         )
         logger.info("pr_created", pr_number=pr_number, tests_passed=tests_passed)
 

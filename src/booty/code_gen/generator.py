@@ -8,19 +8,26 @@ from booty.code_gen.security import PathRestrictor
 from booty.code_gen.validator import validate_generated_code
 from booty.config import Settings
 from booty.git.operations import commit_changes, format_commit_message, push_to_remote
-from booty.github.pulls import create_pull_request, format_pr_body
+from booty.github.pulls import (
+    add_self_modification_metadata,
+    create_pull_request,
+    format_pr_body,
+    format_self_modification_pr_body,
+)
 from booty.jobs import Job
 from booty.llm.prompts import analyze_issue, generate_code_changes, get_llm_model
 from booty.llm.token_budget import TokenBudget
 from booty.logging import get_logger
 from booty.repositories import Workspace
+from booty.self_modification.safety import validate_changes_against_protected_paths
 from booty.test_runner.config import load_booty_config
+from booty.test_runner.quality import run_quality_checks
 
 logger = get_logger()
 
 
 async def process_issue_to_pr(
-    job: Job, workspace: Workspace, settings: Settings
+    job: Job, workspace: Workspace, settings: Settings, is_self_modification: bool = False
 ) -> tuple[int, bool, str | None]:
     """Process issue from analysis to PR creation.
 
@@ -29,20 +36,23 @@ async def process_issue_to_pr(
     2. Analyze issue to get structured understanding
     3. Check file count limit
     4. Validate path security
+    4b. For self-modification: validate against protected paths
     5. Load existing file contents
     6. Check token budget
     7. Generate code changes
     8. Validate generated code
     9. Apply changes to workspace
     10. Run test-driven refinement loop
+    10b. For self-modification: run quality checks (ruff)
     11. Commit changes
     12. Push to remote
-    13. Create pull request (draft if tests failed)
+    13. Create pull request (draft if tests failed OR always draft for self-modification)
 
     Args:
         job: Job containing issue details
         workspace: Workspace with repository clone
         settings: Application settings
+        is_self_modification: Whether this is a self-modification job (default False)
 
     Returns:
         Tuple of (pr_number, tests_passed, error_message)
@@ -121,6 +131,17 @@ async def process_issue_to_pr(
         )
         restrictor.validate_all_paths(all_paths)
         logger.info("path_security_validated", paths_checked=len(all_paths))
+
+        # Step 4b: Self-modification protected path validation
+        if is_self_modification:
+            logger.info("validating_self_modification_protected_paths", paths_count=len(all_paths))
+            changes_dicts = [{"path": p} for p in all_paths]
+            is_valid, reason = validate_changes_against_protected_paths(
+                changes_dicts, workspace_path
+            )
+            if not is_valid:
+                raise ValueError(f"Self-modification blocked: {reason}")
+            logger.info("protected_paths_validated")
 
         # Step 5: Load existing file contents
         logger.info("loading_existing_files", count=len(analysis.files_to_modify))
@@ -263,6 +284,26 @@ async def process_issue_to_pr(
             model,
         )
 
+        # Step 10b: Self-modification quality checks
+        if is_self_modification:
+            logger.info("running_self_modification_quality_checks")
+            quality_result = await run_quality_checks(workspace_path)
+            logger.info(
+                "quality_checks_complete",
+                passed=quality_result.passed,
+                formatting_ok=quality_result.formatting_ok,
+                linting_ok=quality_result.linting_ok,
+            )
+            if not quality_result.passed:
+                # Append quality errors to error_message
+                quality_errors = "\n".join(quality_result.errors)
+                if error_message:
+                    error_message = f"{error_message}\n\nQuality Check Failures:\n{quality_errors}"
+                else:
+                    error_message = f"Quality Check Failures:\n{quality_errors}"
+                tests_passed = False
+                logger.warning("quality_checks_failed", errors_count=len(quality_result.errors))
+
         # If changes were regenerated (final_changes differ from plan.changes), re-apply them
         if final_changes != plan.changes:
             logger.info("reapplying_regenerated_changes", count=len(final_changes))
@@ -320,7 +361,9 @@ async def process_issue_to_pr(
         logger.info("push_complete")
 
         # Step 13: Create PR
-        logger.info("creating_pull_request", draft=not tests_passed)
+        # Self-modification PRs are ALWAYS draft, regardless of test results
+        is_draft = (not tests_passed) if not is_self_modification else True
+        logger.info("creating_pull_request", draft=is_draft, is_self_modification=is_self_modification)
 
         # Format PR title
         if analysis.commit_scope:
@@ -338,12 +381,26 @@ async def process_issue_to_pr(
             for change in final_changes
         ]
 
-        pr_body = format_pr_body(
-            plan.approach,
-            changes_dicts,
-            plan.testing_notes,
-            job.issue_number,
-        )
+        # Format PR body based on self-modification status
+        if is_self_modification:
+            # Load protected paths from config
+            protected_paths = config.protected_paths if config.protected_paths else []
+            changed_files = [change.path for change in final_changes]
+            pr_body = format_self_modification_pr_body(
+                plan.approach,
+                changes_dicts,
+                plan.testing_notes,
+                job.issue_number,
+                protected_paths,
+                changed_files,
+            )
+        else:
+            pr_body = format_pr_body(
+                plan.approach,
+                changes_dicts,
+                plan.testing_notes,
+                job.issue_number,
+            )
 
         # If tests failed, append error context to PR body
         if not tests_passed:
@@ -356,8 +413,19 @@ async def process_issue_to_pr(
             settings.TARGET_BRANCH,
             pr_title,
             pr_body,
-            draft=not tests_passed,
+            draft=is_draft,
         )
+
+        # Add self-modification metadata if needed
+        if is_self_modification:
+            logger.info("adding_self_modification_metadata", pr_number=pr_number)
+            add_self_modification_metadata(
+                settings.GITHUB_TOKEN,
+                settings.TARGET_REPO_URL,
+                pr_number,
+                settings.BOOTY_SELF_MODIFY_REVIEWER,
+            )
+            logger.info("self_modification_metadata_added")
 
         logger.info(
             "process_issue_to_pr_complete",
