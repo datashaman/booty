@@ -16,6 +16,7 @@ def create_pull_request(
     base_branch: str,
     title: str,
     body: str,
+    draft: bool = False,
 ) -> int:
     """Create a pull request on GitHub.
 
@@ -26,6 +27,7 @@ def create_pull_request(
         base_branch: Target branch name
         title: PR title
         body: PR body (markdown)
+        draft: Whether to create as draft PR (default: False)
 
     Returns:
         PR number
@@ -56,10 +58,15 @@ def create_pull_request(
 
         # Create pull request
         pr = repo.create_pull(
-            title=title, body=body, head=head_branch, base=base_branch
+            title=title, body=body, head=head_branch, base=base_branch, draft=draft
         )
 
-        logger.info("pull_request_created", pr_number=pr.number, url=pr.html_url)
+        logger.info(
+            "pull_request_created",
+            pr_number=pr.number,
+            url=pr.html_url,
+            draft=draft,
+        )
         return pr.number
 
     except GithubException as e:
