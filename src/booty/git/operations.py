@@ -59,8 +59,8 @@ async def push_to_remote(repo: git.Repo, github_token: str = "") -> None:
         # Get current URL
         remote_url = next(origin.urls)
 
-        # Inject token if https URL
-        if remote_url.startswith("https://"):
+        # Inject token if https URL without existing credentials
+        if remote_url.startswith("https://") and "@" not in remote_url.split("//")[1].split("/")[0]:
             auth_url = remote_url.replace("https://", f"https://{github_token}@")
             origin.set_url(auth_url)
             logger.info("remote_url_updated", masked_token="***")
