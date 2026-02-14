@@ -107,25 +107,28 @@ Run only tests related to changed files instead of full suite.
 
 ## Traceability
 
-| Requirement | Research Source | Phase |
-|-------------|---------------|-------|
-| REQ-01 | ARCHITECTURE (Webhook Gateway), PITFALLS (#3 timeout) | 1 |
-| REQ-02 | PITFALLS (#3 retry storm), FEATURES (idempotency) | 1 |
-| REQ-03 | ARCHITECTURE (workspace isolation), PITFALLS (#4 state) | 1 |
-| REQ-04 | FEATURES (configurable repos), PROJECT.md | 1 |
-| REQ-05 | ARCHITECTURE (async pattern), PITFALLS (#3 timeout) | 1 |
-| REQ-06 | PITFALLS (#15 logging), ARCHITECTURE (correlation IDs) | 1 |
-| REQ-07 | ARCHITECTURE (Issue Analyzer), FEATURES (read codebase) | 2 |
-| REQ-08 | ARCHITECTURE (Code Generator), FEATURES (code gen) | 2 |
-| REQ-09 | PITFALLS (#1 context blindness), SUMMARY (cross-cutting) | 2 |
-| REQ-10 | FEATURES (PR with explanation), ARCHITECTURE (Git Operator) | 2 |
-| REQ-11 | FEATURES (multi-file changes) | 2 |
-| REQ-12 | FEATURES (test execution), ARCHITECTURE (Test Runner) | 3 |
-| REQ-13 | FEATURES (iterative refinement), ARCHITECTURE (retry loop) | 3 |
-| REQ-14 | PITFALLS (#10 failure recovery), FEATURES (error recovery) | 3 |
-| REQ-15 | PITFALLS (#5 prompt injection), SUMMARY (security) | 2 |
-| REQ-16 | FEATURES (self-modification), PROJECT.md (self-managing) | 4 |
-| REQ-17 | PITFALLS (#6 determinism, #16 hardcoded config) | 1 |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REQ-01 | Phase 1 | Pending |
+| REQ-02 | Phase 1 | Pending |
+| REQ-03 | Phase 1 | Pending |
+| REQ-04 | Phase 1 | Pending |
+| REQ-05 | Phase 1 | Pending |
+| REQ-06 | Phase 1 | Pending |
+| REQ-17 | Phase 1 | Pending |
+| REQ-07 | Phase 2 | Pending |
+| REQ-08 | Phase 2 | Pending |
+| REQ-09 | Phase 2 | Pending |
+| REQ-10 | Phase 2 | Pending |
+| REQ-11 | Phase 2 | Pending |
+| REQ-15 | Phase 2 | Pending |
+| REQ-12 | Phase 3 | Pending |
+| REQ-13 | Phase 3 | Pending |
+| REQ-14 | Phase 3 | Pending |
+| REQ-16 | Phase 4 | Pending |
+
+**Coverage:** 17/17 v1 requirements mapped (100%)
 
 ---
 *Generated: 2026-02-14 from research synthesis*
+*Traceability updated: 2026-02-14 after roadmap creation*
