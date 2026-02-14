@@ -157,10 +157,12 @@ Plans:
 - Bootstrap paradox: Initial code can't handle self-building complexity
   - Mitigation: Validate bootstrap sequence during planning, start with simple self-issues
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD during planning
+- [ ] 04-01-PLAN.md — Self-target detection, config settings, protected paths, safety module
+- [ ] 04-02-PLAN.md — Quality gate runner (ruff), PR label/reviewer support, rejection comments
+- [ ] 04-03-PLAN.md — Pipeline integration: webhook wiring, protected path validation, quality checks, draft PR flow
 
 ## Progress
 
