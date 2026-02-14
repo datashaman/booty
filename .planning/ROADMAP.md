@@ -124,10 +124,12 @@ Plans:
 - Infinite retry loops: System wastes resources on unfixable issues
   - Mitigation: Configurable max retries, exponential backoff, clear failure signals
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD during planning
+- [ ] 03-01-PLAN.md — Test runner module: .booty.yml config, async subprocess executor, output parser
+- [ ] 03-02-PLAN.md — GitHub failure handling: draft PR support, issue failure comments
+- [ ] 03-03-PLAN.md — Refinement loop, LLM regeneration prompt, pipeline integration
 
 ### Phase 4: Self-Modification
 
@@ -169,5 +171,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Webhook-to-Workspace Pipeline | 2/2 | Complete | 2026-02-14 |
 | 2. LLM Code Generation | 5/5 | Complete | 2026-02-14 |
-| 3. Test-Driven Refinement | 0/TBD | Not started | - |
+| 3. Test-Driven Refinement | 0/3 | Not started | - |
 | 4. Self-Modification | 0/TBD | Not started | - |
