@@ -262,7 +262,6 @@ async def process_issue_to_pr(
             issue_title,
             issue_body,
             model,
-            settings,
         )
 
         # If changes were regenerated (final_changes differ from plan.changes), re-apply them

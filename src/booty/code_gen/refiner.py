@@ -5,7 +5,6 @@ from pathlib import Path
 from magentic.chat_model.anthropic_chat_model import AnthropicChatModel
 
 from booty.code_gen.validator import validate_generated_code
-from booty.config import Settings
 from booty.llm.models import FileChange
 from booty.llm.prompts import regenerate_code_changes
 from booty.logging import get_logger
@@ -24,7 +23,6 @@ async def refine_until_tests_pass(
     issue_title: str,
     issue_body: str,
     model: AnthropicChatModel,
-    settings: Settings,
 ) -> tuple[bool, list[FileChange], str | None]:
     """Run test-refine iteration loop until tests pass or max retries exhausted.
 
@@ -42,7 +40,6 @@ async def refine_until_tests_pass(
         issue_title: Issue title text
         issue_body: Issue body/description text
         model: Configured AnthropicChatModel instance
-        settings: Application settings
 
     Returns:
         Tuple of (tests_passed, final_changes, error_message_or_none)
