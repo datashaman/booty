@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings
+from booty.github.comments import post_failure_comment
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
@@ -35,10 +36,26 @@ async def process_job(job: Job) -> None:
         logger.info("workspace_ready", path=workspace.path, branch=workspace.branch)
 
         # Process issue through full pipeline
-        pr_number = await process_issue_to_pr(job, workspace, settings)
-        logger.info("pr_created", pr_number=pr_number)
+        pr_number, tests_passed, error_message = await process_issue_to_pr(
+            job, workspace, settings
+        )
+        logger.info("pr_created", pr_number=pr_number, tests_passed=tests_passed)
 
-        logger.info("job_completed")
+        # If tests failed, post failure comment on issue
+        if not tests_passed:
+            logger.warning("tests_failed_posting_comment", pr_number=pr_number)
+            # Error message already includes attempt context from refiner
+            post_failure_comment(
+                settings.GITHUB_TOKEN,
+                settings.TARGET_REPO_URL,
+                job.issue_number,
+                error_message or "Unknown error",
+                0,  # attempts not needed - error_message has context
+                0,  # max_retries not needed - error_message has context
+            )
+            logger.info("job_completed_with_failures", pr_number=pr_number)
+        else:
+            logger.info("job_completed_successfully", pr_number=pr_number)
 
 
 @asynccontextmanager

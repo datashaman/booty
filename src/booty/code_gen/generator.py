@@ -4,6 +4,7 @@ import asyncio
 import os
 from pathlib import Path
 
+from booty.code_gen.refiner import refine_until_tests_pass
 from booty.code_gen.security import PathRestrictor
 from booty.code_gen.validator import validate_generated_code
 from booty.config import Settings
@@ -14,11 +15,14 @@ from booty.llm.prompts import analyze_issue, generate_code_changes, get_llm_mode
 from booty.llm.token_budget import TokenBudget
 from booty.logging import get_logger
 from booty.repositories import Workspace
+from booty.test_runner.config import load_booty_config
 
 logger = get_logger()
 
 
-async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings) -> int:
+async def process_issue_to_pr(
+    job: Job, workspace: Workspace, settings: Settings
+) -> tuple[int, bool, str | None]:
     """Process issue from analysis to PR creation.
 
     Pipeline:
@@ -31,9 +35,10 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
     7. Generate code changes
     8. Validate generated code
     9. Apply changes to workspace
-    10. Commit changes
-    11. Push to remote
-    12. Create pull request
+    10. Run test-driven refinement loop
+    11. Commit changes
+    12. Push to remote
+    13. Create pull request (draft if tests failed)
 
     Args:
         job: Job containing issue details
@@ -41,10 +46,13 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
         settings: Application settings
 
     Returns:
-        PR number
+        Tuple of (pr_number, tests_passed, error_message)
+        - pr_number: GitHub PR number
+        - tests_passed: True if tests passed after refinement
+        - error_message: Error details if tests failed, None if passed
 
     Raises:
-        ValueError: If issue exceeds limits or validation fails
+        ValueError: If issue exceeds limits, validation fails, or .booty.yml missing
     """
     try:
         logger.info("process_issue_to_pr_started", job_id=job.job_id, issue_number=job.issue_number)
@@ -227,7 +235,71 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
             deleted=len(deleted_paths),
         )
 
-        # Step 10: Commit
+        # Step 10: Test-driven refinement
+        logger.info("loading_test_configuration")
+        try:
+            config = load_booty_config(workspace_path)
+        except FileNotFoundError as e:
+            raise ValueError(
+                "Missing .booty.yml configuration. "
+                "Test-driven refinement requires a .booty.yml file in the repository root. "
+                f"Details: {str(e)}"
+            ) from e
+
+        logger.info(
+            "test_config_loaded",
+            test_command=config.test_command,
+            timeout=config.timeout,
+            max_retries=config.max_retries,
+        )
+
+        logger.info("starting_refinement_loop")
+        tests_passed, final_changes, error_message = await refine_until_tests_pass(
+            workspace_path,
+            config,
+            plan.changes,
+            analysis.task_description,
+            issue_title,
+            issue_body,
+            model,
+            settings,
+        )
+
+        # If changes were regenerated (final_changes differ from plan.changes), re-apply them
+        if final_changes != plan.changes:
+            logger.info("reapplying_regenerated_changes", count=len(final_changes))
+            modified_paths = []
+            deleted_paths = []
+
+            for change in final_changes:
+                full_path = workspace_path / change.path
+
+                if change.operation in ("create", "modify"):
+                    # Create parent directories if needed
+                    full_path.parent.mkdir(parents=True, exist_ok=True)
+                    # Write content
+                    full_path.write_text(change.content)
+                    modified_paths.append(change.path)
+                    logger.debug(
+                        "final_file_written",
+                        path=change.path,
+                        operation=change.operation,
+                        size=len(change.content),
+                    )
+                elif change.operation == "delete":
+                    # Remove file if it exists
+                    if full_path.exists():
+                        full_path.unlink()
+                        deleted_paths.append(change.path)
+                        logger.debug("final_file_deleted", path=change.path)
+
+            logger.info(
+                "final_changes_applied",
+                modified=len(modified_paths),
+                deleted=len(deleted_paths),
+            )
+
+        # Step 11: Commit
         logger.info("committing_changes")
         commit_message = format_commit_message(
             analysis.commit_type,
@@ -244,13 +316,13 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
         )
         logger.info("changes_committed", sha=commit_sha)
 
-        # Step 11: Push
+        # Step 12: Push
         logger.info("pushing_to_remote", branch=workspace.branch)
         await push_to_remote(workspace.repo, settings.GITHUB_TOKEN)
         logger.info("push_complete")
 
-        # Step 12: Create PR
-        logger.info("creating_pull_request")
+        # Step 13: Create PR
+        logger.info("creating_pull_request", draft=not tests_passed)
 
         # Format PR title
         if analysis.commit_scope:
@@ -258,14 +330,14 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
         else:
             pr_title = f"{analysis.commit_type}: {analysis.summary}"
 
-        # Convert FileChange models to dicts for PR body
+        # Convert FileChange models to dicts for PR body (use final_changes)
         changes_dicts = [
             {
                 "path": change.path,
                 "operation": change.operation,
                 "explanation": change.explanation,
             }
-            for change in plan.changes
+            for change in final_changes
         ]
 
         pr_body = format_pr_body(
@@ -275,6 +347,10 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
             job.issue_number,
         )
 
+        # If tests failed, append error context to PR body
+        if not tests_passed:
+            pr_body += f"\n\n## Test Failures\n\nTests did not pass after refinement attempts.\n\n```\n{error_message}\n```\n"
+
         pr_number = create_pull_request(
             settings.GITHUB_TOKEN,
             settings.TARGET_REPO_URL,
@@ -282,16 +358,18 @@ async def process_issue_to_pr(job: Job, workspace: Workspace, settings: Settings
             settings.TARGET_BRANCH,
             pr_title,
             pr_body,
+            draft=not tests_passed,
         )
 
         logger.info(
             "process_issue_to_pr_complete",
             pr_number=pr_number,
+            tests_passed=tests_passed,
             job_id=job.job_id,
             issue_number=job.issue_number,
         )
 
-        return pr_number
+        return (pr_number, tests_passed, error_message)
 
     except Exception as e:
         logger.error(
