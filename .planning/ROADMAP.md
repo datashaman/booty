@@ -57,10 +57,11 @@ Plans:
   3. Multi-criteria validation is performed before promotion (tests + linting + not self-modification)
   4. Self-modification PRs always remain as draft requiring manual review
 
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (determined during `/gsd:plan-phase 6`)
+- [ ] 06-01-PLAN.md — Promotion module and failure comment
+- [ ] 06-02-PLAN.md — Pipeline wiring (quality for all, promote when criteria met)
 
 ## Progress
 
