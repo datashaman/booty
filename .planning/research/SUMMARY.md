@@ -1,367 +1,382 @@
 # Project Research Summary
 
-**Project:** Booty - AI-Powered Builder Agent
-**Domain:** Webhook-triggered GitHub automation with LLM code generation
-**Researched:** 2026-02-14
-**Confidence:** MEDIUM-HIGH
+**Project:** Booty v1.1 - Test Generation & PR Promotion
+**Domain:** LLM-powered test generation and automated PR workflow
+**Researched:** 2026-02-15
+**Confidence:** HIGH
 
 ## Executive Summary
 
-Booty is a webhook-triggered GitHub automation system that converts labeled issues into pull requests via LLM-powered code generation. Expert implementations of this domain follow an **async event-driven pipeline** architecture: webhooks enqueue jobs immediately (avoiding timeout death spirals), then heavy processing happens asynchronously with fresh workspace isolation per task. The core workflow is deterministic: clone → analyze → generate → test → commit → PR, with retry-with-feedback loops for test failures.
+Booty v1.1 adds test generation and PR promotion capabilities to the existing AI Builder pipeline. Research reveals this is a **capabilities expansion, not a stack expansion** — no new dependencies required. The existing magentic+Anthropic pipeline can generate test code using the same `@prompt` decorator pattern used for production code, and PyGithub already supports PR promotion via `mark_ready_for_review()` GraphQL mutation.
 
-The recommended stack centers on **magentic** (constraint) for LLM abstraction, **FastAPI** for webhook handling, **PyGithub** for GitHub API, and **GitPython** for repository operations. This combination provides type safety, async support, and clean separation between prompt logic and business logic. The key architectural insight is that components must be stateless with clear boundaries - Repository Manager handles cloning, Issue Analyzer extracts requirements, Code Generator produces changes, Test Runner validates, and Git Operator publishes. Temperature=0 determinism and context budgeting are foundational, not optional.
+The recommended approach is to integrate test generation directly into the existing code generation phase (single LLM call producing both source and test files), then leverage the proven refinement loop for validation. PR promotion becomes a conditional final step: draft PRs are automatically promoted to ready-for-review when tests pass, except for self-modification PRs which always require manual review. This maintains the existing security posture while adding automation.
 
-Critical risks include context window overflow (causing hallucinated code), webhook timeout death spirals (creating duplicate PRs), and prompt injection via malicious issue content. Mitigation requires: token budget tracking with smart file selection, immediate job enqueuing with async processing, and treating issue content as untrusted input with path restrictions. Build these guardrails in Phase 1 - retrofitting them requires rewrites.
+The critical risks center on test quality (generated tests that pass but don't actually validate behavior), non-deterministic test stability, and package hallucination. Mitigation requires test quality validation gates, deterministic prompt engineering, and dependency verification before execution. The existing refinement loop and token budget management need careful extension to handle test generation without breaking proven patterns.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack research identified mature, well-integrated Python libraries optimized for async webhook handling and type-safe LLM interactions. No experimental dependencies - everything is production-grade with active maintenance.
+**No new dependencies required.** All capabilities exist in the current stack:
 
 **Core technologies:**
-- **magentic 0.28+**: LLM abstraction layer (constraint) - decorator-based, supports OpenAI/Anthropic/LiteLLM, clean API for prompt management
-- **FastAPI 0.109+**: Webhook server - async support, built-in Pydantic validation, minimal boilerplate for signature verification
-- **PyGithub 2.1+**: GitHub API client - most mature option, comprehensive v3 API coverage, strong typing
-- **GitPython 3.1+**: Git operations - Pythonic API, better error handling than subprocess, handles cloning and branching
-- **httpx 0.26+**: HTTP client - async support matching FastAPI, modern API, used under the hood by GitHub libraries
-- **structlog 24.1+**: Logging - structured output for agent observability, critical for debugging LLM decisions
+- **magentic[anthropic]** — Same `@prompt` decorator pattern used for code generation now generates test files. Test code is just Python code to the LLM.
+- **PyGithub** — `PullRequest.mark_ready_for_review()` method supports draft-to-ready promotion via GraphQL mutation (available since v1.55, Booty uses v2.x)
+- **Pydantic** — Existing `CodeGenerationPlan` and `FileChange` models already support test files without modification
+- **structlog** — Existing logging infrastructure extends naturally to test generation and PR promotion events
 
-**What to avoid:**
-- Flask (synchronous, no built-in validation)
-- Langchain (over-abstraction, magentic is sufficient)
-- Celery/RQ for v1 (overkill, simple async sufficient)
-- Polling libraries (webhooks are constraint)
+**Integration points:**
+- Test generation: Modify existing `generate_code_changes()` prompt to request tests alongside code
+- Test refinement: Extend `regenerate_code_changes()` to fix source or tests based on failure analysis
+- PR promotion: Add `promote_pr_to_ready()` function in `github/pulls.py`, call after PR creation if tests passed
 
-**Key unknowns requiring validation:**
-- Which LLM backend for code quality (GPT-4 vs Claude)
-- Token limit handling for large repos (may need summarization)
-- Test execution timeouts (configurable per repo)
-- GitHub App vs PAT auth approach
+**What NOT to add:**
+- Test generation frameworks (pytest-evals, deepeval) — these test LLMs, not generate tests with LLMs
+- GraphQL client libraries (gql, sgqlc) — PyGithub already wraps GitHub's GraphQL API
+- Test AST manipulation (libcst, astroid) — LLM generates complete test files as text
 
 ### Expected Features
 
-Feature research reveals a clear distinction between table stakes (users expect), differentiators (competitive advantage), and anti-features (avoid building).
-
 **Must have (table stakes):**
-- Issue → PR automation - core value proposition, end-to-end flow
-- Code that compiles/runs - basic quality bar, broken code worse than no code
-- Test execution - users need confidence changes work
-- PR with explanation - context for reviewers
-- Clean workspace isolation - fresh state per task prevents contamination
-- Webhook-based triggering - event-driven, standard integration
-- Label-based filtering - explicit opt-in per issue
-- Multi-file changes - real features span files
-- Idempotency - don't reprocess handled issues
+- Unit test generation for changed files — industry standard for automated testing tools
+- Test execution before PR promotion — all PR automation validates tests before marking ready
+- Test quality validation — LLM-generated tests need verification to avoid trivial/broken tests
+- Feedback loop on test failure — LLM must fix broken tests it generates through refinement
+- Test framework detection — must use project's existing test framework (pytest for Booty)
+- Correct test file placement — tests go in `tests/` directory following pytest conventions
 
-**Should have (competitive differentiators):**
-- **Self-modification capability** - agent improves itself, unique to Booty
-- **Iterative refinement** - retry code generation on test failures until passing
-- **Error recovery basics** - graceful failures build trust
+**Should have (competitive advantage):**
+- Edge case identification — LLM identifies and tests boundary conditions automatically
+- Test data generation — realistic test fixtures/data instead of placeholder values
+- Smart test selection — integration tests only for files that interact with external systems
+- Self-modification extra safety gates — Builder can modify itself, needs stronger promotion rules
+- Auto-comment on promotion — explain why PR was promoted (which checks passed)
 
-**Defer to v2+:**
-- Multi-agent architecture (very high complexity)
-- Deep codebase understanding (semantic analysis)
-- Learning from feedback (preference learning)
-- Architecture-aware changes (pattern detection)
+**Defer to v1.2+:**
+- Coverage-driven test generation — generate tests to fill coverage gaps, not blanket coverage
+- Test quality gates for promotion — don't promote if tests are trivial/low quality
+- Mutation testing validation — verify tests catch bugs by introducing mutations (resource intensive)
+- Rollback on post-promotion failure — demote back to draft if issues found after promotion
 
-**Explicitly avoid (anti-features):**
-- Auto-merge without approval - dangerous, erodes trust
-- Custom UI/dashboard early - GitHub is the UI, premature
-- Fine-tuned models - expensive, off-the-shelf sufficient
-- Deployment automation - separate concern from PR creation
-- Real-time chat interface - issue-based workflow clearer
+**Anti-features (deliberately avoid):**
+- 100% coverage mandate — leads to trivial tests just to hit metrics
+- Automated test deletion — dangerous, could delete important coverage
+- Generating tests without execution — worthless without validation
+- Auto-merge without human review — dangerous for self-modification
 
 ### Architecture Approach
 
-The architecture follows async event-driven pipeline patterns from mature GitHub bots (Dependabot, Renovate) and LLM agent systems. Key principle: stateless components with clear interfaces, fresh isolation per task.
+Test generation integrates into the existing Builder pipeline at two points: (1) extending code generation to include test files, and (2) adding conditional PR promotion after PR creation. The key architectural insight is that test files are just more `FileChange` objects — no new data structures or processing steps needed. Tests flow through the existing workspace write → git commit → PR creation path.
+
+**Modified pipeline flow:**
+```
+Analyze issue → Generate code AND TESTS (single LLM call) →
+  → Run tests (existing + generated) →
+  → If fail: refine code AND/OR tests →
+  → Commit (source + tests) → Push →
+  → Create PR (always draft) →
+  → If tests passed AND not self-modification: promote to ready
+```
 
 **Major components:**
-1. **Webhook Gateway** - validates signatures, routes events, returns 200 OK immediately (does NOT process)
-2. **Event Orchestrator** - job lifecycle (queued/running/completed/failed), retry logic, status tracking
-3. **Repository Manager** - fresh clones to temp directories, credential management, branch creation, cleanup
-4. **Issue Analyzer** - LLM extraction of requirements from issue text, identifies relevant files
-5. **Code Generator** - LLM code production with context budgeting, applies changes to workspace
-6. **Test Runner** - executes tests via subprocess, captures results, feeds errors back to generator
-7. **Git Operator** - commits with conventional messages, pushes branch, creates PR via API
-8. **Configuration Store** - manages credentials, LLM settings, timeouts via .env + Pydantic
+1. **Test generation prompt** — Extend existing `generate_code_changes()` prompt template to request test files alongside source files (same LLM call, not separate)
+2. **Test refinement integration** — Extend `regenerate_code_changes()` to distinguish "test caught a bug" vs "test is incorrect" and fix accordingly
+3. **PR promotion function** — New `promote_pr_to_ready()` in `github/pulls.py` using PyGithub's GraphQL mutation support
+4. **Conditional promotion logic** — In `process_issue_to_pr()`, check `tests_passed AND not is_self_modification` before calling promotion
 
-**Critical patterns:**
-- Async job processing: webhook returns immediately, work happens asynchronously
-- Workspace isolation: `tempfile.mkdtemp()` per job, `shutil.rmtree()` cleanup
-- Retry with feedback: test failures loop back to code generation with error context
-- Context budgeting: never exceed token limits, prune files to fit window
+**Architectural patterns applied:**
+- **Extend existing LLM call (not add new one)** — Generate tests in same prompt as code (simpler, shared context)
+- **Leverage existing refinement loop** — Generated test failures trigger refinement just like source failures
+- **Fail-safe promotion** — Non-critical operation shouldn't fail the job (log error, manual promotion still possible)
+- **GraphQL via existing client** — PyGithub supports GraphQL, no new dependency needed
 
-**Build order (dependency-driven):**
-1. Tier 1 (foundation): Configuration Store, Webhook Gateway
-2. Tier 2 (core ops): Repository Manager, Test Runner
-3. Tier 3 (LLM): Issue Analyzer, Code Generator
-4. Tier 4 (output): Git Operator
-5. Tier 5 (orchestration): Event Orchestrator
+**Anti-patterns avoided:**
+- Separate test validation phase (duplicates test execution)
+- New LLM call for test generation (context split, coordination overhead)
+- Synchronous PR promotion blocking job completion
+- Test generation toggle (configuration complexity, partial features)
 
 ### Critical Pitfalls
 
-**1. Context Window Blindness**
-Agent exceeds LLM token limits, silently truncates critical information, generates hallucinated code. Prevention: implement token budgets, AST-based context pruning, overflow detection. Must address in Phase 1.
+1. **Test Quality Theater (Coverage Without Verification)** — LLM-generated tests achieve high coverage while providing false security. Tests check implementation details instead of behavior, always pass, miss edge cases. **Prevention:** Add mutation testing or require tests to fail against intentionally broken code; validate assertions exist; use quality gates before accepting tests.
 
-**2. Test Passing ≠ Code Quality**
-Green tests mask security vulnerabilities, convention violations, technical debt. Prevention: run linters/security scanners BEFORE tests, add quality gates. Phase 2-3 enhancement.
+2. **LLM Non-Determinism Breaking Test Stability** — Generated tests exhibit non-deterministic behavior (timing, random values, ordering), creating flaky tests that break CI/CD. **Prevention:** Explicitly instruct LLM to generate deterministic tests; track test success rates across multiple runs; quarantine flaky tests; run generated tests 3-5 times before committing.
 
-**3. Webhook Timeout Death Spiral**
-Synchronous processing times out, GitHub retries create duplicate jobs, chaos. Prevention: enqueue job and return 200 OK immediately, idempotency keys. Foundational to Phase 1 architecture.
+3. **Package Hallucination in Generated Tests** — LLM hallucinates test dependencies (21.7% for open-source models, 5.2% for commercial). Tests import non-existent testing libraries or reference APIs that don't exist. **Prevention:** Validate all imports against installed packages before execution; include current library versions in prompts; parse imports and verify existence; track known hallucinations.
 
-**4. Stateful Memory Corruption**
-Reused state leaks between tasks, code from Repo A appears in Repo B. Prevention: fresh clone per task (Booty already has this - keep it), new LLM session per job. Phase 1.
+4. **Premature PR Promotion (False Positive Test Pass)** — Auto-promotion based solely on exit code 0 creates security bypass. Tests may pass despite being skipped, disabled, or having no assertions. **Prevention:** Multi-criteria promotion (test pass + coverage threshold + quality checks + security scans); never auto-promote self-modification; log all promotion criteria; human-in-loop flag for sensitive files.
 
-**5. Prompt Injection via Issue Content**
-Malicious issue extracts secrets or bypasses security. Prevention: treat issue content as untrusted, structured prompts, path restrictions, output validation. Basic protections Phase 1, enhanced Phase 2-3.
-
-**6. LLM Non-Determinism Breaks Reproducibility**
-Same issue produces different code each run, can't debug or test. Prevention: set temperature=0, seed parameter, sort file lists deterministically. Phase 1 configuration.
+5. **Test Generation Context Explosion** — Adding test generation doubles/triples context size, causing token budget overflows. Context includes: issue + repo files + generated code + test requirements + error messages from refinement. **Prevention:** Separate token budgets for code vs test generation; file-by-file test generation; prune context during refinement (only failures, not full output); fail fast if budget < 30% remaining.
 
 ## Cross-Cutting Themes
 
-Patterns that emerged across multiple research dimensions:
+### 1. Simplicity Through Reuse
+The strongest theme across all research: every capability needed already exists in the Booty stack. Test generation uses the same prompt pattern as code generation. PR promotion uses the same GitHub client. Test refinement uses the same loop. The implementation challenge is integration, not new technology.
 
-**1. Async-first architecture is non-negotiable**
-- STACK: FastAPI for async webhooks, httpx for async HTTP
-- ARCHITECTURE: Webhook Gateway enqueues immediately, async job processing
-- PITFALLS: Synchronous processing causes timeout death spirals (critical pitfall)
+### 2. Quality Over Automation
+A consistent warning across test generation research: automated test generation can create false confidence. The system must validate that generated tests are meaningful, not just syntactically correct. This requires explicit quality gates beyond "tests pass."
 
-**2. Context management is foundational, not a nice-to-have**
-- STACK: Token budgets for magentic calls
-- ARCHITECTURE: Context budgeting pattern, smart file selection
-- PITFALLS: Context overflow causes hallucinations (critical pitfall)
+### 3. One-Shot Generation, Code-Only Refinement
+The existing refinement loop (`refine_until_tests_pass`) is proven to work for code generation. The critical architectural decision is to NOT break this by regenerating tests in each refinement iteration. Generate tests once with code, then freeze tests and refine only code. This avoids circular dependencies and infinite loops.
 
-**3. Isolation prevents entire classes of bugs**
-- STACK: Fresh clones via GitPython + tempfile
-- ARCHITECTURE: Workspace isolation pattern, cleanup after jobs
-- PITFALLS: Stateful memory corruption (critical pitfall)
-- FEATURES: Clean workspace isolation (table stakes)
+### 4. Fail-Safe Automation
+PR promotion is a non-critical operation that shouldn't fail the entire job. If promotion fails (network error, permissions, API issue), the PR still exists as a draft and can be manually promoted. This graceful degradation pattern should extend throughout the implementation.
 
-**4. Quality gates must exist before scaling**
-- FEATURES: Test execution is table stakes, code style consistency expected
-- PITFALLS: Passing tests ≠ quality without linters/security scans
-- ARCHITECTURE: Test Runner component, validation before PR
-
-**5. Self-modification is differentiating but requires careful design**
-- FEATURES: Unique differentiator for Booty
-- PITFALLS: Needs guardrails to prevent corruption
-- ARCHITECTURE: Must respect same isolation/quality patterns as regular repos
-
-## Critical Decisions Needed Before Implementation
-
-### 1. LLM Backend Selection
-**Decision:** OpenAI GPT-4 vs Anthropic Claude for code generation
-**Why critical:** Affects code quality, cost, latency
-**Validation needed:** Generate test code with both, compare quality/cost/speed
-**Recommendation:** Start with Claude (stronger code generation reputation per training data), make configurable
-
-### 2. Authentication Strategy
-**Decision:** GitHub App (scoped tokens, auto-expiring) vs Personal Access Token (simpler but less secure)
-**Why critical:** Security posture, permission model
-**Recommendation:** GitHub App for production (better security), support PAT for development ease
-
-### 3. Task Queue vs Simple Async
-**Decision:** Use task queue (Celery/RQ) in v1 or defer to v2
-**Why critical:** Affects architecture complexity, scalability path
-**Recommendation:** Simple asyncio tasks for v1 (matches architecture tier 5 build order), add queue when concurrent job processing needed
-
-### 4. Sandboxing Approach
-**Decision:** Subprocess with timeout vs Docker containers
-**Why critical:** Security vs complexity tradeoff
-**Recommendation:** Subprocess for v1 (simple, fast), Docker for production (stronger isolation)
-
-### 5. Determinism Configuration
-**Decision:** Temperature setting for LLM calls
-**Why critical:** Reproducibility for debugging, testing
-**Recommendation:** temperature=0 from day one (non-negotiable per PITFALLS)
-
-### 6. Context Pruning Strategy
-**Decision:** How to select files when codebase exceeds context window
-**Why critical:** Quality of generated code depends on relevant context
-**Recommendation:** Phase 1 simple (imports + modified files only), Phase 2 AST-based relevance ranking
+### 5. Self-Modification Requires Eternal Vigilance
+The existing safety mechanism for self-modification PRs (always require manual review) must be preserved. Test generation and PR promotion add new attack surfaces (malicious tests, bypassed gates) that could subvert this safety if not carefully guarded.
 
 ## MVP Scope Recommendation
 
-Synthesizing across all four research dimensions:
+Based on research findings, recommended phase breakdown:
 
-### Phase 1: Webhook-to-Workspace Pipeline (Foundation)
-**Core goal:** Receive webhook, clone repo, respond to events
-**Why first:** No dependencies, validates architecture, avoids webhook timeout pitfall
-**Components:** Configuration Store, Webhook Gateway, Repository Manager, Test Runner (basic)
-**Features:** Webhook triggering, label filtering, fresh workspace isolation, idempotency
-**Stack:** FastAPI + PyGithub + GitPython + python-dotenv + Pydantic
-**Quality gates:** Webhook signature verification, job state tracking, structured logging
-**Avoids pitfalls:** #3 (webhook timeout), #4 (workspace isolation), #6 (deterministic config)
-**Complexity:** Low-Medium (all table stakes features)
-**Research needed:** None (standard patterns)
+### Phase 1: Test Generation Architecture
+**Duration:** 3 days
+**Rationale:** Test generation is foundational — must be working before PR promotion can be meaningful. This phase establishes quality gates and validation patterns that prevent downstream issues.
 
-### Phase 2: LLM Code Generation (Core Value)
-**Core goal:** Analyze issues, generate code, create PRs
-**Why second:** Builds on Phase 1 workspace, delivers end-to-end value
-**Components:** Issue Analyzer, Code Generator, Git Operator
-**Features:** Issue → PR automation, code generation that compiles, PR with explanation
-**Stack:** Add magentic, structlog for LLM observability
-**Quality gates:** Context budget tracking, temperature=0, conventional commits
-**Avoids pitfalls:** #1 (context management), #5 (basic input sanitization), #6 (determinism)
-**Complexity:** Medium (LLM integration, prompt engineering)
-**Research needed:** Prompt templates for analysis/generation, context pruning strategy
+**Delivers:**
+- Modified `generate_code_changes()` prompt requesting test files alongside source
+- Test quality validation (assertion detection, edge case heuristics)
+- Dependency verification (detect hallucinated packages before execution)
+- Integration with existing token budget management
+- File-by-file test generation to manage context size
 
-### Phase 3: Test-Driven Refinement (Quality)
-**Core goal:** Run tests, iterate on failures, ensure quality
-**Why third:** Requires working code generation, adds reliability
-**Components:** Event Orchestrator (ties pipeline together), Test Runner (enhanced)
-**Features:** Test execution, iterative refinement, error recovery
-**Stack:** No new dependencies (use subprocess + pytest)
-**Quality gates:** Retry loops with feedback, failure notifications
-**Avoids pitfalls:** #2 (add linters to validation), #10 (failure recovery)
-**Complexity:** Medium-High (feedback loops, retry logic)
-**Research needed:** Retry strategies, test output parsing
+**Addresses features:**
+- Unit test generation for changed files (must-have)
+- Test framework detection (must-have)
+- Correct test file placement (must-have)
+- Edge case identification (should-have)
 
-### Phase 4: Self-Modification (Differentiator)
-**Core goal:** Booty can build Booty
-**Why fourth:** Needs all prior phases working, highest risk
-**Components:** All components (self-referential)
-**Features:** Self-modification capability with safety rails
-**Stack:** No new dependencies (same pipeline, different target repo)
-**Quality gates:** Enhanced path restrictions, human approval gates for self-PRs
-**Avoids pitfalls:** All prior mitigations apply, extra scrutiny on self-changes
-**Complexity:** High (bootstrap logic, safety considerations)
-**Research needed:** Self-modification patterns, safety rails, bootstrap sequences
+**Avoids pitfalls:**
+- Test Quality Theater — validation gates prevent trivial tests
+- Package Hallucination — dependency verification before execution
+- Test Generation Context Explosion — token budget management from start
 
-### Phase 5+: Enhancements (Post-MVP)
-**Defer until core value proven:**
-- Multi-agent architecture (very high complexity)
-- Deep codebase understanding (semantic analysis)
-- Security scanning integration
-- Performance profiling
-- Documentation generation
-- Learning from feedback
+**Research flag:** SKIP — well-documented prompt engineering, existing patterns clear
 
-## Implications for Roadmap
+### Phase 2: Test Execution Integration
+**Duration:** 2 days
+**Rationale:** Extends existing refinement loop to handle generated tests. Critical to preserve working behavior (test-driven refinement) while adding new capability.
+
+**Delivers:**
+- Modified `regenerate_code_changes()` prompt to fix source OR tests based on failure
+- Flaky test detection (run tests 3-5 times before accepting)
+- Quality checks extended to test files (ruff validation)
+- One-shot generation pattern (tests frozen after initial generation)
+- Test vs source code separation in logging and PR body
+
+**Addresses features:**
+- Test execution before PR promotion (must-have)
+- Feedback loop on test failure (must-have)
+- Test quality validation (must-have)
+
+**Avoids pitfalls:**
+- LLM Non-Determinism — flaky test detection and retry logic
+- Test Generation Breaking Refinement Loop — one-shot pattern preserves existing behavior
+- Quality Check Ordering Chaos — extend validation to test files
+
+**Research flag:** SKIP — existing refinement loop well-understood, extension pattern clear
+
+### Phase 3: PR Promotion Logic
+**Duration:** 2 days
+**Rationale:** Automated promotion is the user-facing feature. Depends on reliable test generation and execution from Phases 1-2. Implements safety gates to prevent premature promotion.
+
+**Delivers:**
+- `promote_pr_to_ready()` function using PyGithub GraphQL API
+- Multi-criteria promotion (tests passed + not self-modification)
+- Promotion audit logging (which checks validated)
+- PR body updates (test generation summary, promotion status)
+- Graceful promotion failure handling (log error, don't fail job)
+
+**Addresses features:**
+- Create PR as draft initially (must-have)
+- Promote to ready when tests pass (must-have)
+- Self-modification extra safety gates (should-have)
+- Auto-comment on promotion (should-have)
+
+**Avoids pitfalls:**
+- Premature PR Promotion — multi-criteria validation, audit logging
+- Draft PR Mental Model Confusion — clear status communication in PR body
+- PR Description Pollution — aggregate test changes, collapsible sections
+
+**Research flag:** SKIP — PyGithub API verified, promotion logic straightforward
 
 ### Phase Ordering Rationale
 
-**Foundation → Value → Quality → Differentiation** progression:
+**Why Phase 1 first:** Test generation must work reliably before PR promotion becomes meaningful. Quality gates established here prevent "garbage in, garbage out" problems downstream. Token budget management and dependency validation are prerequisites for safe execution.
 
-1. **Phase 1 establishes infrastructure without LLM complexity.** This allows validating webhook handling, workspace management, and GitHub API integration independently. Addresses critical pitfall #3 (webhook timeouts) immediately.
+**Why Phase 2 before Phase 3:** PR promotion depends on reliable test execution results. The refinement loop integration must preserve existing stability (critical to project success) before adding automation. Flaky test detection in Phase 2 ensures Phase 3 promotion decisions are based on deterministic results.
 
-2. **Phase 2 delivers end-to-end value but without quality guarantees.** Users can see PRs generated, provides feedback loop for prompt engineering. Addresses critical pitfalls #1 (context) and #6 (determinism).
+**Why this grouping:** Each phase builds on the previous while delivering independent value. Phase 1 can ship as "test generation without promotion" (still valuable). Phase 2 improves test reliability. Phase 3 adds convenience automation. This allows incremental validation and rollback if needed.
 
-3. **Phase 3 adds reliability through testing.** Builds trust in system output, enables iterative improvement. Addresses pitfall #2 (quality gates).
-
-4. **Phase 4 activates unique differentiator.** Self-modification only makes sense when core pipeline is proven reliable. High risk justified by proven foundation.
-
-**Why this order avoids common failures:**
-- Delays LLM integration until infrastructure solid (prevents debugging infrastructure issues masked by LLM non-determinism)
-- Separates concerns for testing (webhook routing testable independently from code generation)
-- Allows incremental prompt engineering (Phase 2) before feedback loops (Phase 3)
-- Defers highest-risk feature (self-modification) until maximum confidence
-
-**Component build order alignment:**
-- Phase 1: Tiers 1-2 (Config, Webhook Gateway, Repo Manager, basic Test Runner)
-- Phase 2: Tier 3 + Tier 4 (Issue Analyzer, Code Generator, Git Operator)
-- Phase 3: Tier 5 (Event Orchestrator completes the pipeline)
-- Phase 4: No new components (applies existing pipeline to self)
+**How this avoids pitfalls:**
+- Early quality gates (Phase 1) prevent test quality theater
+- One-shot generation pattern (Phase 2) avoids refinement loop chaos
+- Multi-criteria promotion (Phase 3) prevents false positive auto-promotion
+- Token budget management (Phase 1) prevents context explosion
+- Flaky test detection (Phase 2) ensures stable promotion decisions (Phase 3)
 
 ### Research Flags
 
-**Needs deeper research during planning:**
+**All phases: SKIP deeper research** — well-documented patterns, existing architecture clear
 
-- **Phase 2 (LLM Code Generation):**
-  - Prompt template design for issue analysis and code generation
-  - Context pruning strategies for different repo sizes
-  - LLM backend comparison (GPT-4 vs Claude code quality)
-  - Token budget allocation across analysis and generation
+- **Phase 1:** Prompt engineering and LLM integration follow established magentic patterns. Dependency verification is straightforward PyPI/package registry lookup.
+- **Phase 2:** Refinement loop extension reuses existing architecture. Flaky test detection is standard practice (retry N times, check consistency).
+- **Phase 3:** PyGithub GraphQL API usage verified via documentation and GitHub API docs. Promotion logic is conditional branching (no complex patterns).
 
-- **Phase 3 (Test-Driven Refinement):**
-  - Retry strategies (how many attempts, backoff timing)
-  - Test output parsing for different frameworks (pytest, unittest, etc.)
-  - Feedback formatting for LLM (how to present errors effectively)
+**No phases require `/gsd:research-phase`** — this is a subsequent milestone extending proven architecture, not greenfield development.
 
-- **Phase 4 (Self-Modification):**
-  - Bootstrap sequence (how Booty builds first version of itself)
-  - Safety rails specific to self-modification
-  - Human approval workflow for self-PRs
+## Critical Decisions
 
-**Standard patterns (skip research-phase):**
+### Decision 1: Single LLM Call vs Separate Test Generation
+**Choice:** Single LLM call generating both source and tests
+**Rationale:** Shared context ensures tests match implementation. Simpler architecture (no coordination). Lower token cost (no context duplication). Matches existing pattern (all file changes in one `CodeGenerationPlan`).
+**Trade-off:** Less flexibility to regenerate tests independently, but research shows one-shot test generation is superior pattern.
 
-- **Phase 1:** Webhook handling, git operations, workspace management all have well-documented patterns
-- **Phase 5+:** Can research when actually planning these phases post-MVP
+### Decision 2: One-Shot vs Iterative Test Regeneration
+**Choice:** Generate tests once, refine only code in subsequent iterations
+**Rationale:** Preserves existing refinement loop stability. Avoids circular dependency (tests testing tests). Tests become stable validation anchor. Prevents token budget explosion from repeated test generation.
+**Trade-off:** Tests may not adapt if code structure changes fundamentally, but research shows this is rare and acceptable.
+
+### Decision 3: Multi-Criteria vs Tests-Only Promotion
+**Choice:** Require tests passed AND not self-modification (future: + coverage + quality checks)
+**Rationale:** Tests passing alone insufficient for safety. Self-modification must never auto-promote (security). Multi-criteria leaves room for future quality gates without architecture changes.
+**Trade-off:** More conservative (some valid PRs remain draft), but safety outweighs convenience.
+
+### Decision 4: GraphQL via PyGithub vs Dedicated GraphQL Client
+**Choice:** Use PyGithub's GraphQL mutation support
+**Rationale:** Zero new dependencies. Same authentication and error handling. PyGithub abstracts GitHub API complexity. Sufficient for single mutation (`mark_ready_for_review`).
+**Trade-off:** Less control over GraphQL specifics, but unnecessary for this use case.
+
+### Decision 5: Test Files in Same Commit vs Separate Commits
+**Choice:** Single commit containing source changes + generated tests
+**Rationale:** Atomic change (tests validate the code they accompany). Simpler git history. Matches existing pattern (all `FileChange` objects committed together).
+**Trade-off:** Larger commits, but tests are inherently coupled to implementation.
+
+## Risk Summary
+
+### High Risk (actively mitigate in implementation)
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Test Quality Theater | **CRITICAL** — false confidence undermines entire feature | Test quality validation gates; mutation testing consideration; assertion density checks; require edge cases |
+| Premature PR Promotion | **HIGH** — security bypass, bad code merged | Multi-criteria promotion; preserve self-modification manual review; audit logging; human-in-loop for sensitive files |
+| Refinement Loop Breakage | **HIGH** — breaks existing proven functionality | One-shot test generation; extensive testing of refinement scenarios; preserve existing behavior |
+| Package Hallucination | **HIGH** — tests fail to execute, blocking pipeline | Dependency verification before execution; track hallucinations; explicit library versions in prompts |
+
+### Medium Risk (monitor and log)
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Test Stability (Flakiness) | **MEDIUM** — unreliable promotion decisions | Run tests 3-5 times; deterministic prompt engineering; quarantine flaky tests |
+| Token Budget Overflow | **MEDIUM** — incomplete test generation | Separate budgets; file-by-file generation; context pruning in refinement; early warning |
+| Integration Test Dependencies | **MEDIUM** — tests fail due to environment | Constrain to available resources; define test environment in .booty.yml; skip unavailable integrations |
+
+### Low Risk (acceptable, document)
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Promotion API Failure | **LOW** — PR remains draft (manual promotion works) | Graceful degradation; log error; don't fail job |
+| PR Description Verbosity | **LOW** — harder to read, cosmetic | Aggregate test changes; collapsible sections; link to diffs |
+| Test File Naming Collisions | **LOW** — prevented by LLM understanding conventions | Extract patterns from existing tests; validate before writing |
+
+### Risk Mitigation Strategy
+
+**Phase 1 addresses:** Test quality theater, package hallucination, token budget overflow
+**Phase 2 addresses:** Test stability, refinement loop breakage, integration test dependencies
+**Phase 3 addresses:** Premature PR promotion, promotion API failure, PR description verbosity
+
+This sequencing ensures highest-risk issues tackled early, with later phases building on validated foundations.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Mature libraries, established patterns, no exotic dependencies. Magentic is newer but documented. |
-| Features | MEDIUM | Table stakes clear from domain analysis. Differentiators based on product vision. Unknown: actual user priorities. |
-| Architecture | HIGH | Event-driven webhook patterns proven by Dependabot/Renovate. LLM agent patterns established. |
-| Pitfalls | MEDIUM-HIGH | Critical pitfalls well-documented in LLM/webhook domains. Unknown: Booty-specific edge cases. |
+| Stack | **HIGH** | Direct codebase analysis confirms all capabilities present; PyGithub API verified via documentation and community sources |
+| Features | **HIGH** | Table stakes validated across multiple automated testing resources; differentiators derived from competitive analysis |
+| Architecture | **HIGH** | Existing Booty pipeline well-documented; integration points identified through code reading; patterns proven in current implementation |
+| Pitfalls | **MEDIUM** | Critical pitfalls validated across multiple sources; integration pitfalls derived from architecture analysis; some edge cases inferred |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence:** HIGH
+
+Research is comprehensive across all areas. Stack requirements conclusively verified (no new dependencies). Architecture integration points identified through direct code analysis. Feature expectations validated against industry standards. Pitfalls researched extensively with multiple corroborating sources.
+
+The MEDIUM confidence on pitfalls reflects that some integration challenges (refinement loop interactions, token budget management) are predictive based on architectural analysis rather than directly observed. However, these are well-reasoned predictions grounded in existing system behavior.
 
 ### Gaps to Address
 
-**During Phase 1 planning:**
-- Exact GitHub webhook signature verification implementation (FastAPI + hmac pattern)
-- Job state persistence strategy (in-memory for v1, database for v2?)
-- Error notification mechanism (GitHub issue comments? Status API?)
+**Test quality metrics:** Research identified test quality validation as critical but didn't specify exact heuristics. Implementation should define:
+- Minimum assertions per test
+- Edge case detection patterns
+- When to reject generated tests as "too trivial"
+- Whether to implement mutation testing (high value, high cost)
 
-**During Phase 2 planning:**
-- Prompt templates require iteration - start simple, refine based on output quality
-- Context budget allocation needs testing with real repos (small/medium/large)
-- LLM backend selection requires practical comparison
+**Token budget allocation:** Existing TokenBudget class manages code generation. Research recommends separate budgets for test generation but didn't quantify optimal split. Implementation should determine:
+- What percentage of total budget for tests vs code
+- File-by-file vs all-at-once generation (research suggests file-by-file)
+- How to handle budget exhaustion mid-generation
 
-**During Phase 3 planning:**
-- Test framework detection strategy (pytest vs unittest vs others)
-- Retry limit tuning based on actual failure patterns
-- Linter/formatter integration (detect from repo config)
+**Integration test scope:** Research noted integration tests require external services unavailable in isolated workspace. Implementation must define:
+- Which integrations are "safe" (filesystem, subprocess) vs "unsafe" (database, API)
+- How to detect when generated tests require unsafe dependencies
+- Whether to skip or fail when unsafe integration tests generated
 
-**During Phase 4 planning:**
-- Self-modification safety rails need careful design review
-- Bootstrap sequence needs validation (can initial Booty code handle self-building?)
+**PR promotion criteria:** Research established multi-criteria promotion as best practice but didn't specify all criteria. Current implementation: tests passed + not self-modification. Future enhancements:
+- Minimum coverage threshold (what percentage?)
+- Quality check pass required? (ruff, mypy)
+- Security scan results (dependency vulnerabilities)
 
-**Post-MVP unknowns:**
-- GitHub App setup process (if chosen over PAT)
-- Rate limit handling for high-volume repos
-- Large repo optimization (sparse checkout, shallow clone)
-- Multi-repo coordination patterns (for projects with dependencies)
-
-## Risk Summary with Mitigations
-
-| Risk | Impact | Likelihood | Mitigation | Phase |
-|------|--------|-----------|------------|-------|
-| Context overflow hallucinates code | HIGH | HIGH | Token budgets, context pruning, overflow detection | Phase 1 config, Phase 2 implementation |
-| Webhook timeouts create duplicate PRs | HIGH | MEDIUM | Async job processing, idempotency keys | Phase 1 architecture |
-| Tests pass but code is insecure/low-quality | MEDIUM | HIGH | Linters, security scans, quality gates | Phase 3 enhancement |
-| Stateful corruption between jobs | HIGH | LOW | Fresh clone per task (already in design) | Phase 1 implementation |
-| Prompt injection via malicious issues | MEDIUM | MEDIUM | Input sanitization, path restrictions, output validation | Phase 1 basic, Phase 2-3 enhanced |
-| Non-deterministic output prevents debugging | MEDIUM | HIGH | temperature=0, seeding, deterministic file ordering | Phase 1 configuration |
-| Self-modification breaks Booty | HIGH | MEDIUM | Extra quality gates, human approval, gradual rollout | Phase 4 design |
-| LLM costs spiral out of control | MEDIUM | LOW | Token budgets, caching, monitoring | Phase 2 implementation |
+These gaps are addressable during implementation through testing and iteration. None are blockers — reasonable defaults exist for all.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Magentic documentation and GitHub repo (LLM abstraction patterns)
-- FastAPI documentation (webhook handling, async patterns)
-- PyGithub documentation (GitHub API v3 coverage)
-- GitHub webhooks documentation (signature verification, event types)
-- GitPython documentation (repository operations)
+
+**Codebase analysis:**
+- Existing Booty codebase (`src/booty/code_gen/generator.py`, `src/booty/llm/prompts.py`, `src/booty/github/pulls.py`, `src/booty/test_runner/executor.py`)
+- `pyproject.toml` dependency declarations
+- Existing LLM prompt patterns and Pydantic models
+
+**GitHub API verification:**
+- [PyGithub PullRequest documentation](https://pygithub.readthedocs.io/en/stable/github_objects/PullRequest.html)
+- [GitHub GraphQL API - Mutations](https://docs.github.com/en/graphql/reference/mutations)
+- [gh pr ready CLI documentation](https://cli.github.com/manual/gh_pr_ready)
+- [PyGithub Issue #2989](https://github.com/PyGithub/PyGithub/issues/2989) — mark_ready_for_review capability confirmation
 
 ### Secondary (MEDIUM confidence)
-- GitHub bot patterns from Dependabot/Renovate analysis (architecture patterns)
-- LLM code generation best practices from training data (context management, quality gates)
-- Event-driven architecture patterns (async job processing, queue patterns)
-- Python ecosystem standards (pytest, structlog, pydantic)
 
-### Tertiary (LOW confidence - needs validation)
-- Magentic LLM backend performance comparison (needs testing)
-- Token limit handling for large repos (needs profiling)
-- Test execution timeout tuning (needs measurement)
-- Self-modification safety patterns (needs research during Phase 4 planning)
+**Test generation research:**
+- [LLM-Powered Test Case Generation](https://www.frugaltesting.com/blog/llm-powered-test-case-generation-enhancing-coverage-and-efficiency)
+- [Mastering Test Automation with LLMs](https://www.frugaltesting.com/blog/mastering-test-automation-with-llms-a-step-by-step-approach)
+- [Choosing LLMs for Unit Test Generation](https://research.redhat.com/blog/2025/04/21/choosing-llms-to-generate-high-quality-unit-tests-for-code/)
+- [GitHub TestPilot](https://github.com/githubnext/testpilot) — LLM test generation reference implementation
+- [Automating TDD with LLMs](https://medium.com/@benjamin22-314/automating-test-driven-development-with-llms-c05e7a3cdfe1)
+
+**Pitfalls and anti-patterns:**
+- [Package Hallucinations Security Risk](https://www.darkreading.com/application-security/ai-code-tools-widely-hallucinate-packages) — 21.7% hallucination rate for open-source models
+- [Test Coverage False Security](https://wearecommunity.io/communities/testautomation/articles/6307)
+- [LLM Determinism Challenges](https://unstract.com/blog/understanding-why-deterministic-output-from-llms-is-nearly-impossible/)
+- [Flaky Tests in CI/CD](https://www.ranorex.com/blog/flaky-tests/)
+- [GitHub Reviewers Bypass Vulnerability](https://www.legitsecurity.com/blog/bypassing-github-required-reviewers-to-submit-malicious-code)
+
+**PR automation research:**
+- [GitHub PR Stage Documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request)
+- [Streamlining Pull Request Process](https://graphite.dev/guides/streamlining-pull-request-process-automation)
+- [Pull Request Testing QA Process](https://testquality.com/pull-request-testing-qa-pr-processes/)
+
+### Tertiary (contextual understanding)
+
+**Unit vs integration testing:**
+- [Unit Testing vs Integration Testing](https://circleci.com/blog/unit-testing-vs-integration-testing/)
+- [AI's Role in Testing](https://www.qodo.ai/blog/unit-testing-vs-integration-testing-ais-role-in-redefining-software-quality/)
+
+**Test automation best practices:**
+- [Test Automation Anti-Patterns](https://www.testdevlab.com/blog/5-test-automation-anti-patterns-and-how-to-avoid-them)
+- [Software Testing Anti-Patterns](https://blog.codepipes.com/testing/software-testing-antipatterns.html)
+- [Quality Over Quantity in Testing](https://dzone.com/articles/why-to-choose-quality-over-quantity-in-software-te)
 
 ---
-*Research completed: 2026-02-14*
-*Ready for roadmap: yes*
+
+**Research completed:** 2026-02-15
+**Ready for roadmap:** Yes
+
+**Next step:** Roadmap creation can proceed with confidence. All implementation decisions grounded in research. No additional research phases needed during planning.
