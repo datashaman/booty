@@ -72,6 +72,11 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 
 **Requirements:** DEPLOY-01, DEPLOY-02, DEPLOY-03
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 11-01-PLAN.md — Deploy workflow (trigger, preflight, paths-filter, ssh-agent, deploy.sh, health check)
+
 **Success criteria:**
 1. Workflow file exists at `.github/workflows/deploy.yml`
 2. Workflow triggers on `push` to `main` branch
