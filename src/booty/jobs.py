@@ -215,3 +215,39 @@ class JobQueue:
             }
             for job in recent_jobs
         ]
+
+    def get_job_stats(self) -> dict[str, int]:
+        """Get job statistics by state.
+
+        Returns:
+            Dictionary with counts of jobs in each state
+        """
+        stats = {
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+        }
+
+        for job in self.jobs.values():
+            state_value = job.state.value
+            current_count = stats.get(state_value)
+            if current_count is not None:
+                stats[state_value] = current_count + 1
+            else:
+                # Unexpected state; log and skip to avoid KeyError while preserving schema
+                self._logger.warning(
+                    "unexpected_job_state_in_stats",
+                    job_id=job.job_id,
+                    state=state_value,
+                )
+
+        return stats
+
+    def get_active_worker_count(self) -> int:
+        """Get number of active workers.
+
+        Returns:
+            Number of active worker tasks
+        """
+        return len(self._worker_tasks)
