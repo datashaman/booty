@@ -61,7 +61,6 @@ jobs:
         run: |
           export DEPLOY_HOST SERVER_NAME REPO_URL
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
-          set -x  # Enable command echoing for better visibility
           if ./deploy.sh 2>&1 | tee /tmp/deploy.log; then
             echo "deploy_transport_success=true" >> $GITHUB_OUTPUT
           else

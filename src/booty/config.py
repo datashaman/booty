@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     SENTRY_WEBHOOK_SECRET: str = ""  # Optional; empty = webhook verification disabled (dev only)
     OBSV_MIN_SEVERITY: str = "error"  # fatal, error, warning, info, debug — default error and above
     OBSV_COOLDOWN_HOURS: float = 6.0
+    
+    # Internal test endpoints
+    INTERNAL_TEST_TOKEN: str = ""  # Optional; empty = test endpoints open in development
 
     # Verifier (GitHub App) configuration
     GITHUB_APP_ID: str = ""  # Optional; empty = Verifier disabled

@@ -1,6 +1,5 @@
 """FastAPI application entrypoint."""
 
-import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -226,16 +225,19 @@ async def sentry_test(x_internal_token: str = Header(None)):
     - In development (no token configured): No authentication required
     """
     settings = get_settings()
-    expected_token = os.environ.get("INTERNAL_TEST_TOKEN", "")
     
-    # Require token in production or when SENTRY_ENVIRONMENT is set to production
-    if settings.SENTRY_ENVIRONMENT == "production" or expected_token:
-        if not expected_token:
+    # Require token in production or when INTERNAL_TEST_TOKEN is set
+    if settings.SENTRY_ENVIRONMENT == "production":
+        if not settings.INTERNAL_TEST_TOKEN:
             raise HTTPException(
                 status_code=403,
                 detail="Test endpoint disabled in production without INTERNAL_TEST_TOKEN"
             )
-        if x_internal_token != expected_token:
+        if x_internal_token != settings.INTERNAL_TEST_TOKEN:
+            raise HTTPException(status_code=401, detail="Invalid or missing X-Internal-Token")
+    elif settings.INTERNAL_TEST_TOKEN:
+        # Token is configured in non-production, so require it
+        if x_internal_token != settings.INTERNAL_TEST_TOKEN:
             raise HTTPException(status_code=401, detail="Invalid or missing X-Internal-Token")
     
     raise ValueError("Sentry test exception — verify event appears in Sentry dashboard")
