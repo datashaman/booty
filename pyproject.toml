@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "GitHub issue to PR agent pipeline"
 requires-python = ">=3.11"
 dependencies = [
+    "click",
     "fastapi[standard]",
     "pydantic-settings",
     "gitpython",
@@ -31,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-booty = "booty.main:app"
+booty = "booty.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
