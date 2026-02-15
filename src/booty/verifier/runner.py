@@ -372,16 +372,25 @@ async def process_verifier_job(
             tests_passed = result.exit_code == 0 and not result.timed_out
 
             # Agent PRs: 0 tests collected counts as failure
+            # pytest exit code 5 = no tests collected
             no_tests_collected = False
-            if tests_passed and job.is_agent_pr:
+            if job.is_agent_pr:
                 combined_output = (result.stdout or "") + (result.stderr or "")
-                if "no tests ran" in combined_output or "collected 0 items" in combined_output:
+                if (
+                    result.exit_code == 5
+                    or "no tests ran" in combined_output
+                    or "collected 0 items" in combined_output
+                ):
                     tests_passed = False
                     no_tests_collected = True
 
             conclusion = "success" if tests_passed else "failure"
             if no_tests_collected:
-                output_summary = "No tests collected. Agent PRs must include tests."
+                output_summary = (
+                    "No tests collected. Agent PRs must include tests. "
+                    "Add test files (e.g. tests/test_*.py) that verify the changes. "
+                    "Do NOT modify .booty.yml — it is a restricted file."
+                )
             else:
                 output_summary = (
                     f"Tests {'passed' if tests_passed else 'failed'} (exit={result.exit_code})"
