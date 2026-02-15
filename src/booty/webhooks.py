@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from booty.config import get_settings, verifier_enabled
+from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.comments import post_self_modification_disabled_comment
 from booty.jobs import Job
 from booty.logging import get_logger
@@ -336,5 +337,25 @@ async def sentry_webhook(request: Request):
     if issue_id in _obsv_seen and (now - _obsv_seen[issue_id]) < window_sec:
         return {"status": "ignored", "reason": "cooldown"}
 
-    _obsv_seen[issue_id] = now
-    return {"status": "accepted", "issue_id": issue_id}
+    issue_number = create_sentry_issue_with_retry(
+        event,
+        settings.GITHUB_TOKEN,
+        settings.TARGET_REPO_URL,
+        settings.TRIGGER_LABEL,
+    )
+    if issue_number is not None:
+        _obsv_seen[issue_id] = now
+        logger.info(
+            "observability_issue_created",
+            issue_id=issue_id,
+            issue_number=issue_number,
+        )
+        return JSONResponse(
+            status_code=202,
+            content={"status": "created", "issue_number": issue_number, "issue_id": issue_id},
+        )
+    logger.warning("observability_issue_spooled", issue_id=issue_id)
+    return JSONResponse(
+        status_code=202,
+        content={"status": "spooled", "issue_id": issue_id},
+    )
