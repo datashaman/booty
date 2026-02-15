@@ -134,7 +134,14 @@ def _init_sentry(settings) -> None:
 async def _process_verifier_job(job: VerifierJob) -> None:
     """Wrapper to pass settings and job_queue to process_verifier_job."""
     settings = get_settings()
-    await process_verifier_job(job, settings, job_queue=job_queue)
+    try:
+        await process_verifier_job(job, settings, job_queue=job_queue)
+    except Exception as e:
+        sentry_sdk.set_tag("job_id", job.job_id)
+        sentry_sdk.capture_exception(e)
+        logger = get_logger().bind(job_id=job.job_id, pr_number=job.pr_number)
+        logger.error("verifier_job_exception", error=str(e), exc_info=True)
+        raise
 
 
 @asynccontextmanager
@@ -206,6 +213,12 @@ app.add_middleware(CorrelationIdMiddleware)
 
 # Include routers
 app.include_router(webhook_router)
+
+
+@app.get("/internal/sentry-test")
+async def sentry_test():
+    """Raise test exception for manual E2E Sentry verification. Hit with SENTRY_DSN set."""
+    raise ValueError("Sentry test exception — verify event appears in Sentry dashboard")
 
 
 @app.get("/health")
