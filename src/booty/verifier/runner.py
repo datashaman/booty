@@ -60,25 +60,28 @@ async def _enqueue_builder_retry(
     from github import Auth, Github
 
     try:
-        # Determine current retry count from PR labels/comments or default to 0
-        # We need to check if there's already a retry job for this issue
-        # Look at existing jobs in the queue
-        existing_retries = 0
+        # Count only completed (non-failed) retries to avoid blocking on crashes
+        from booty.jobs import JobState
+
+        completed_retries = 0
         for existing_job in job_queue.jobs.values():
             if (
                 existing_job.issue_number == job.issue_number
-                and existing_job.verifier_retries > existing_retries
+                and existing_job.verifier_retries > 0
+                and existing_job.state == JobState.COMPLETED
             ):
-                existing_retries = existing_job.verifier_retries
+                completed_retries = max(
+                    completed_retries, existing_job.verifier_retries
+                )
 
-        next_retry = existing_retries + 1
+        next_retry = completed_retries + 1
 
         if next_retry > settings.MAX_VERIFIER_RETRIES:
             logger.info(
                 "verifier_retry_limit_reached",
                 issue_number=job.issue_number,
                 pr_number=job.pr_number,
-                retries=existing_retries,
+                completed_retries=completed_retries,
                 max_retries=settings.MAX_VERIFIER_RETRIES,
             )
             return
