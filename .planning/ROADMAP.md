@@ -58,7 +58,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 | 8. Verifier Runner | v1.2 | PR webhook, clone, test, check | Complete |
 | 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Complete |
 | 10. Import/Compile Detection | v1.2 | Hallucination detection | Complete |
-| 11. Deploy Automation | v1.3 | GitHub Actions → SSH → DO, deploy.sh | Pending |
+| 11. Deploy Automation | v1.3 | GitHub Actions → SSH → DO, deploy.sh | Complete |
 | 12. Sentry APM | v1.3 | Error tracking, release/SHA correlation | Pending |
 | 13. Observability Agent | v1.3 | Sentry webhook → filter → GitHub issues | Pending |
 
@@ -75,7 +75,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 **Plans:** 1 plan
 
 Plans:
-- [ ] 11-01-PLAN.md — Deploy workflow (trigger, preflight, paths-filter, ssh-agent, deploy.sh, health check)
+- [x] 11-01-PLAN.md — Deploy workflow (trigger, preflight, paths-filter, ssh-agent, deploy.sh, health check)
 
 **Success criteria:**
 1. Workflow file exists at `.github/workflows/deploy.yml`

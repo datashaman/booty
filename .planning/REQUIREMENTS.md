@@ -9,9 +9,9 @@ Requirements for milestone v1.3. Each maps to roadmap phases.
 
 ### Deploy Automation
 
-- [ ] **DEPLOY-01**: GitHub Actions workflow triggers on push to main branch
-- [ ] **DEPLOY-02**: Workflow SSHs to DigitalOcean server and runs deploy.sh (or equivalent)
-- [ ] **DEPLOY-03**: Deployment restarts Booty service (systemctl) after pulling and installing
+- [x] **DEPLOY-01**: GitHub Actions workflow triggers on push to main branch
+- [x] **DEPLOY-02**: Workflow SSHs to DigitalOcean server and runs deploy.sh (or equivalent)
+- [x] **DEPLOY-03**: Deployment restarts Booty service (systemctl) after pulling and installing
 
 ### Sentry APM
 
@@ -60,9 +60,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEPLOY-01 | Phase 11 | Pending |
-| DEPLOY-02 | Phase 11 | Pending |
-| DEPLOY-03 | Phase 11 | Pending |
+| DEPLOY-01 | Phase 11 | Complete |
+| DEPLOY-02 | Phase 11 | Complete |
+| DEPLOY-03 | Phase 11 | Complete |
 | APM-01 | Phase 12 | Pending |
 | APM-02 | Phase 12 | Pending |
 | APM-03 | Phase 12 | Pending |
