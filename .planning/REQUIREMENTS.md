@@ -1,58 +1,81 @@
-# Requirements: Booty v1.1
+# Requirements: Booty v1.2 Verifier Agent
 
 **Defined:** 2026-02-15
-**Core Value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
+**Core Value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — Verifier controls error rate so capability doesn't outpace correctness.
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-### Test Generation
+Requirements for Verifier agent milestone. Each maps to roadmap phases.
 
-- [ ] **TGEN-01**: Builder generates unit tests for all changed files in every PR
-- [ ] **TGEN-02**: Generated tests use correct framework (pytest) and project conventions
-- [ ] **TGEN-03**: Generated tests are placed in correct directory with correct naming
-- [ ] **TGEN-04**: Generated test dependencies are verified (no hallucinated imports)
-- [ ] **TGEN-05**: Generated tests pass before PR is finalized
+### Verification Pipeline
 
-### PR Promotion
+- [ ] **VERIFY-01**: Verifier posts required status check `booty/verifier` via GitHub Checks API (GitHub App auth)
+- [ ] **VERIFY-02**: Verifier runs on every PR (webhook: pull_request opened, synchronize); enforces gates only for agent PRs (agent:builder label or bot author)
+- [ ] **VERIFY-03**: Verifier clones PR head in clean env and runs tests via execute_tests()
+- [ ] **VERIFY-04**: Verifier blocks PR if red — promotion control (Builder skips promote) and Checks API conclusion: failure
+- [ ] **VERIFY-05**: Verifier optionally comments diagnostics on PR (universal visibility)
 
-- [ ] **PRMO-01**: Draft PR is promoted to ready-for-review when all tests pass
-- [ ] **PRMO-02**: Promotion fails gracefully (leave as draft, log error) if API call fails
-- [ ] **PRMO-03**: Multi-criteria validation before promotion (tests pass + linting clean)
+### Diff Limits
+
+- [ ] **VERIFY-06**: Verifier enforces max_files_changed (from .booty.yml or default)
+- [ ] **VERIFY-07**: Verifier enforces max_diff_loc (added + deleted lines)
+- [ ] **VERIFY-08**: Verifier enforces max_loc_per_file for safety-critical dirs (optional, pathspec-scoped)
+
+### Configuration
+
+- [ ] **VERIFY-09**: Verifier validates .booty.yml against schema_version: 1 before running
+- [ ] **VERIFY-10**: .booty.yml schema v1 supports: test_command, setup_command?, timeout_seconds, max_retries, allowed_paths, forbidden_paths, allowed_commands, network_policy, labels
+
+### Correctness Detection
+
+- [ ] **VERIFY-11**: Verifier detects hallucinated imports (AST validation; imports must resolve)
+- [ ] **VERIFY-12**: Verifier detects compile failures (setup_command / early test failure capture)
 
 ## Future Requirements
 
-### Test Backfill
+Deferred to later milestones.
 
-- **TBKF-01**: Builder generates tests for existing v1.0 code retroactively
-- **TBKF-02**: Integration tests for cross-component workflows
+### v1.2.x
+
+- **VERIFY-13**: network_policy, allowed_commands enforcement in Verifier (schema exists, enforcement deferred)
+- **VERIFY-14**: Aggregate CI check results (Verifier consumes existing CI; defer)
+
+### v1.3+
+
+- Builder generates integration tests
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| 100% coverage targeting | Over-constrains LLM, diminishing returns |
-| Separate test-only LLM call | Context lost, duplicates work — generate tests alongside code |
-| Auto-merge PRs | Too dangerous, erodes trust |
-| Coverage reporting integration | Nice-to-have, not core to test generation |
+| Rely on CI only (no Verifier) | CI reports; Verifier decides — separation of concerns |
+| Block human PRs differently via GitHub | Branch protection is repo-level; document setup |
+| Custom LLM for verification | Static analysis + test run; no LLM in Verifier |
 
 ## Traceability
 
+Which phases cover which requirements.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TGEN-01 | Phase 5 | Pending |
-| TGEN-02 | Phase 5 | Pending |
-| TGEN-03 | Phase 5 | Pending |
-| TGEN-04 | Phase 5 | Pending |
-| TGEN-05 | Phase 5 | Pending |
-| PRMO-01 | Phase 6 | Pending |
-| PRMO-02 | Phase 6 | Pending |
-| PRMO-03 | Phase 6 | Pending |
+| VERIFY-01 | Phase 7 | Pending |
+| VERIFY-02 | Phase 8 | Pending |
+| VERIFY-03 | Phase 8 | Pending |
+| VERIFY-04 | Phase 8 | Pending |
+| VERIFY-05 | Phase 8 | Pending |
+| VERIFY-06 | Phase 9 | Pending |
+| VERIFY-07 | Phase 9 | Pending |
+| VERIFY-08 | Phase 9 | Pending |
+| VERIFY-09 | Phase 9 | Pending |
+| VERIFY-10 | Phase 9 | Pending |
+| VERIFY-11 | Phase 10 | Pending |
+| VERIFY-12 | Phase 10 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 8 total
-- Mapped to phases: 8
+- v1.2 requirements: 12 total
+- Mapped to phases: 12
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after roadmap creation*
+*Last updated: 2026-02-15 after research*
