@@ -40,8 +40,8 @@ See MILESTONES.md for details.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Convention detection and import validation module
-- [ ] 05-02-PLAN.md — LLM integration and pipeline wiring
+- [x] 05-01-PLAN.md — Convention detection and import validation module
+- [x] 05-02-PLAN.md — LLM integration and pipeline wiring
 
 #### Phase 6: PR Promotion
 
@@ -70,8 +70,8 @@ Plans:
 | 2. GitHub Integration | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 3. Test-Driven Refinement | v1.0 | 4/4 | Complete | 2026-02-14 |
 | 4. Self-Modification Safety | v1.0 | 3/3 | Complete | 2026-02-14 |
-| 5. Test Generation | v1.1 | 0/2 | In progress | - |
+| 5. Test Generation | v1.1 | 2/2 | Complete | 2026-02-15 |
 | 6. PR Promotion | v1.1 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 5 planning*
+*Last updated: 2026-02-15 after Phase 5 completion*

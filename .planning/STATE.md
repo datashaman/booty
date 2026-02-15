@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 5 of 6 (Test Generation)
-Plan: 1 of 2 (Convention Detection)
-Status: In progress
-Last activity: 2026-02-15 — Completed 05-01-PLAN.md
+Plan: 2 of 2 (LLM Integration)
+Status: Phase complete
+Last activity: 2026-02-15 — Completed 05-02-PLAN.md
 
-Progress: [█████░░░░░] 50% (Phase 5)
+Progress: [██████████] 100% (Phase 5)
 
 ## Performance Metrics
 
@@ -53,6 +53,9 @@ Recent decisions affecting v1.1:
 - File extension counting for language detection (99%+ accuracy, zero dependencies)
 - AST parsing for import extraction (not regex) to handle edge cases correctly
 - Check both project.dependencies and project.optional-dependencies for framework detection
+- Test files tracked separately from source changes (test_files field)
+- Import validation logs warnings but doesn't block (refinement catches real failures)
+- Refinement prompt instructs LLM not to modify test files (one-shot generation)
 
 ### Pending Todos
 
@@ -65,6 +68,6 @@ None. Research completed with HIGH confidence, no new dependencies required.
 ## Session Continuity
 
 Last session: 2026-02-15 (plan execution)
-Stopped at: Completed 05-01-PLAN.md (convention detection module)
+Stopped at: Completed 05-02-PLAN.md (LLM integration)
 Resume file: None
-Next step: Execute 05-02-PLAN.md (LLM integration)
+Next step: Phase 5 complete - ready for Phase 6 (PR Promotion)
