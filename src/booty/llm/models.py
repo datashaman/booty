@@ -43,3 +43,7 @@ class CodeGenerationPlan(BaseModel):
     changes: list[FileChange] = Field(description="All file changes to apply")
     approach: str = Field(description="High-level description of the approach taken")
     testing_notes: str = Field(description="Notes on how to test these changes")
+    test_files: list[FileChange] = Field(
+        default_factory=list,
+        description="Test file changes generated alongside source code"
+    )
