@@ -9,7 +9,6 @@ from fastapi import FastAPI
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings, verifier_enabled
-from booty.github.comments import post_failure_comment
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
@@ -61,38 +60,16 @@ async def process_job(job: Job) -> None:
     ) as workspace:
         logger.info("workspace_ready", path=workspace.path, branch=workspace.branch)
 
-        try:
-            # Process issue through full pipeline
-            pr_number, tests_passed, error_message = await process_issue_to_pr(
-                job, workspace, settings, is_self_modification=job.is_self_modification
-            )
-        except Exception as e:
-            # Pipeline crashed — post failure comment on issue
-            logger.error("pipeline_exception", error=str(e), exc_info=True)
-            post_failure_comment(
-                settings.GITHUB_TOKEN,
-                repo_url,
-                job.issue_number,
-                str(e),
-            )
-            return
-
+        # Process issue through full pipeline
+        pr_number, tests_passed, error_message = await process_issue_to_pr(
+            job, workspace, settings, is_self_modification=job.is_self_modification
+        )
         logger.info("pr_created", pr_number=pr_number, tests_passed=tests_passed)
 
-        # If tests failed, post failure comment on issue
-        # Skip for verifier retries — the push triggers re-verification automatically
-        if not tests_passed and job.pr_number is None:
-            logger.warning("tests_failed_posting_comment", pr_number=pr_number)
-            post_failure_comment(
-                settings.GITHUB_TOKEN,
-                repo_url,
-                job.issue_number,
-                error_message or "Unknown error",
-            )
-            logger.info("job_completed_with_failures", pr_number=pr_number)
-        elif not tests_passed:
+        # All feedback goes on the PR via the Verifier — no issue comments from the Builder
+        if not tests_passed:
             logger.info(
-                "retry_completed_with_failures",
+                "job_completed_with_failures",
                 pr_number=pr_number,
                 verifier_retries=job.verifier_retries,
             )
