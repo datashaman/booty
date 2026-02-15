@@ -8,7 +8,7 @@ Self-managing builder agent — GitHub issues to tested PRs.
 uvicorn booty.main:app
 ```
 
-Set `WEBHOOK_SECRET` and `TARGET_REPO_URL` (and optional `GITHUB_TOKEN`) before starting.
+Set `WEBHOOK_SECRET`, `TARGET_REPO_URL`, and `GITHUB_TOKEN` before starting.
 
 ## Verifier (GitHub App)
 

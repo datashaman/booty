@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     TARGET_REPO_URL: str  # Required, no default
     TARGET_BRANCH: str = "main"
     TRIGGER_LABEL: str = "agent:builder"
-    GITHUB_TOKEN: str = ""  # Optional, for private repos
+    GITHUB_TOKEN: str  # Required for cloning, pushing, and opening PRs
 
     # LLM configuration
     LLM_TIMEOUT: int = 300
