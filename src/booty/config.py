@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Code generation limits
     MAX_FILES_PER_ISSUE: int = 10  # File count cap
-    RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock"  # Comma-separated denylist patterns
+    RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock,.booty.yml"  # Comma-separated denylist patterns
 
     # Self-modification configuration
     BOOTY_OWN_REPO_URL: str = ""  # Empty means self-modification detection disabled
@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     GITHUB_APP_ID: str = ""  # Optional; empty = Verifier disabled
     GITHUB_APP_PRIVATE_KEY: str = ""  # Optional; empty = Verifier disabled
     VERIFIER_WORKER_COUNT: int = 2  # Number of verifier workers
+    MAX_VERIFIER_RETRIES: int = 1  # Max verifier-triggered builder retries (prevents infinite loops)
 
     model_config = SettingsConfigDict(
         env_file=".env",

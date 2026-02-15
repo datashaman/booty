@@ -62,10 +62,21 @@ async def prepare_workspace(
         repo = await asyncio.get_running_loop().run_in_executor(None, _clone)
         logger.info("clone_complete", branch=branch, path=temp_dir.name)
 
-        # Create and checkout feature branch
+        # Create or checkout feature branch
         feature_branch = f"agent/issue-{job.issue_number}"
-        repo.git.checkout("-b", feature_branch)
-        logger.info("branch_created", branch=feature_branch)
+        if job.pr_number is not None:
+            # Retry: fetch and checkout existing remote branch
+            try:
+                repo.git.fetch("origin", feature_branch)
+                repo.git.checkout("-b", feature_branch, f"origin/{feature_branch}")
+                logger.info("branch_checked_out_from_remote", branch=feature_branch)
+            except git.GitCommandError:
+                # Branch doesn't exist on remote, create new
+                repo.git.checkout("-b", feature_branch)
+                logger.info("branch_created_fallback", branch=feature_branch)
+        else:
+            repo.git.checkout("-b", feature_branch)
+            logger.info("branch_created", branch=feature_branch)
 
         # Yield workspace
         workspace = Workspace(path=temp_dir.name, repo=repo, branch=feature_branch)

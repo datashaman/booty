@@ -17,3 +17,4 @@ class VerifierJob:
     installation_id: int
     payload: dict
     is_agent_pr: bool = False
+    issue_number: int | None = None

@@ -104,6 +104,16 @@ async def process_issue_to_pr(
         logger.info("analyzing_issue", issue_number=job.issue_number)
         issue_title = job.payload["issue"]["title"]
         issue_body = job.payload["issue"]["body"] or ""
+
+        # Include verifier error context for retries so the LLM knows what to fix
+        if job.verifier_error:
+            issue_body += (
+                "\n\n---\n\n## Previous Attempt Failed (Verifier)\n\n"
+                "The previous code changes were tested by the Verifier and failed. "
+                "Please fix the following issues:\n\n"
+                f"{job.verifier_error}"
+            )
+
         repo_file_list = "\n".join(repo_files)
 
         analysis = analyze_issue(issue_title, issue_body, repo_file_list)
@@ -391,80 +401,90 @@ async def process_issue_to_pr(
         await push_to_remote(workspace.repo, settings.GITHUB_TOKEN)
         logger.info("push_complete")
 
-        # Step 13: Create PR (always draft; promote when criteria met)
-        is_draft = True
-        logger.info("creating_pull_request", draft=is_draft, is_self_modification=is_self_modification)
-
-        # Format PR title
-        if analysis.commit_scope:
-            pr_title = f"{analysis.commit_type}({analysis.commit_scope}): {analysis.summary}"
-        else:
-            pr_title = f"{analysis.commit_type}: {analysis.summary}"
-
-        # Convert FileChange models to dicts for PR body (use final_changes)
-        changes_dicts = [
-            {
-                "path": change.path,
-                "operation": change.operation,
-                "explanation": change.explanation,
-            }
-            for change in final_changes
-        ]
-
-        # Format PR body based on self-modification status
-        if is_self_modification:
-            # Load protected paths from config
-            protected_paths = config.protected_paths if config.protected_paths else []
-            changed_files = [change.path for change in final_changes]
-            pr_body = format_self_modification_pr_body(
-                plan.approach,
-                changes_dicts,
-                plan.testing_notes,
-                job.issue_number,
-                protected_paths,
-                changed_files,
+        # Step 13: Create PR or push to existing (retry)
+        if job.pr_number is not None:
+            # Retry: PR already exists, just push to existing branch
+            pr_number = job.pr_number
+            logger.info(
+                "retry_push_to_existing_pr",
+                pr_number=pr_number,
+                verifier_retries=job.verifier_retries,
             )
         else:
-            pr_body = format_pr_body(
-                plan.approach,
-                changes_dicts,
-                plan.testing_notes,
-                job.issue_number,
+            # New PR creation
+            is_draft = True
+            logger.info("creating_pull_request", draft=is_draft, is_self_modification=is_self_modification)
+
+            # Format PR title
+            if analysis.commit_scope:
+                pr_title = f"{analysis.commit_type}({analysis.commit_scope}): {analysis.summary}"
+            else:
+                pr_title = f"{analysis.commit_type}: {analysis.summary}"
+
+            # Convert FileChange models to dicts for PR body (use final_changes)
+            changes_dicts = [
+                {
+                    "path": change.path,
+                    "operation": change.operation,
+                    "explanation": change.explanation,
+                }
+                for change in final_changes
+            ]
+
+            # Format PR body based on self-modification status
+            if is_self_modification:
+                # Load protected paths from config
+                protected_paths = config.protected_paths if config.protected_paths else []
+                changed_files = [change.path for change in final_changes]
+                pr_body = format_self_modification_pr_body(
+                    plan.approach,
+                    changes_dicts,
+                    plan.testing_notes,
+                    job.issue_number,
+                    protected_paths,
+                    changed_files,
+                )
+            else:
+                pr_body = format_pr_body(
+                    plan.approach,
+                    changes_dicts,
+                    plan.testing_notes,
+                    job.issue_number,
+                )
+
+            # If tests failed, append error context to PR body
+            if not tests_passed:
+                pr_body += f"\n\n## Test Failures\n\nTests did not pass after refinement attempts.\n\n```\n{error_message}\n```\n"
+
+            pr_number = create_pull_request(
+                settings.GITHUB_TOKEN,
+                settings.TARGET_REPO_URL,
+                workspace.branch,
+                settings.TARGET_BRANCH,
+                pr_title,
+                pr_body,
+                draft=is_draft,
             )
 
-        # If tests failed, append error context to PR body
-        if not tests_passed:
-            pr_body += f"\n\n## Test Failures\n\nTests did not pass after refinement attempts.\n\n```\n{error_message}\n```\n"
-
-        pr_number = create_pull_request(
-            settings.GITHUB_TOKEN,
-            settings.TARGET_REPO_URL,
-            workspace.branch,
-            settings.TARGET_BRANCH,
-            pr_title,
-            pr_body,
-            draft=is_draft,
-        )
-
-        # Add agent:builder label to every Builder PR (Verifier promotes on success)
-        logger.info("adding_agent_builder_label", pr_number=pr_number)
-        add_agent_builder_label(
-            settings.GITHUB_TOKEN,
-            settings.TARGET_REPO_URL,
-            pr_number,
-            settings.TRIGGER_LABEL,
-        )
-
-        # Add self-modification metadata if needed
-        if is_self_modification:
-            logger.info("adding_self_modification_metadata", pr_number=pr_number)
-            add_self_modification_metadata(
+            # Add agent:builder label to every Builder PR (Verifier promotes on success)
+            logger.info("adding_agent_builder_label", pr_number=pr_number)
+            add_agent_builder_label(
                 settings.GITHUB_TOKEN,
                 settings.TARGET_REPO_URL,
                 pr_number,
-                settings.BOOTY_SELF_MODIFY_REVIEWER,
+                settings.TRIGGER_LABEL,
             )
-            logger.info("self_modification_metadata_added")
+
+            # Add self-modification metadata if needed
+            if is_self_modification:
+                logger.info("adding_self_modification_metadata", pr_number=pr_number)
+                add_self_modification_metadata(
+                    settings.GITHUB_TOKEN,
+                    settings.TARGET_REPO_URL,
+                    pr_number,
+                    settings.BOOTY_SELF_MODIFY_REVIEWER,
+                )
+                logger.info("self_modification_metadata_added")
 
         # Builder never promotes — Verifier promotes agent PRs when check passes
 

@@ -32,6 +32,9 @@ class Job:
     error: str | None = None
     is_self_modification: bool = False
     repo_url: str = ""
+    verifier_retries: int = 0
+    pr_number: int | None = None
+    verifier_error: str | None = None
 
 
 class JobQueue:
