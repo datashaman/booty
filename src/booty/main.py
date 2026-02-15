@@ -8,7 +8,7 @@ from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 
 from booty.code_gen.generator import process_issue_to_pr
-from booty.config import get_settings
+from booty.config import get_settings, verifier_enabled
 from booty.github.comments import post_failure_comment
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
@@ -87,6 +87,12 @@ async def lifespan(app: FastAPI):
     # Startup
     configure_logging(settings.LOG_LEVEL)
     logger.info("app_starting", worker_count=settings.WORKER_COUNT)
+
+    if not verifier_enabled(settings):
+        logger.info(
+            "verifier_disabled",
+            reason="missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY",
+        )
 
     # Record app start time
     app_start_time = datetime.now(timezone.utc)
