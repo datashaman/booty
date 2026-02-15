@@ -1,5 +1,6 @@
 """FastAPI application entrypoint."""
 
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -7,7 +8,7 @@ from importlib.metadata import version, PackageNotFoundError
 
 import sentry_sdk
 from asgi_correlation_id import CorrelationIdMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
@@ -216,8 +217,25 @@ app.include_router(webhook_router)
 
 
 @app.get("/internal/sentry-test")
-async def sentry_test():
-    """Raise test exception for manual E2E Sentry verification. Hit with SENTRY_DSN set."""
+async def sentry_test(x_internal_token: str = Header(None)):
+    """Raise test exception for manual E2E Sentry verification. Hit with SENTRY_DSN set.
+    
+    Requires X-Internal-Token header matching INTERNAL_TEST_TOKEN environment variable.
+    Only enabled in non-production environments or when explicitly configured.
+    """
+    settings = get_settings()
+    expected_token = os.environ.get("INTERNAL_TEST_TOKEN", "")
+    
+    # Require token in production or when SENTRY_ENVIRONMENT is set to production
+    if settings.SENTRY_ENVIRONMENT == "production" or expected_token:
+        if not expected_token:
+            raise HTTPException(
+                status_code=403,
+                detail="Test endpoint disabled in production without INTERNAL_TEST_TOKEN"
+            )
+        if x_internal_token != expected_token:
+            raise HTTPException(status_code=401, detail="Invalid or missing X-Internal-Token")
+    
     raise ValueError("Sentry test exception — verify event appears in Sentry dashboard")
 
 

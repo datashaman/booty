@@ -24,6 +24,20 @@ router = APIRouter(prefix="/webhooks")
 _obsv_seen: dict[str, float] = {}
 
 
+def _cleanup_cooldown() -> None:
+    """Remove expired entries from cooldown dictionary to prevent unbounded growth."""
+    settings = get_settings()
+    now = time.time()
+    window_sec = settings.OBSV_COOLDOWN_HOURS * 3600
+    # Remove entries older than 2x the cooldown window
+    expired = [k for k, v in _obsv_seen.items() if (now - v) > window_sec * 2]
+    for k in expired:
+        del _obsv_seen[k]
+    if expired:
+        logger = get_logger()
+        logger.debug("cooldown_cleanup", removed_count=len(expired))
+
+
 def _severity_rank(level: str) -> int:
     """Return numeric rank for severity (lower = more severe). Filter pass when rank <= min rank."""
     return {
@@ -284,13 +298,17 @@ async def sentry_webhook(request: Request):
         or request.headers.get("sentry-hook-signature")
     )
 
-    try:
-        verify_sentry_signature(payload_body, settings.SENTRY_WEBHOOK_SECRET, sig_header)
-    except HTTPException:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "invalid_signature"},
-        )
+    # Only verify signature if webhook secret is configured
+    if settings.SENTRY_WEBHOOK_SECRET:
+        try:
+            verify_sentry_signature(payload_body, settings.SENTRY_WEBHOOK_SECRET, sig_header)
+        except HTTPException:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "invalid_signature"},
+            )
+    else:
+        logger.warning("sentry_webhook_verification_disabled", reason="no_secret_configured")
 
     resource = request.headers.get("Sentry-Hook-Resource")
     if resource != "event_alert":
@@ -318,9 +336,12 @@ async def sentry_webhook(request: Request):
     issue_id = event.get("issue_id")
     level = event.get("level", "error")
 
+    # Normalize issue_id to string and validate it's not empty
     missing = []
-    if issue_id is None:
+    if not issue_id or (isinstance(issue_id, str) and not issue_id.strip()):
         missing.append("issue_id")
+    else:
+        issue_id = str(issue_id)  # Normalize to string for consistent dictionary keys
     if not level:
         missing.append("level")
     if missing:
@@ -331,6 +352,9 @@ async def sentry_webhook(request: Request):
 
     if _severity_rank(level) > _severity_rank(settings.OBSV_MIN_SEVERITY):
         return {"status": "ignored", "reason": "below_threshold"}
+
+    # Clean up expired cooldown entries periodically
+    _cleanup_cooldown()
 
     now = time.time()
     window_sec = settings.OBSV_COOLDOWN_HOURS * 3600

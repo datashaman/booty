@@ -142,13 +142,24 @@ def _spool_failed_sentry_event(event: dict, error: str) -> None:
     """Append failed event to disk spool for manual retry."""
     path = os.environ.get("OBSV_SPOOL_PATH", "/tmp/booty-sentry-spool.jsonl")
     line = json.dumps({"ts": time.time(), "event": event, "error": error}) + "\n"
-    with open(path, "a") as f:
-        f.write(line)
-    logger.warning(
-        "observability_spooled",
-        issue_id=event.get("issue_id"),
-        error=error,
-    )
+    try:
+        # Create parent directory if it doesn't exist
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a") as f:
+            f.write(line)
+        logger.warning(
+            "observability_spooled",
+            issue_id=event.get("issue_id"),
+            error=error,
+        )
+    except (OSError, IOError) as e:
+        logger.critical(
+            "observability_spool_failed",
+            issue_id=event.get("issue_id"),
+            error=error,
+            spool_error=str(e),
+            path=path,
+        )
 
 
 def _retry_if_server_error(exception: BaseException) -> bool:
