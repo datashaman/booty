@@ -157,6 +157,16 @@ async def info():
             "error": "Application not fully initialized",
             "version": get_app_version(),
             "uptime_seconds": 0,
+            "jobs": {
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+            },
+            "workers": {
+                "active": 0,
+            },
+            "error": "Application not fully initialized",
         }
 
     # Calculate uptime
