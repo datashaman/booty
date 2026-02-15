@@ -35,9 +35,14 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Verifier validates .booty.yml schema — v1.2
 - ✓ Verifier detects hallucinated imports / compile failures — v1.2
 
-### Active
+### Active (v1.3)
 
-(None — run `/gsd:new-milestone` to define next milestone requirements)
+- [ ] Automated deployment via GitHub Actions (SSH to DO, pull, install, restart)
+- [ ] Sentry APM integration for error tracking and release correlation
+- [ ] Observability agent ingests Sentry alerts via webhook
+- [ ] Alert-to-issue correlation (SHA, release, environment)
+- [ ] Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint
+- [ ] Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs
 
 ### Out of Scope
 
@@ -46,7 +51,7 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - Builder generates integration tests — deferred; Verifier first
 - Web UI or dashboard — CLI and GitHub are the interfaces
 - Custom LLM fine-tuning — use off-the-shelf models via magentic
-- Production deployment infrastructure — runs locally first
+- Production deployment infrastructure — ~~runs locally first~~ addressed in v1.3 (deploy automation)
 
 ## Context
 
@@ -56,6 +61,8 @@ Shipped v1.2 with Verifier agent (GitHub Checks API, pull_request webhook, diff 
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings.
 All v1.0, v1.1, v1.2 requirements satisfied.
 Self-modification capability active with Verifier gates and protected paths.
+Deployed on DigitalOcean (systemd + nginx + uvicorn unix socket). Manual deploy via deploy.sh (SSH + git pull).
+No APM/monitoring in place yet — greenfield for observability.
 
 ## Constraints
 
@@ -89,10 +96,19 @@ Self-modification capability active with Verifier gates and protected paths.
 | Early validation (schema + limits) before clone for agent PRs | Fail fast, no wasted clone | ✓ Good — v1.2 |
 | install_command required for agent PRs with BootyConfigV1 | Import validation needs deps installed | ✓ Good — v1.2 |
 
+## Current Milestone: v1.3 Observability
+
+**Goal:** Close the post-merge loop — production errors automatically flow back as GitHub issues for Builder intake.
+
+**Target features:**
+- Automated deployment via GitHub Actions (deploy.sh → CI/CD)
+- Sentry APM integration (error tracking, release/SHA correlation)
+- Observability agent (Sentry webhook → filtered → GitHub issues with repro context)
+
 ## Current State
 
 **Shipped:** v1.2 (2026-02-15)
-**Current Milestone:** Planning next — run `/gsd:new-milestone`
+**Current Milestone:** v1.3 Observability
 
 **What shipped in v1.2:**
 - Verifier runs on every PR (universal visibility); enforces gates only for agent PRs
@@ -103,4 +119,4 @@ Self-modification capability active with Verifier gates and protected paths.
 - Import/compile failure detection with annotations
 
 ---
-*Last updated: 2026-02-15 after v1.2 milestone*
+*Last updated: 2026-02-15 after v1.3 milestone start*

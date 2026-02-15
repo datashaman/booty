@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Planning next milestone
+**Current focus:** v1.3 Observability — deploy automation, Sentry APM, observability agent
 
 ## Current Position
 
-Phase: —
+Phase: Not started (defining requirements)
 Plan: —
-Status: v1.2 milestone complete
-Last activity: 2026-02-15 — v1.2 archived
+Status: Defining requirements
+Last activity: 2026-02-15 — Milestone v1.3 started
 
-Progress: [██████████] 100% (v1.2 complete)
+Progress: [░░░░░░░░░░] 0%
 
 ## Accumulated Context
 
@@ -32,6 +32,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (v1.2 milestone completion)
-Stopped at: Milestone archived, tagged v1.2
-Next step: `/gsd:new-milestone` — start next milestone (questioning → research → requirements → roadmap)
+Last session: 2026-02-15 (v1.3 milestone start)
+Stopped at: Questioning complete, proceeding to research → requirements → roadmap
+Next step: Define requirements and create roadmap
