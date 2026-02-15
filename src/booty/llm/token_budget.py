@@ -20,7 +20,7 @@ class TokenBudget:
         """
         self.model = os.environ.get("MAGENTIC_ANTHROPIC_MODEL", "claude-sonnet-4-5")
         self.max_context_tokens = max_context_tokens
-        self.max_output_tokens = int(os.environ.get("MAGENTIC_ANTHROPIC_MAX_TOKENS", "4096"))
+        self.max_output_tokens = int(os.environ.get("MAGENTIC_ANTHROPIC_MAX_TOKENS", "16384"))
         self.client = anthropic.Anthropic(
             api_key=os.environ.get("MAGENTIC_ANTHROPIC_API_KEY"),
         )
