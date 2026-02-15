@@ -6,6 +6,7 @@ from pathlib import Path
 from booty.code_gen.refiner import refine_until_tests_pass
 from booty.code_gen.security import PathRestrictor
 from booty.code_gen.validator import validate_generated_code
+from booty.test_generation import detect_conventions, validate_test_imports
 from booty.config import Settings
 from booty.git.operations import commit_changes, format_commit_message, push_to_remote
 from booty.github.pulls import (
@@ -33,16 +34,19 @@ async def process_issue_to_pr(
 
     Pipeline:
     1. List repo files
+    1a. Detect test conventions
     2. Analyze issue to get structured understanding
     3. Check file count limit
     4. Validate path security
     4b. For self-modification: validate against protected paths
     5. Load existing file contents
     6. Check token budget
-    7. Generate code changes
+    7. Generate code changes (with test conventions)
+    7b. Validate test file imports
+    7c. Merge test files into changes
     8. Validate generated code
     9. Apply changes to workspace
-    10. Run test-driven refinement loop
+    10. Run test-driven refinement loop (with test conventions)
     10b. For self-modification: run quality checks (ruff)
     11. Commit changes
     12. Push to remote
@@ -83,6 +87,17 @@ async def process_issue_to_pr(
 
         repo_files.sort()  # Deterministic ordering
         logger.info("repo_files_listed", count=len(repo_files))
+
+        # Step 1a: Detect test conventions
+        logger.info("detecting_test_conventions", workspace_path=workspace.path)
+        conventions = detect_conventions(workspace_path)
+        logger.info(
+            "test_conventions_detected",
+            language=conventions.language,
+            test_framework=conventions.test_framework,
+            test_directory=conventions.test_directory,
+        )
+        test_conventions_text = conventions.format_for_prompt()
 
         # Step 2: Analyze issue
         logger.info("analyzing_issue", issue_number=job.issue_number)
@@ -190,6 +205,7 @@ async def process_issue_to_pr(
             file_contents,
             issue_title,
             issue_body,
+            test_conventions=test_conventions_text,
         )
         logger.info(
             "code_generated",
@@ -197,9 +213,35 @@ async def process_issue_to_pr(
             approach=plan.approach,
         )
 
+        # Step 7b: Validate test imports
+        if plan.test_files:
+            logger.info("validating_test_imports", count=len(plan.test_files))
+            for test_change in plan.test_files:
+                if test_change.operation == "delete":
+                    continue
+                is_valid, import_errors = validate_test_imports(
+                    test_change.content, conventions.language, workspace_path
+                )
+                if not is_valid:
+                    logger.warning(
+                        "test_import_validation_failed",
+                        path=test_change.path,
+                        errors=import_errors,
+                    )
+                    # Log warning but don't block -- tests will fail at execution and be caught by refinement
+
+        # Step 7c: Merge test files into changes for workspace apply
+        all_changes = plan.changes + plan.test_files
+        logger.info(
+            "changes_merged",
+            source_changes=len(plan.changes),
+            test_changes=len(plan.test_files),
+            total=len(all_changes),
+        )
+
         # Step 8: Validate generated code
-        logger.info("validating_generated_code", count=len(plan.changes))
-        for change in plan.changes:
+        logger.info("validating_generated_code", count=len(all_changes))
+        for change in all_changes:
             if change.operation == "delete":
                 continue  # Skip validation for deletions
 
@@ -212,11 +254,11 @@ async def process_issue_to_pr(
         logger.info("code_validation_complete")
 
         # Step 9: Apply changes to workspace
-        logger.info("applying_changes_to_workspace", count=len(plan.changes))
+        logger.info("applying_changes_to_workspace", count=len(all_changes))
         modified_paths = []
         deleted_paths = []
 
-        for change in plan.changes:
+        for change in all_changes:
             full_path = workspace_path / change.path
 
             if change.operation in ("create", "modify"):
@@ -266,10 +308,11 @@ async def process_issue_to_pr(
         tests_passed, final_changes, error_message = await refine_until_tests_pass(
             workspace_path,
             config,
-            plan.changes,
+            all_changes,
             analysis.task_description,
             issue_title,
             issue_body,
+            test_conventions=test_conventions_text,
         )
 
         # Step 10b: Self-modification quality checks
