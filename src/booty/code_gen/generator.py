@@ -9,9 +9,8 @@ from booty.code_gen.validator import validate_generated_code
 from booty.test_generation import detect_conventions, validate_test_imports
 from booty.config import Settings
 from booty.git.operations import commit_changes, format_commit_message, push_to_remote
-from booty.github.comments import post_promotion_failure_comment
-from booty.github.promotion import promote_to_ready_for_review
 from booty.github.pulls import (
+    add_agent_builder_label,
     add_self_modification_metadata,
     create_pull_request,
     format_pr_body,
@@ -447,6 +446,15 @@ async def process_issue_to_pr(
             draft=is_draft,
         )
 
+        # Add agent:builder label to every Builder PR (Verifier promotes on success)
+        logger.info("adding_agent_builder_label", pr_number=pr_number)
+        add_agent_builder_label(
+            settings.GITHUB_TOKEN,
+            settings.TARGET_REPO_URL,
+            pr_number,
+            settings.TRIGGER_LABEL,
+        )
+
         # Add self-modification metadata if needed
         if is_self_modification:
             logger.info("adding_self_modification_metadata", pr_number=pr_number)
@@ -458,31 +466,7 @@ async def process_issue_to_pr(
             )
             logger.info("self_modification_metadata_added")
 
-        # Promote to ready-for-review when tests+lint pass and not self-mod
-        quality_passed = quality_result.passed
-        should_promote = (
-            tests_passed and quality_passed and not is_self_modification
-        )
-        if should_promote:
-            try:
-                promote_to_ready_for_review(
-                    settings.GITHUB_TOKEN,
-                    settings.TARGET_REPO_URL,
-                    pr_number,
-                )
-            except Exception as e:
-                logger.warning(
-                    "promotion_failed_posting_comment",
-                    pr_number=pr_number,
-                    error=str(e),
-                )
-                post_promotion_failure_comment(
-                    settings.GITHUB_TOKEN,
-                    settings.TARGET_REPO_URL,
-                    pr_number,
-                    reason=str(e),
-                    attempts=3,
-                )
+        # Builder never promotes — Verifier promotes agent PRs when check passes
 
         logger.info(
             "process_issue_to_pr_complete",
