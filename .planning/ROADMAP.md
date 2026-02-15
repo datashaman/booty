@@ -69,6 +69,13 @@ Plans:
 
 **Requirements:** VERIFY-02, VERIFY-03, VERIFY-04, VERIFY-05
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Verifier runner (VerifierJob, workspace, process_verifier_job)
+- [ ] 08-02-PLAN.md — pull_request webhook branch, VerifierQueue, workers
+- [ ] 08-03-PLAN.md — Builder skip promote, agent:builder label, Verifier promotion/comment
+
 **Success criteria:**
 1. Webhook accepts `pull_request` (opened, synchronize); enqueues VerifierJob
 2. Verifier clones PR head_sha in clean env, loads .booty.yml, runs execute_tests()
