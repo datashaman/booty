@@ -4,6 +4,8 @@ from pathlib import Path
 
 from booty.config import Settings, verifier_enabled
 from booty.github.checks import create_check_run, edit_check_run
+from booty.github.comments import post_verifier_failure_comment
+from booty.github.promotion import promote_to_ready_for_review
 from booty.logging import get_logger
 from booty.test_runner.config import load_booty_config
 from booty.test_runner.executor import execute_tests
@@ -76,6 +78,38 @@ async def process_verifier_job(job: VerifierJob, settings: Settings) -> None:
                 conclusion=conclusion,
                 tests_passed=tests_passed,
             )
+
+            # Agent PRs: Verifier promotes on success, posts comment on failure
+            if job.is_agent_pr:
+                if tests_passed:
+                    try:
+                        promote_to_ready_for_review(
+                            settings.GITHUB_TOKEN,
+                            job.repo_url,
+                            job.pr_number,
+                        )
+                        logger.info(
+                            "agent_pr_promoted",
+                            job_id=job.job_id,
+                            pr_number=job.pr_number,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "agent_pr_promotion_failed",
+                            job_id=job.job_id,
+                            pr_number=job.pr_number,
+                            error=str(e),
+                        )
+                else:
+                    stderr_lines = (result.stderr or "").splitlines()
+                    truncated = "\n".join(stderr_lines[-50:])
+                    post_verifier_failure_comment(
+                        settings.GITHUB_TOKEN,
+                        job.repo_url,
+                        job.pr_number,
+                        output_summary,
+                        truncated,
+                    )
     except Exception as e:
         logger.error(
             "verifier_error",
