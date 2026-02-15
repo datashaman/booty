@@ -1,13 +1,14 @@
 """FastAPI application entrypoint."""
 
 import sys
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from importlib.metadata import version, PackageNotFoundError
 
 import sentry_sdk
 from asgi_correlation_id import CorrelationIdMiddleware
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
@@ -27,6 +28,68 @@ from booty.webhooks import router as webhook_router
 job_queue: JobQueue | None = None
 verifier_queue: VerifierQueue | None = None
 app_start_time: datetime | None = None
+
+
+class SimpleRateLimiter:
+    """Simple in-memory rate limiter for internal endpoints.
+    
+    Tracks request counts per IP address within a sliding time window.
+    Automatically cleans up old entries to prevent memory growth.
+    """
+    
+    def __init__(self, max_requests: int = 5, window_seconds: int = 60):
+        """Initialize rate limiter.
+        
+        Args:
+            max_requests: Maximum requests allowed per window
+            window_seconds: Time window in seconds
+        """
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests: dict[str, list[datetime]] = defaultdict(list)
+    
+    def is_rate_limited(self, identifier: str) -> bool:
+        """Check if identifier is rate limited.
+        
+        Args:
+            identifier: Unique identifier (e.g., IP address)
+            
+        Returns:
+            True if rate limited, False otherwise
+        """
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(seconds=self.window_seconds)
+        
+        # Clean old requests
+        self.requests[identifier] = [
+            req_time for req_time in self.requests[identifier]
+            if req_time > cutoff
+        ]
+        
+        # Check if over limit
+        if len(self.requests[identifier]) >= self.max_requests:
+            return True
+        
+        # Record this request
+        self.requests[identifier].append(now)
+        return False
+    
+    def cleanup_old_entries(self) -> None:
+        """Remove identifiers with no recent requests to prevent memory growth."""
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(seconds=self.window_seconds * 2)
+        
+        identifiers_to_remove = [
+            identifier for identifier, requests in self.requests.items()
+            if not requests or all(req_time < cutoff for req_time in requests)
+        ]
+        
+        for identifier in identifiers_to_remove:
+            del self.requests[identifier]
+
+
+# Rate limiter for internal test endpoints
+internal_endpoint_limiter = SimpleRateLimiter(max_requests=5, window_seconds=60)
 
 
 def get_app_version() -> str:
@@ -216,15 +279,25 @@ app.include_router(webhook_router)
 
 
 @app.get("/internal/sentry-test")
-async def sentry_test(x_internal_token: str = Header(None)):
+async def sentry_test(request: Request, x_internal_token: str = Header(None)):
     """Raise test exception for manual E2E Sentry verification. Hit with SENTRY_DSN set.
     
     Authentication:
     - In production (SENTRY_ENVIRONMENT=production): Requires X-Internal-Token header
     - When INTERNAL_TEST_TOKEN is set: Requires matching X-Internal-Token header
     - In development (no token configured): No authentication required
+    
+    Rate limiting: 5 requests per 60 seconds per IP to prevent Sentry quota exhaustion.
     """
     settings = get_settings()
+    
+    # Apply rate limiting based on client IP
+    client_ip = request.client.host if request.client else "unknown"
+    if internal_endpoint_limiter.is_rate_limited(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Max 5 requests per 60 seconds."
+        )
     
     # Require token in production or when INTERNAL_TEST_TOKEN is set
     if settings.SENTRY_ENVIRONMENT == "production":
