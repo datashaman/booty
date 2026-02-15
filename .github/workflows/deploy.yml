@@ -48,7 +48,6 @@ jobs:
         if: steps.deploy_filter.outputs.deploy != 'true'
         run: |
           echo "No deploy-relevant changes" >> $GITHUB_STEP_SUMMARY
-          exit 0
 
       - name: Load SSH key
         if: steps.deploy_filter.outputs.deploy == 'true'
@@ -62,9 +61,10 @@ jobs:
         run: |
           export DEPLOY_HOST SERVER_NAME REPO_URL
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
-          OUTPUT=$(./deploy.sh 2>&1)
-          EXIT=$?
-          if [ $EXIT -ne 0 ]; then
+          if ./deploy.sh 2>&1 | tee /tmp/deploy.log; then
+            echo "deploy_transport_success=true" >> $GITHUB_OUTPUT
+          else
+            EXIT=${PIPESTATUS[0]}
             echo "deploy_transport_success=false" >> $GITHUB_OUTPUT
             echo "## Deploy Failure" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -74,14 +74,17 @@ jobs:
             echo "**Stage:** deploy.sh" >> $GITHUB_STEP_SUMMARY
             echo "**Exit code:** $EXIT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>Last 20 lines</summary>" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "$OUTPUT" | tail -20 >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            if [ -f /tmp/deploy.log ] && [ -s /tmp/deploy.log ]; then
+              echo "<details><summary>Last 20 lines</summary>" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              tail -20 /tmp/deploy.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**No output captured**" >> $GITHUB_STEP_SUMMARY
+            fi
             exit 1
           fi
-          echo "deploy_transport_success=true" >> $GITHUB_OUTPUT
 
       - name: Health check
         if: steps.deploy_filter.outputs.deploy == 'true' && steps.deploy.outputs.deploy_transport_success == 'true'
