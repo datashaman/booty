@@ -12,6 +12,7 @@ jobs:
     environment: production
     env:
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST || secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || secrets.DEPLOY_PORT || '' }}
       SERVER_NAME: ${{ vars.SERVER_NAME || secrets.SERVER_NAME }}
       REPO_URL: ${{ vars.REPO_URL || secrets.REPO_URL }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER || secrets.DEPLOY_USER || '' }}
@@ -63,6 +64,7 @@ jobs:
         run: |
           export DEPLOY_HOST SERVER_NAME REPO_URL
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
+          [ -n "$DEPLOY_PORT" ] && export DEPLOY_PORT
           if ./deploy.sh 2>&1 | tee /tmp/deploy.log; then
             echo "deploy_transport_success=true" >> $GITHUB_OUTPUT
           else

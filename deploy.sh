@@ -3,13 +3,17 @@
 set -e
 
 DEPLOY_HOST="${DEPLOY_HOST:-${1:?Usage: ./deploy.sh host [hostname] [repo_url] or DEPLOY_HOST=host SERVER_NAME=hostname REPO_URL=url ./deploy.sh}}"
+DEPLOY_PORT="${DEPLOY_PORT:-}"
 SERVER_NAME="${SERVER_NAME:-${2:-booty.datashaman.com}}"
 DEPLOY_USER="${DEPLOY_USER:-$(whoami)}"
 REPO_URL="${REPO_URL:-${3:-git@github.com:datashaman/booty.git}}"
 INSTALL_DIR="/opt/booty"
 SERVICE_NAME="booty"
 
-ssh "$DEPLOY_HOST" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" <<'REMOTE'
+SSH_OPTS=()
+[ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
+
+ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" <<'REMOTE'
 set -e
 
 DEPLOY_USER="$1"

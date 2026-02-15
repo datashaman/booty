@@ -12,6 +12,7 @@ Complete these items for the deploy workflow to function. Claude automated the w
 |--------|----------|--------|--------|
 | [ ] | `SSH_PRIVATE_KEY` | Private key with SSH access to deploy host | GitHub Settings → Environments → production → Secrets |
 | [ ] | `DEPLOY_HOST` | SSH host (IP or hostname) for deploy target | GitHub Settings → Environments → production → Variables or Secrets |
+| [ ] | `DEPLOY_PORT` | SSH port (optional; default 22) | GitHub Settings → Environments → production → Variables or Secrets |
 | [ ] | `DEPLOY_USER` | SSH user (optional; deploy.sh defaults to `whoami`) | GitHub Settings → Environments → production → Variables or Secrets |
 | [ ] | `SERVER_NAME` | Public hostname for health check (e.g. booty.datashaman.com) | GitHub Settings → Environments → production → Variables |
 | [ ] | `REPO_URL` | Git clone URL (e.g. git@github.com:org/repo.git) | GitHub Settings → Environments → production → Variables |
@@ -27,6 +28,7 @@ Complete these items for the deploy workflow to function. Claude automated the w
   - Location: Environment `production` → Add secret / Add variable
   - Required secrets: `SSH_PRIVATE_KEY`
   - Required variables: `DEPLOY_HOST`, `SERVER_NAME`, `REPO_URL`
+  - Optional: `DEPLOY_PORT` (SSH port; omit for default 22)
   - Optional: `DEPLOY_USER` (deploy.sh defaults to current user if unset)
 
 ## Verification
