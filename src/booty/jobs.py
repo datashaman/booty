@@ -230,7 +230,17 @@ class JobQueue:
         }
 
         for job in self.jobs.values():
-            stats[job.state.value] += 1
+            state_value = job.state.value
+            current_count = stats.get(state_value)
+            if current_count is not None:
+                stats[state_value] = current_count + 1
+            else:
+                # Unexpected state; log and skip to avoid KeyError while preserving schema
+                self._logger.warning(
+                    "unexpected_job_state_in_stats",
+                    job_id=job.job_id,
+                    state=state_value,
+                )
 
         return stats
 
