@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # Verifier (GitHub App) configuration
     GITHUB_APP_ID: str = ""  # Optional; empty = Verifier disabled
     GITHUB_APP_PRIVATE_KEY: str = ""  # Optional; empty = Verifier disabled
+    VERIFIER_WORKER_COUNT: int = 2  # Number of verifier workers
 
     model_config = SettingsConfigDict(
         env_file=".env",
