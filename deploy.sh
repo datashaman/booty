@@ -53,6 +53,13 @@ if [ ! -L /etc/nginx/sites-enabled/booty.conf ]; then
 fi
 sudo nginx -t && sudo systemctl restart nginx
 
+# Deploy systemd service
+export INSTALL_DIR
+envsubst '${INSTALL_DIR}' < booty.service > /tmp/booty.service
+sudo cp /tmp/booty.service "/etc/systemd/system/${SERVICE_NAME}.service"
+rm /tmp/booty.service
+sudo systemctl daemon-reload
+
 # Ensure that the booty service is enabled and restarted
 sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl restart "$SERVICE_NAME"
