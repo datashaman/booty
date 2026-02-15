@@ -90,6 +90,12 @@ Plans:
 
 **Requirements:** APM-01, APM-02, APM-03
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — SDK integration (dependency, config, init, deploy release.env, systemd)
+- [ ] 12-02-PLAN.md — capture_exception (job + verifier), verification test, manual route
+
 **Success criteria:**
 1. `sentry-sdk` added to dependencies
 2. `sentry_sdk.init()` called at app startup with DSN from env
