@@ -22,11 +22,14 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Issue filtering via specific GitHub label (e.g. `agent:builder`) — v1.0
 - ✓ Webhook listener receives GitHub issue events — v1.0
 
+### Validated (v1.1)
+
+- ✓ Builder generates unit tests for changed files in every PR — v1.1
+- ✓ Builder promotes PR from draft to ready-for-review when all tests pass — v1.1
+
 ### Active
 
-- [ ] Builder generates unit tests for changed files in every PR
 - [ ] Builder generates integration tests where relevant
-- [ ] Builder promotes PR from draft to ready-for-review when all tests pass
 
 ### Out of Scope
 
@@ -39,8 +42,9 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 ## Context
 
 Shipped v1.0 with 3,012 LOC Python across 77 files.
+Shipped v1.1 with test generation (convention detection, AST import validation) and PR promotion (draft → ready when tests+lint pass).
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings.
-All 17 requirements satisfied. 4 phases, 13 plans executed in a single day.
+All v1.0 and v1.1 requirements satisfied.
 Self-modification capability active with protected paths and quality gates.
 
 ## Constraints
@@ -65,15 +69,16 @@ Self-modification capability active with protected paths and quality gates.
 | pathspec for path restrictions | Gitignore-style patterns with ** support | ✓ Good — reused for self-mod safety |
 | Anthropic token counting API | Accurate budget management for context windows | ✓ Good — prevents overflow |
 | giturlparse for self-detection | Handles HTTPS/SSH/.git/case variants for repo URL matching | ✓ Good — reliable self-target detection |
+| Single LLM call for code + tests | Shared context, simpler architecture | ✓ Good — v1.1 |
+| One-shot test generation, refine only code | Preserves refinement loop stability | ✓ Good — v1.1 |
+| Multi-criteria PR promotion | Tests + linting + not self-modification | ✓ Good — v1.1 |
+| AST parsing for import extraction | Handles edge cases vs regex | ✓ Good — v1.1 |
+| File extension counting for language detection | 99%+ accuracy, zero dependencies | ✓ Good — v1.1 |
 
-## Current Milestone: v1.1 Test Generation & PR Promotion
+## Current State
 
-**Goal:** Make the Builder generate tests with every code change and promote PRs to ready-for-review only when tests pass.
-
-**Target features:**
-- Builder generates unit tests for all changed files
-- Builder generates integration tests where relevant
-- Draft PR promoted to ready-for-review when all tests pass
+**Shipped:** v1.1 (2026-02-15)
+**Next milestone:** TBD — run `/gsd:new-milestone` to define
 
 ---
-*Last updated: 2026-02-15 after v1.1 milestone started*
+*Last updated: 2026-02-15 after v1.1 milestone completion*

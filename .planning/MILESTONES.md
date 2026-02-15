@@ -1,5 +1,32 @@
 # Project Milestones: Booty
 
+## v1.1 Test Generation & PR Promotion (Shipped: 2026-02-15)
+
+**Delivered:** Builder generates unit tests for all changed files and promotes draft PRs to ready-for-review when tests and linting pass.
+
+**Phases completed:** 5-6 (4 plans total)
+
+**Key accomplishments:**
+
+- Convention detection module with language-agnostic test conventions and AST-based import validation
+- LLM integration for single-call code+test generation using detected conventions
+- Promotion module with GraphQL promote_to_ready_for_review and tenacity retry (5xx/network only)
+- Pipeline wiring: quality checks for all jobs, draft PRs promoted when tests+lint pass (self-mod excluded)
+- 8/8 v1.1 requirements satisfied
+
+**Stats:**
+
+- 41 files modified (v1.0..v1.1)
+- ~5,000 net LOC added (4,052 total Python)
+- 2 phases, 4 plans
+- 1 day from v1.0 to ship (2026-02-14 → 2026-02-15)
+
+**Git range:** `efac606` (docs: start milestone v1.1) → `3e2e17c` (docs(05): add Phase 5 verification)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.0 MVP (Shipped: 2026-02-14)
 
 **Delivered:** A Builder agent that picks up GitHub issues, writes code via LLM, runs tests with iterative refinement, and opens PRs — including against its own repository.
