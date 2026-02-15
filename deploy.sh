@@ -23,8 +23,10 @@ cd /opt
 
 # Checkout repo into booty folder, only if it doesn't exist
 if [ ! -d "$INSTALL_DIR" ]; then
-    git clone "$REPO_URL" booty
-    sudo chown -R "$DEPLOY_USER:www-data" "$INSTALL_DIR"
+    sudo mkdir -p "$INSTALL_DIR"
+    sudo chown "$DEPLOY_USER:www-data" "$INSTALL_DIR"
+    sudo chmod g+w "$INSTALL_DIR"
+    git clone "$REPO_URL" "$INSTALL_DIR"
 fi
 
 # Go into the booty folder and pull the latest changes
