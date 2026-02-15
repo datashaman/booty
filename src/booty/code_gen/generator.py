@@ -6,8 +6,11 @@ from pathlib import Path
 from booty.code_gen.refiner import refine_until_tests_pass
 from booty.code_gen.security import PathRestrictor
 from booty.code_gen.validator import validate_generated_code
+from booty.test_generation import detect_conventions, validate_test_imports
 from booty.config import Settings
 from booty.git.operations import commit_changes, format_commit_message, push_to_remote
+from booty.github.comments import post_promotion_failure_comment
+from booty.github.promotion import promote_to_ready_for_review
 from booty.github.pulls import (
     add_self_modification_metadata,
     create_pull_request,
@@ -33,20 +36,23 @@ async def process_issue_to_pr(
 
     Pipeline:
     1. List repo files
+    1a. Detect test conventions
     2. Analyze issue to get structured understanding
     3. Check file count limit
     4. Validate path security
     4b. For self-modification: validate against protected paths
     5. Load existing file contents
     6. Check token budget
-    7. Generate code changes
+    7. Generate code changes (with test conventions)
+    7b. Validate test file imports
+    7c. Merge test files into changes
     8. Validate generated code
     9. Apply changes to workspace
-    10. Run test-driven refinement loop
-    10b. For self-modification: run quality checks (ruff)
+    10. Run test-driven refinement loop (with test conventions)
+    10b. Run quality checks (ruff) for all jobs
     11. Commit changes
     12. Push to remote
-    13. Create pull request (draft if tests failed OR always draft for self-modification)
+    13. Create pull request (always draft; promote to ready when tests+lint pass and not self-mod)
 
     Args:
         job: Job containing issue details
@@ -83,6 +89,17 @@ async def process_issue_to_pr(
 
         repo_files.sort()  # Deterministic ordering
         logger.info("repo_files_listed", count=len(repo_files))
+
+        # Step 1a: Detect test conventions
+        logger.info("detecting_test_conventions", workspace_path=workspace.path)
+        conventions = detect_conventions(workspace_path)
+        logger.info(
+            "test_conventions_detected",
+            language=conventions.language,
+            test_framework=conventions.test_framework,
+            test_directory=conventions.test_directory,
+        )
+        test_conventions_text = conventions.format_for_prompt()
 
         # Step 2: Analyze issue
         logger.info("analyzing_issue", issue_number=job.issue_number)
@@ -190,6 +207,7 @@ async def process_issue_to_pr(
             file_contents,
             issue_title,
             issue_body,
+            test_conventions=test_conventions_text,
         )
         logger.info(
             "code_generated",
@@ -197,9 +215,35 @@ async def process_issue_to_pr(
             approach=plan.approach,
         )
 
+        # Step 7b: Validate test imports
+        if plan.test_files:
+            logger.info("validating_test_imports", count=len(plan.test_files))
+            for test_change in plan.test_files:
+                if test_change.operation == "delete":
+                    continue
+                is_valid, import_errors = validate_test_imports(
+                    test_change.content, conventions.language, workspace_path
+                )
+                if not is_valid:
+                    logger.warning(
+                        "test_import_validation_failed",
+                        path=test_change.path,
+                        errors=import_errors,
+                    )
+                    # Log warning but don't block -- tests will fail at execution and be caught by refinement
+
+        # Step 7c: Merge test files into changes for workspace apply
+        all_changes = plan.changes + plan.test_files
+        logger.info(
+            "changes_merged",
+            source_changes=len(plan.changes),
+            test_changes=len(plan.test_files),
+            total=len(all_changes),
+        )
+
         # Step 8: Validate generated code
-        logger.info("validating_generated_code", count=len(plan.changes))
-        for change in plan.changes:
+        logger.info("validating_generated_code", count=len(all_changes))
+        for change in all_changes:
             if change.operation == "delete":
                 continue  # Skip validation for deletions
 
@@ -212,11 +256,11 @@ async def process_issue_to_pr(
         logger.info("code_validation_complete")
 
         # Step 9: Apply changes to workspace
-        logger.info("applying_changes_to_workspace", count=len(plan.changes))
+        logger.info("applying_changes_to_workspace", count=len(all_changes))
         modified_paths = []
         deleted_paths = []
 
-        for change in plan.changes:
+        for change in all_changes:
             full_path = workspace_path / change.path
 
             if change.operation in ("create", "modify"):
@@ -266,31 +310,31 @@ async def process_issue_to_pr(
         tests_passed, final_changes, error_message = await refine_until_tests_pass(
             workspace_path,
             config,
-            plan.changes,
+            all_changes,
             analysis.task_description,
             issue_title,
             issue_body,
+            test_conventions=test_conventions_text,
         )
 
-        # Step 10b: Self-modification quality checks
-        if is_self_modification:
-            logger.info("running_self_modification_quality_checks")
-            quality_result = await run_quality_checks(workspace_path)
-            logger.info(
-                "quality_checks_complete",
-                passed=quality_result.passed,
-                formatting_ok=quality_result.formatting_ok,
-                linting_ok=quality_result.linting_ok,
-            )
-            if not quality_result.passed:
-                # Append quality errors to error_message
-                quality_errors = "\n".join(quality_result.errors)
-                if error_message:
-                    error_message = f"{error_message}\n\nQuality Check Failures:\n{quality_errors}"
-                else:
-                    error_message = f"Quality Check Failures:\n{quality_errors}"
-                tests_passed = False
-                logger.warning("quality_checks_failed", errors_count=len(quality_result.errors))
+        # Step 10b: Quality checks for all jobs (promotion gate requires it)
+        logger.info("running_quality_checks")
+        quality_result = await run_quality_checks(workspace_path)
+        logger.info(
+            "quality_checks_complete",
+            passed=quality_result.passed,
+            formatting_ok=quality_result.formatting_ok,
+            linting_ok=quality_result.linting_ok,
+        )
+        if not quality_result.passed:
+            # Append quality errors to error_message
+            quality_errors = "\n".join(quality_result.errors)
+            if error_message:
+                error_message = f"{error_message}\n\nQuality Check Failures:\n{quality_errors}"
+            else:
+                error_message = f"Quality Check Failures:\n{quality_errors}"
+            tests_passed = False
+            logger.warning("quality_checks_failed", errors_count=len(quality_result.errors))
 
         # If changes were regenerated (final_changes differ from plan.changes), re-apply them
         if final_changes != plan.changes:
@@ -348,9 +392,8 @@ async def process_issue_to_pr(
         await push_to_remote(workspace.repo, settings.GITHUB_TOKEN)
         logger.info("push_complete")
 
-        # Step 13: Create PR
-        # Self-modification PRs are ALWAYS draft, regardless of test results
-        is_draft = (not tests_passed) if not is_self_modification else True
+        # Step 13: Create PR (always draft; promote when criteria met)
+        is_draft = True
         logger.info("creating_pull_request", draft=is_draft, is_self_modification=is_self_modification)
 
         # Format PR title
@@ -414,6 +457,32 @@ async def process_issue_to_pr(
                 settings.BOOTY_SELF_MODIFY_REVIEWER,
             )
             logger.info("self_modification_metadata_added")
+
+        # Promote to ready-for-review when tests+lint pass and not self-mod
+        quality_passed = quality_result.passed
+        should_promote = (
+            tests_passed and quality_passed and not is_self_modification
+        )
+        if should_promote:
+            try:
+                promote_to_ready_for_review(
+                    settings.GITHUB_TOKEN,
+                    settings.TARGET_REPO_URL,
+                    pr_number,
+                )
+            except Exception as e:
+                logger.warning(
+                    "promotion_failed_posting_comment",
+                    pr_number=pr_number,
+                    error=str(e),
+                )
+                post_promotion_failure_comment(
+                    settings.GITHUB_TOKEN,
+                    settings.TARGET_REPO_URL,
+                    pr_number,
+                    reason=str(e),
+                    attempts=3,
+                )
 
         logger.info(
             "process_issue_to_pr_complete",

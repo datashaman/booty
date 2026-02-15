@@ -24,7 +24,9 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 
 ### Active
 
-(None yet — define with `/gsd:new-milestone`)
+- [ ] Builder generates unit tests for changed files in every PR
+- [ ] Builder generates integration tests where relevant
+- [ ] Builder promotes PR from draft to ready-for-review when all tests pass
 
 ### Out of Scope
 
@@ -64,5 +66,14 @@ Self-modification capability active with protected paths and quality gates.
 | Anthropic token counting API | Accurate budget management for context windows | ✓ Good — prevents overflow |
 | giturlparse for self-detection | Handles HTTPS/SSH/.git/case variants for repo URL matching | ✓ Good — reliable self-target detection |
 
+## Current Milestone: v1.1 Test Generation & PR Promotion
+
+**Goal:** Make the Builder generate tests with every code change and promote PRs to ready-for-review only when tests pass.
+
+**Target features:**
+- Builder generates unit tests for all changed files
+- Builder generates integration tests where relevant
+- Draft PR promoted to ready-for-review when all tests pass
+
 ---
-*Last updated: 2026-02-14 after v1.0 milestone*
+*Last updated: 2026-02-15 after v1.1 milestone started*

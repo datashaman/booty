@@ -2,35 +2,41 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-14)
+See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Planning next milestone
+**Current focus:** v1.1 complete — Test Generation & PR Promotion
 
 ## Current Position
 
-Phase: 4 of 4 complete (v1.0 shipped)
-Plan: N/A — milestone complete
-Status: Ready for next milestone
-Last activity: 2026-02-14 — v1.0 milestone complete
+Phase: 6 of 6 (PR Promotion)
+Plan: 2 of 2 (Pipeline wiring)
+Status: Phase complete
+Last activity: 2026-02-15 — Completed 06-02-PLAN.md
 
-Progress: [██████████] 100% (v1.0)
+Progress: [██████████] 100% (Phase 6, v1.1)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 2.1 min
-- Total execution time: 0.45 hours
+- Total plans completed: 13 (v1.0)
+- Average duration: ~45 min (estimated from 1-day v1.0 execution)
+- Total execution time: ~10 hours (v1.0)
 
-**By Phase:**
+**By Phase (v1.0 baseline):**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| Phase 1 | 2/2 | 5 min | 3 min |
-| Phase 2 | 5/5 | 11 min | 2 min |
-| Phase 3 | 3/3 | 7 min | 2 min |
-| Phase 4 | 3/3 | 7 min | 2 min |
+| Phase | Plans | Status |
+|-------|-------|--------|
+| 1. Foundation | 3 | Complete |
+| 2. GitHub Integration | 3 | Complete |
+| 3. Test-Driven Refinement | 4 | Complete |
+| 4. Self-Modification Safety | 3 | Complete |
+
+**Recent Trend:**
+- v1.0 shipped in 1 day (13 plans)
+- Starting v1.1 (Phase 5-6, 2 phases)
+
+*Metrics will update as v1.1 plans complete*
 
 ## Accumulated Context
 
@@ -38,16 +44,32 @@ Progress: [██████████] 100% (v1.0)
 
 See PROJECT.md Key Decisions table for full history.
 
+Recent decisions affecting v1.1:
+- Single LLM call for code + tests (shared context, simpler architecture)
+- One-shot test generation, refine only code (preserves refinement loop stability)
+- Multi-criteria PR promotion (tests + linting + not self-modification)
+- GraphQL via PyGithub (zero new dependencies)
+- Test files in same commit as source (atomic changes)
+- File extension counting for language detection (99%+ accuracy, zero dependencies)
+- AST parsing for import extraction (not regex) to handle edge cases correctly
+- Check both project.dependencies and project.optional-dependencies for framework detection
+- Test files tracked separately from source changes (test_files field)
+- Import validation logs warnings but doesn't block (refinement catches real failures)
+- Refinement prompt instructs LLM not to modify test files (one-shot generation)
+- Quality checks run for all jobs (promotion gate); always create draft PRs; promote when tests+lint pass and not self-mod
+- Retry promotion only on 5xx/network; post neutral failure comment on exception
+
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
 
-None.
+None. Research completed with HIGH confidence, no new dependencies required.
 
 ## Session Continuity
 
-Last session: 2026-02-14 (v1.0 milestone completed)
-Stopped at: Milestone v1.0 archived, ready for next milestone
+Last session: 2026-02-15 (plan execution)
+Stopped at: Completed 06-02-PLAN.md (Pipeline wiring)
 Resume file: None
+Next step: v1.1 complete — ready for verification and ship
