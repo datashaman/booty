@@ -110,6 +110,12 @@ Plans:
 
 **Requirements:** OBSV-01 through OBSV-08
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Webhook route, HMAC verify, severity/dedup/cooldown filters
+- [ ] 13-02-PLAN.md — Issue body builder, create_issue, retry, spool, wire to route
+
 **Success criteria:**
 1. POST route for Sentry webhook (e.g., `/webhooks/sentry`)
 2. HMAC-SHA256 verification of `Sentry-Hook-Signature` before processing
