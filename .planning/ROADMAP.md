@@ -72,9 +72,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Verifier runner (VerifierJob, workspace, process_verifier_job)
-- [ ] 08-02-PLAN.md — pull_request webhook branch, VerifierQueue, workers
-- [ ] 08-03-PLAN.md — Builder skip promote, agent:builder label, Verifier promotion/comment
+- [x] 08-01-PLAN.md — Verifier runner (VerifierJob, workspace, process_verifier_job)
+- [x] 08-02-PLAN.md — pull_request webhook branch, VerifierQueue, workers
+- [x] 08-03-PLAN.md — Builder skip promote, agent:builder label, Verifier promotion/comment
 
 **Success criteria:**
 1. Webhook accepts `pull_request` (opened, synchronize); enqueues VerifierJob
@@ -131,7 +131,7 @@ Plans:
 | 5. Test Generation | v1.1 | Unit tests for changed files | Complete |
 | 6. PR Promotion | v1.1 | Draft → ready when green | Complete |
 | 7. GitHub App + Checks | v1.2 | Checks API integration | Complete |
-| 8. Verifier Runner | v1.2 | PR webhook, clone, test, check | Pending |
+| 8. Verifier Runner | v1.2 | PR webhook, clone, test, check | Complete |
 | 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Pending |
 | 10. Import/Compile Detection | v1.2 | Hallucination detection | Pending |
 

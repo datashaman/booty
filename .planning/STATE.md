@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 8 (pull_request Webhook + Verifier Runner)
+Phase: 9 (Diff Limits + .booty.yml Schema v1)
 Plan: —
-Status: Phase 7 complete
-Last activity: 2026-02-15 — Phase 7 executed
+Status: Phase 8 complete
+Last activity: 2026-02-15 — Phase 8 executed
 
-Progress: [██░░░░░░░░] 20% (v1.2 Phase 7 complete)
+Progress: [███░░░░░░░] 30% (v1.2 Phase 8 complete)
 
 ## Accumulated Context
 
@@ -32,6 +32,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (milestone completion)
-Stopped at: v1.1 archived, tagged
-Next step: `/gsd:new-milestone` — start next milestone (questioning → research → requirements → roadmap)
+Last session: 2026-02-15 (Phase 8 execution)
+Stopped at: Phase 8 complete, Verifier runner live
+Next step: `/gsd:discuss-phase 9` — gather context for Diff Limits + Schema
