@@ -47,6 +47,13 @@ Add Verifier agent that runs on every PR, runs tests in clean env, enforces diff
 
 **Requirements:** VERIFY-01
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Settings extension, verifier enabled check, startup log
+- [ ] 07-02-PLAN.md — checks.py with create_check_run (App auth)
+- [ ] 07-03-PLAN.md — CLI (booty status, booty verifier check-test), docs
+
 **Success criteria:**
 1. Settings include GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY (optional when empty — Verifier disabled)
 2. `booty/github/checks.py` creates check run via `repo.create_check_run()` with App token
