@@ -1,11 +1,15 @@
 """FastAPI application entrypoint."""
 
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from importlib.metadata import version, PackageNotFoundError
 
+import sentry_sdk
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings, verifier_enabled
@@ -90,6 +94,40 @@ async def process_job(job: Job) -> None:
             logger.info("job_completed_successfully", pr_number=pr_number)
 
 
+def _init_sentry(settings) -> None:
+    """Initialize Sentry SDK. Production without DSN fails startup."""
+    env = (settings.SENTRY_ENVIRONMENT or "development").lower()
+    is_production = env in ("production", "prod")
+    dsn = (settings.SENTRY_DSN or "").strip()
+
+    if not dsn:
+        if is_production:
+            get_logger().error(
+                "sentry_disabled",
+                msg="Sentry disabled — production requires DSN; refusing to start",
+            )
+            sys.exit(1)
+        get_logger().info(
+            "sentry_disabled",
+            msg="Sentry disabled — no DSN configured",
+            environment=env or "development",
+        )
+        return
+
+    release = settings.SENTRY_RELEASE.strip() or None  # Never empty string
+    sentry_sdk.init(
+        dsn=dsn,
+        release=release,
+        environment=settings.SENTRY_ENVIRONMENT,
+        sample_rate=settings.SENTRY_SAMPLE_RATE,
+        traces_sample_rate=0,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+        ],
+    )
+
+
 async def _process_verifier_job(job: VerifierJob) -> None:
     """Wrapper to pass settings and job_queue to process_verifier_job."""
     settings = get_settings()
@@ -110,6 +148,9 @@ async def lifespan(app: FastAPI):
     # Startup
     configure_logging(settings.LOG_LEVEL)
     logger.info("app_starting", worker_count=settings.WORKER_COUNT)
+
+    # Sentry init (before job queue — must run before any traffic)
+    _init_sentry(settings)
 
     if not verifier_enabled(settings):
         logger.info(
