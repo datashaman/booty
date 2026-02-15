@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.2 Verifier Agent (Shipped: 2026-02-15)
+
+**Delivered:** Verifier agent runs on every PR, runs tests in clean env, enforces diff limits, validates .booty.yml, detects import/compile failures, posts check run `booty/verifier`.
+
+**Phases completed:** 7-10 (12 plans total)
+
+**Key accomplishments:**
+
+- GitHub App + Checks API integration (create_check_run, edit_check_run) with booty status and booty verifier check-test CLI
+- Verifier runner with VerifierJob, prepare_verification_workspace, process_verifier_job — check lifecycle queued → in_progress → completed
+- pull_request webhook, VerifierQueue with dedup, agent:builder label, Builder never promotes — Verifier owns promotion and failure comments
+- BootyConfigV1 schema with load_booty_config_from_content; verifier/limits.py (max_files_changed, max_diff_loc, max_loc_per_file)
+- verifier/imports.py: compile_sweep, validate_imports; full pipeline setup → install → import/compile → tests
+- 12/12 v1.2 requirements satisfied; milestone audit passed
+
+**Stats:**
+
+- 68 files modified (v1.1..v1.2)
+- 5,615 lines of Python (total)
+- 4 phases, 12 plans
+- 1 day from v1.1 to ship (2026-02-15)
+
+**Git range:** `0238b69` (docs: start milestone v1.2) → `aaca2ee` (Merge PR #9)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.1 Test Generation & PR Promotion (Shipped: 2026-02-15)
 
 **Delivered:** Builder generates unit tests for all changed files and promotes draft PRs to ready-for-review when tests and linting pass.

@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Milestone v1.2 Verifier Agent
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 10 (Import/Compile Detection)
+Phase: —
 Plan: —
-Status: Phase 10 complete
-Last activity: 2026-02-15 — Phase 10 executed
+Status: v1.2 milestone complete
+Last activity: 2026-02-15 — v1.2 archived
 
 Progress: [██████████] 100% (v1.2 complete)
 
@@ -32,6 +32,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (Phase 10 execution)
-Stopped at: Phase 10 complete, v1.2 milestone complete
-Next step: `/gsd:audit-milestone` — verify v1.2 requirements
+Last session: 2026-02-15 (v1.2 milestone completion)
+Stopped at: Milestone archived, tagged v1.2
+Next step: `/gsd:new-milestone` — start next milestone (questioning → research → requirements → roadmap)

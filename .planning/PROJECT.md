@@ -27,13 +27,17 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Builder generates unit tests for changed files in every PR — v1.1
 - ✓ Builder promotes PR from draft to ready-for-review when all tests pass — v1.1
 
+### Validated (v1.2)
+
+- ✓ Verifier agent runs on every PR, enforces gates only for agent PRs — v1.2
+- ✓ Verifier runs tests in clean env, blocks PR if red (promotion + Checks API) — v1.2
+- ✓ Verifier enforces diff limits (max_files_changed, max_diff_loc, max_loc_per_file) — v1.2
+- ✓ Verifier validates .booty.yml schema — v1.2
+- ✓ Verifier detects hallucinated imports / compile failures — v1.2
+
 ### Active
 
-- [ ] Verifier agent runs on every PR, enforces gates only for agent PRs — v1.2
-- [ ] Verifier runs tests in clean env, blocks PR if red (promotion + Checks API) — v1.2
-- [ ] Verifier enforces diff limits (max_files_changed, max_diff_loc, max_loc_per_file) — v1.2
-- [ ] Verifier validates .booty.yml schema — v1.2
-- [ ] Verifier detects hallucinated imports / compile failures — v1.2
+(None — run `/gsd:new-milestone` to define next milestone requirements)
 
 ### Out of Scope
 
@@ -48,9 +52,10 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 
 Shipped v1.0 with 3,012 LOC Python across 77 files.
 Shipped v1.1 with test generation (convention detection, AST import validation) and PR promotion (draft → ready when tests+lint pass).
+Shipped v1.2 with Verifier agent (GitHub Checks API, pull_request webhook, diff limits, .booty.yml schema v1, import/compile detection).
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings.
-All v1.0 and v1.1 requirements satisfied.
-Self-modification capability active with protected paths and quality gates.
+All v1.0, v1.1, v1.2 requirements satisfied.
+Self-modification capability active with Verifier gates and protected paths.
 
 ## Constraints
 
@@ -79,22 +84,23 @@ Self-modification capability active with protected paths and quality gates.
 | Multi-criteria PR promotion | Tests + linting + not self-modification | ✓ Good — v1.1 |
 | AST parsing for import extraction | Handles edge cases vs regex | ✓ Good — v1.1 |
 | File extension counting for language detection | 99%+ accuracy, zero dependencies | ✓ Good — v1.1 |
+| GitHub App auth for Checks API | Verifier needs App token for check runs | ✓ Good — v1.2 |
+| Builder never promotes; Verifier owns agent PR promotion | Clear ownership; single promotion path | ✓ Good — v1.2 |
+| Early validation (schema + limits) before clone for agent PRs | Fail fast, no wasted clone | ✓ Good — v1.2 |
+| install_command required for agent PRs with BootyConfigV1 | Import validation needs deps installed | ✓ Good — v1.2 |
 
 ## Current State
 
-**Shipped:** v1.1 (2026-02-15)
-**Current Milestone:** v1.2 Verifier Agent
+**Shipped:** v1.2 (2026-02-15)
+**Current Milestone:** Planning next — run `/gsd:new-milestone`
 
-**Goal:** Add a Verifier agent that gates Builder output. Builder increases mutation rate; Verifier controls error rate. Without Verifier, capability scales faster than correctness → system destabilizes.
-
-**Target features:**
-- Verifier runs on every PR (universal visibility); enforces gates only for agent PRs (agent:builder label or bot author)
-- Required status check `booty/verifier` via GitHub Checks API — promotion control + hard merge gate
-- Run tests in clean env; block PR if red
-- Enforce diff limits: max_files_changed, max_diff_loc, max_loc_per_file (optional, safety-critical dirs)
-- Validate .booty.yml (schema_version: 1)
-- Detect hallucinated imports / compile failures
-- .booty.yml schema: test_command, setup_command?, timeout_seconds, max_retries, allowed_paths, forbidden_paths, allowed_commands, network_policy, labels
+**What shipped in v1.2:**
+- Verifier runs on every PR (universal visibility); enforces gates only for agent PRs
+- Required status check `booty/verifier` via GitHub Checks API
+- Tests run in clean env; PR blocked if red
+- Diff limits: max_files_changed, max_diff_loc, max_loc_per_file
+- .booty.yml schema v1 validation
+- Import/compile failure detection with annotations
 
 ---
-*Last updated: 2026-02-15 — Milestone v1.2 Verifier started*
+*Last updated: 2026-02-15 after v1.2 milestone*
