@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-02-14)
 - ✅ **v1.1 Test Generation & PR Promotion** — Phases 5-6 (shipped 2026-02-15)
-- 📋 **v1.2 Verifier Agent** — Phases 7-10 (in progress)
+- ✅ **v1.2 Verifier Agent** — Phases 7-10 (shipped 2026-02-15)
 
 ## Phases
 
@@ -31,11 +31,11 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) and [MILESTONES.md]
 </details>
 
 <details>
-<summary>📋 v1.2 Verifier Agent (Phases 7-10) — IN PROGRESS</summary>
+<summary>✅ v1.2 Verifier Agent (Phases 7-10) — SHIPPED 2026-02-15</summary>
 
-Add Verifier agent that runs on every PR, runs tests in clean env, enforces diff limits, validates .booty.yml, detects import/compile failures, posts check run `booty/verifier`.
+Verifier agent runs on every PR, runs tests in clean env, enforces diff limits, validates .booty.yml, detects import/compile failures, posts check run `booty/verifier`.
 
-**Requirements:** VERIFY-01 through VERIFY-12
+**Requirements:** VERIFY-01 through VERIFY-12 (all complete)
 
 </details>
 
@@ -117,6 +117,13 @@ Plans:
 
 **Requirements:** VERIFY-11, VERIFY-12
 
+**Plans:** 3 plans
+
+Plans:
+- [x] 10-01-PLAN.md — install_command schema, BootyConfigV1
+- [x] 10-02-PLAN.md — verifier/imports.py (compile sweep, import validation)
+- [x] 10-03-PLAN.md — Wire runner: execution order, annotations
+
 **Success criteria:**
 1. Verifier parses changed files (AST); validates imports resolve to existing modules
 2. Unresolvable import → check failure with clear message
@@ -140,7 +147,7 @@ Plans:
 | 7. GitHub App + Checks | v1.2 | Checks API integration | Complete |
 | 8. Verifier Runner | v1.2 | PR webhook, clone, test, check | Complete |
 | 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Complete |
-| 10. Import/Compile Detection | v1.2 | Hallucination detection | Pending |
+| 10. Import/Compile Detection | v1.2 | Hallucination detection | Complete |
 
 ---
 *Last updated: 2026-02-15 — v1.2 roadmap created*

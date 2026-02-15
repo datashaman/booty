@@ -28,8 +28,8 @@ Requirements for Verifier agent milestone. Each maps to roadmap phases.
 
 ### Correctness Detection
 
-- [ ] **VERIFY-11**: Verifier detects hallucinated imports (AST validation; imports must resolve)
-- [ ] **VERIFY-12**: Verifier detects compile failures (setup_command / early test failure capture)
+- [x] **VERIFY-11**: Verifier detects hallucinated imports (AST validation; imports must resolve)
+- [x] **VERIFY-12**: Verifier detects compile failures (setup_command / early test failure capture)
 
 ## Future Requirements
 
@@ -68,8 +68,8 @@ Which phases cover which requirements.
 | VERIFY-08 | Phase 9 | Complete |
 | VERIFY-09 | Phase 9 | Complete |
 | VERIFY-10 | Phase 9 | Complete |
-| VERIFY-11 | Phase 10 | Pending |
-| VERIFY-12 | Phase 10 | Pending |
+| VERIFY-11 | Phase 10 | Complete |
+| VERIFY-12 | Phase 10 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 12 total
