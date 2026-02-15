@@ -326,10 +326,13 @@ async def process_verifier_job(
             if py_files:
                 file_paths = [Path(f) for f in py_files]
                 compile_errors = compile_sweep(file_paths, workspace_path)
+                # Skip import validation for test files — they use dev deps (pytest, etc.)
+                # which may not be in Booty's environment when using sys.executable
+                src_paths = [p for p in file_paths if "tests" not in p.parts and not p.name.startswith("test_")]
                 has_install = bool(getattr(config, "install_command", None) or "")
                 import_errors = (
-                    await validate_imports(file_paths, workspace_path)
-                    if has_install
+                    await validate_imports(src_paths, workspace_path)
+                    if has_install and src_paths
                     else []
                 )
                 all_annotations = compile_errors + import_errors
