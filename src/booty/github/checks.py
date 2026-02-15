@@ -98,6 +98,10 @@ def edit_check_run(
 
     Used for queued → in_progress → completed lifecycle transitions.
     Only non-None kwargs are passed to check_run.edit().
+
+    Output may include "annotations" array (GitHub API limit 50 per request).
+    Each annotation: path, start_line, end_line, annotation_level (notice|warning|failure),
+    message, title.
     """
     kwargs: dict[str, Any] = {}
     if status is not None:

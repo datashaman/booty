@@ -10,9 +10,20 @@ from booty.github.checks import create_check_run, edit_check_run, get_verifier_r
 from booty.github.comments import post_verifier_failure_comment
 from booty.github.promotion import promote_to_ready_for_review
 from booty.logging import get_logger
-from booty.test_runner.config import BootyConfig, load_booty_config, load_booty_config_from_content
+from booty.test_runner.config import (
+    BootyConfig,
+    BootyConfigV1,
+    load_booty_config,
+    load_booty_config_from_content,
+)
 from booty.test_runner.executor import execute_tests
 
+from booty.verifier.imports import (
+    compile_sweep,
+    parse_setup_stderr,
+    prepare_check_annotations,
+    validate_imports,
+)
 from booty.verifier.job import VerifierJob
 from booty.verifier.limits import (
     check_diff_limits,
@@ -126,8 +137,128 @@ async def process_verifier_job(job: VerifierJob, settings: Settings) -> None:
                 logger.info("check_failed_schema", job_id=job.job_id)
                 return
 
+            workspace_path = Path(workspace.path)
+
+            # Phase 10: setup → install → import/compile sweep → tests
+            if isinstance(config, BootyConfigV1):
+                if job.is_agent_pr and getattr(config, "install_command", None) in (
+                    None,
+                    "",
+                ):
+                    edit_check_run(
+                        check_run,
+                        status="completed",
+                        conclusion="failure",
+                        output={
+                            "title": "Verifier failed — Config required",
+                            "summary": "Config required for agent PRs: install_command.",
+                        },
+                    )
+                    logger.info("check_failed_config", job_id=job.job_id)
+                    return
+
+                if config.setup_command:
+                    setup_result = await execute_tests(
+                        config.setup_command, config.timeout, workspace_path
+                    )
+                    if setup_result.exit_code != 0:
+                        setup_annotations = parse_setup_stderr(
+                            setup_result.stderr or "", workspace_path
+                        )
+                        ann, truncated = prepare_check_annotations(
+                            setup_annotations, 50
+                        )
+                        summary = setup_result.stderr[:500] or "setup_command failed."
+                        if truncated:
+                            summary += " Too many errors — showing first 50."
+                        edit_check_run(
+                            check_run,
+                            status="completed",
+                            conclusion="failure",
+                            output={
+                                "title": "Verifier failed — Compile errors",
+                                "summary": summary,
+                                "annotations": ann,
+                            },
+                        )
+                        logger.info("check_failed_setup", job_id=job.job_id)
+                        return
+
+                if config.install_command:
+                    install_result = await execute_tests(
+                        config.install_command, config.timeout, workspace_path
+                    )
+                    if install_result.exit_code != 0:
+                        summary = (
+                            (install_result.stderr or "install_command failed")[:500]
+                        )
+                        edit_check_run(
+                            check_run,
+                            status="completed",
+                            conclusion="failure",
+                            output={
+                                "title": "Verifier failed — Install failed",
+                                "summary": summary,
+                            },
+                        )
+                        logger.info("check_failed_install", job_id=job.job_id)
+                        return
+
+            # Import/compile sweep: get changed .py files
+            py_files: list[str] = []
+            repo = get_verifier_repo(
+                job.owner, job.repo_name, job.installation_id, settings
+            )
+            if repo is not None:
+                stats = get_pr_diff_stats(repo, job.pr_number)
+                py_files = [
+                    f.filename for f in stats.files if f.filename.endswith(".py")
+                ]
+
+            if py_files:
+                file_paths = [Path(f) for f in py_files]
+                compile_errors = compile_sweep(file_paths, workspace_path)
+                has_install = bool(getattr(config, "install_command", None) or "")
+                import_errors = (
+                    await validate_imports(file_paths, workspace_path)
+                    if has_install
+                    else []
+                )
+                all_annotations = compile_errors + import_errors
+                annotations, truncated = prepare_check_annotations(
+                    all_annotations, 50
+                )
+                if annotations:
+                    has_compile = bool(compile_errors)
+                    has_import = bool(import_errors)
+                    if has_compile and has_import:
+                        title = "Verifier failed — Multiple failure classes"
+                    elif has_compile:
+                        title = "Verifier failed — Compile errors"
+                    else:
+                        title = "Verifier failed — Import errors"
+                    n_import, n_compile = len(import_errors), len(compile_errors)
+                    summary = (
+                        f"{n_import} import errors, {n_compile} compile errors. "
+                        "Tests not run."
+                    )
+                    if truncated:
+                        summary += " Too many errors — showing first 50."
+                    edit_check_run(
+                        check_run,
+                        status="completed",
+                        conclusion="failure",
+                        output={
+                            "title": title,
+                            "summary": summary,
+                            "annotations": annotations,
+                        },
+                    )
+                    logger.info("check_failed_import_compile", job_id=job.job_id)
+                    return
+
             result = await execute_tests(
-                config.test_command, config.timeout, Path(workspace.path)
+                config.test_command, config.timeout, workspace_path
             )
 
             tests_passed = result.exit_code == 0 and not result.timed_out
