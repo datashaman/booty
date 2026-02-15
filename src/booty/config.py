@@ -40,6 +40,11 @@ class Settings(BaseSettings):
 
     # Sentry error tracking
     SENTRY_DSN: str = ""  # Empty = not configured
+
+    # Observability agent (Sentry webhook)
+    SENTRY_WEBHOOK_SECRET: str  # Required, no default — fail startup if missing
+    OBSV_MIN_SEVERITY: str = "error"  # fatal, error, warning, info, debug — default error and above
+    OBSV_COOLDOWN_HOURS: float = 6.0
     SENTRY_RELEASE: str = ""  # Optional; deploy sets from git rev-parse
     SENTRY_ENVIRONMENT: str = "development"
     SENTRY_SAMPLE_RATE: float = 1.0

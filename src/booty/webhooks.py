@@ -2,7 +2,9 @@
 
 import hmac
 import hashlib
+import json
 import re
+import time
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -16,6 +18,42 @@ from booty.verifier import VerifierJob
 
 
 router = APIRouter(prefix="/webhooks")
+
+# In-memory cooldown: issue_id -> last_created_ts
+_obsv_seen: dict[str, float] = {}
+
+
+def _severity_rank(level: str) -> int:
+    """Return numeric rank for severity (lower = more severe). Filter pass when rank <= min rank."""
+    return {
+        "fatal": 0,
+        "error": 1,
+        "warning": 2,
+        "info": 3,
+        "debug": 4,
+    }.get(level.lower(), 99)
+
+
+def verify_sentry_signature(
+    payload_body: bytes, secret: str, sig_header: str | None
+) -> None:
+    """Verify Sentry webhook HMAC-SHA256 signature.
+
+    Args:
+        payload_body: Raw request body bytes
+        secret: Webhook secret from SENTRY_WEBHOOK_SECRET
+        sig_header: Sentry-Hook-Signature header value
+
+    Raises:
+        HTTPException: 401 if signature missing or mismatch
+    """
+    if not sig_header:
+        raise HTTPException(status_code=401, detail="invalid_signature")
+    expected = hmac.new(
+        secret.encode("utf-8"), payload_body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected, sig_header):
+        raise HTTPException(status_code=401, detail="invalid_signature")
 
 
 def verify_signature(
@@ -227,3 +265,76 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     return JSONResponse(
         status_code=202, content={"status": "accepted", "job_id": job_id}
     )
+
+
+@router.post("/sentry")
+async def sentry_webhook(request: Request):
+    """Handle Sentry event_alert webhooks.
+
+    Verifies HMAC-SHA256, filters by resource/severity/cooldown, and returns
+    status. Issue creation is delegated to Plan 02.
+    """
+    logger = get_logger()
+    settings = get_settings()
+
+    payload_body = await request.body()
+    sig_header = (
+        request.headers.get("Sentry-Hook-Signature")
+        or request.headers.get("sentry-hook-signature")
+    )
+
+    try:
+        verify_sentry_signature(payload_body, settings.SENTRY_WEBHOOK_SECRET, sig_header)
+    except HTTPException:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "invalid_signature"},
+        )
+
+    resource = request.headers.get("Sentry-Hook-Resource")
+    if resource != "event_alert":
+        return {"status": "ignored", "reason": "not_event_alert"}
+
+    try:
+        payload = json.loads(payload_body)
+    except json.JSONDecodeError:
+        return JSONResponse(
+            status_code=422,
+            content={"error": "invalid_payload", "missing": ["valid_json"]},
+        )
+
+    if payload.get("action") != "triggered":
+        return {"status": "ignored", "reason": "not_triggered"}
+
+    data = payload.get("data", {})
+    event = data.get("event")
+    if not event:
+        return JSONResponse(
+            status_code=422,
+            content={"error": "invalid_payload", "missing": ["data.event"]},
+        )
+
+    issue_id = event.get("issue_id")
+    level = event.get("level", "error")
+
+    missing = []
+    if issue_id is None:
+        missing.append("issue_id")
+    if not level:
+        missing.append("level")
+    if missing:
+        return JSONResponse(
+            status_code=422,
+            content={"error": "invalid_payload", "missing": missing},
+        )
+
+    if _severity_rank(level) > _severity_rank(settings.OBSV_MIN_SEVERITY):
+        return {"status": "ignored", "reason": "below_threshold"}
+
+    now = time.time()
+    window_sec = settings.OBSV_COOLDOWN_HOURS * 3600
+    if issue_id in _obsv_seen and (now - _obsv_seen[issue_id]) < window_sec:
+        return {"status": "ignored", "reason": "cooldown"}
+
+    _obsv_seen[issue_id] = now
+    return {"status": "accepted", "issue_id": issue_id}
