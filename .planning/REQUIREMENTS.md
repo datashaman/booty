@@ -39,20 +39,20 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TGEN-01 | — | Pending |
-| TGEN-02 | — | Pending |
-| TGEN-03 | — | Pending |
-| TGEN-04 | — | Pending |
-| TGEN-05 | — | Pending |
-| PRMO-01 | — | Pending |
-| PRMO-02 | — | Pending |
-| PRMO-03 | — | Pending |
+| TGEN-01 | Phase 5 | Pending |
+| TGEN-02 | Phase 5 | Pending |
+| TGEN-03 | Phase 5 | Pending |
+| TGEN-04 | Phase 5 | Pending |
+| TGEN-05 | Phase 5 | Pending |
+| PRMO-01 | Phase 6 | Pending |
+| PRMO-02 | Phase 6 | Pending |
+| PRMO-03 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 ⚠️
+- Mapped to phases: 8
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after initial definition*
+*Last updated: 2026-02-15 after roadmap creation*
