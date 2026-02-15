@@ -215,3 +215,29 @@ class JobQueue:
             }
             for job in recent_jobs
         ]
+
+    def get_job_stats(self) -> dict[str, int]:
+        """Get job statistics by state.
+
+        Returns:
+            Dictionary with counts of jobs in each state
+        """
+        stats = {
+            "queued": 0,
+            "running": 0,
+            "completed": 0,
+            "failed": 0,
+        }
+
+        for job in self.jobs.values():
+            stats[job.state.value] += 1
+
+        return stats
+
+    def get_active_worker_count(self) -> int:
+        """Get number of active workers.
+
+        Returns:
+            Number of active worker tasks
+        """
+        return len(self._worker_tasks)

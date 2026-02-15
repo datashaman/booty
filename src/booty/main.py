@@ -1,6 +1,7 @@
 """FastAPI application entrypoint."""
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
@@ -14,8 +15,9 @@ from booty.repositories import prepare_workspace
 from booty.webhooks import router as webhook_router
 
 
-# Module-level job queue
+# Module-level job queue and app start time
 job_queue: JobQueue | None = None
+app_start_time: datetime | None = None
 
 
 async def process_job(job: Job) -> None:
@@ -64,7 +66,7 @@ async def lifespan(app: FastAPI):
 
     Configures logging, starts workers on startup, shuts down on exit.
     """
-    global job_queue
+    global job_queue, app_start_time
 
     settings = get_settings()
     logger = get_logger()
@@ -72,6 +74,9 @@ async def lifespan(app: FastAPI):
     # Startup
     configure_logging(settings.LOG_LEVEL)
     logger.info("app_starting", worker_count=settings.WORKER_COUNT)
+
+    # Record app start time
+    app_start_time = datetime.now(timezone.utc)
 
     job_queue = JobQueue(maxsize=settings.QUEUE_MAX_SIZE)
     await job_queue.start_workers(settings.WORKER_COUNT, process_job)
@@ -125,3 +130,42 @@ async def list_jobs():
 
     jobs = job_queue.get_recent_jobs(limit=100)
     return {"jobs": jobs, "total": len(jobs)}
+
+
+@app.get("/info")
+async def info():
+    """Runtime diagnostics endpoint.
+
+    Returns:
+        dict: JSON response with app version, job statistics, worker count, and uptime
+    """
+    if job_queue is None or app_start_time is None:
+        return {
+            "error": "Application not fully initialized",
+            "version": "1.0.0",
+            "uptime_seconds": 0,
+        }
+
+    # Calculate uptime
+    current_time = datetime.now(timezone.utc)
+    uptime_seconds = int((current_time - app_start_time).total_seconds())
+
+    # Get job statistics
+    job_stats = job_queue.get_job_stats()
+
+    # Get active worker count
+    active_workers = job_queue.get_active_worker_count()
+
+    return {
+        "version": "1.0.0",
+        "uptime_seconds": uptime_seconds,
+        "jobs": {
+            "queued": job_stats["queued"],
+            "running": job_stats["running"],
+            "completed": job_stats["completed"],
+            "failed": job_stats["failed"],
+        },
+        "workers": {
+            "active": active_workers,
+        },
+    }
