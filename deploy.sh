@@ -43,7 +43,7 @@ fi
 
 # Generate nginx config from template
 export SERVER_NAME
-envsubst '${SERVER_NAME}' < booty.conf > /tmp/booty.conf
+envsubst '${SERVER_NAME}' < deploy/booty.conf > /tmp/booty.conf
 sudo cp /tmp/booty.conf /etc/nginx/sites-available/booty.conf
 rm /tmp/booty.conf
 
@@ -55,7 +55,7 @@ sudo nginx -t && sudo systemctl restart nginx
 
 # Deploy systemd service
 export INSTALL_DIR
-envsubst '${INSTALL_DIR}' < booty.service > /tmp/booty.service
+envsubst '${INSTALL_DIR}' < deploy/booty.service > /tmp/booty.service
 sudo cp /tmp/booty.service "/etc/systemd/system/${SERVICE_NAME}.service"
 rm /tmp/booty.service
 sudo systemctl daemon-reload
