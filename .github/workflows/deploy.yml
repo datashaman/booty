@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:  # Manual deploy when paths-filter would skip
 
 jobs:
   deploy:
@@ -30,6 +31,7 @@ jobs:
       - name: Deploy filter
         id: deploy_filter
         uses: dorny/paths-filter@v3
+        if: github.event_name != 'workflow_dispatch'
         with:
           base: ${{ github.ref }}
           filters: |
@@ -45,18 +47,18 @@ jobs:
               - '.github/workflows/deploy*.yml'
 
       - name: Skip deploy if no relevant changes
-        if: steps.deploy_filter.outputs.deploy != 'true'
+        if: github.event_name != 'workflow_dispatch' && steps.deploy_filter.outputs.deploy != 'true'
         run: |
           echo "No deploy-relevant changes" >> $GITHUB_STEP_SUMMARY
 
       - name: Load SSH key
-        if: steps.deploy_filter.outputs.deploy == 'true'
+        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy
-        if: steps.deploy_filter.outputs.deploy == 'true'
+        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         id: deploy
         run: |
           export DEPLOY_HOST SERVER_NAME REPO_URL
@@ -87,7 +89,7 @@ jobs:
           fi
 
       - name: Health check
-        if: steps.deploy_filter.outputs.deploy == 'true' && steps.deploy.outputs.deploy_transport_success == 'true'
+        if: ((github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')) && steps.deploy.outputs.deploy_transport_success == 'true'
         id: health
         run: |
           for i in $(seq 1 10); do
