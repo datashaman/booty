@@ -37,10 +37,11 @@ See MILESTONES.md for details.
   4. Generated test imports are verified against installed packages before execution (no hallucinated dependencies)
   5. All generated tests pass before PR is finalized
 
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (determined during `/gsd:plan-phase 5`)
+- [ ] 05-01-PLAN.md — Convention detection and import validation module
+- [ ] 05-02-PLAN.md — LLM integration and pipeline wiring
 
 #### Phase 6: PR Promotion
 
@@ -69,8 +70,8 @@ Plans:
 | 2. GitHub Integration | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 3. Test-Driven Refinement | v1.0 | 4/4 | Complete | 2026-02-14 |
 | 4. Self-Modification Safety | v1.0 | 3/3 | Complete | 2026-02-14 |
-| 5. Test Generation | v1.1 | 0/TBD | Not started | - |
+| 5. Test Generation | v1.1 | 0/2 | In progress | - |
 | 6. PR Promotion | v1.1 | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after v1.1 roadmap creation*
+*Last updated: 2026-02-15 after Phase 5 planning*
