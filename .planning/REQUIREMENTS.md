@@ -21,14 +21,14 @@ Requirements for milestone v1.3. Each maps to roadmap phases.
 
 ### Observability Agent
 
-- [ ] **OBSV-01**: Observability agent exposes POST webhook route for Sentry alerts
-- [ ] **OBSV-02**: Webhook verifies Sentry-Hook-Signature via HMAC-SHA256 before processing
-- [ ] **OBSV-03**: Filter by configurable severity threshold (e.g., error and above)
-- [ ] **OBSV-04**: Deduplicate by error fingerprint (one issue per unique error pattern)
-- [ ] **OBSV-05**: Cooldown per fingerprint prevents duplicate issues within configurable window
-- [ ] **OBSV-06**: Creates GitHub issue with agent:builder label when alert passes filters
-- [ ] **OBSV-07**: Issue body includes severity, release/SHA, environment, repro breadcrumbs (from Sentry event)
-- [ ] **OBSV-08**: Alert-to-issue correlation: issue links to Sentry event/issue for traceability
+- [x] **OBSV-01**: Observability agent exposes POST webhook route for Sentry alerts
+- [x] **OBSV-02**: Webhook verifies Sentry-Hook-Signature via HMAC-SHA256 before processing
+- [x] **OBSV-03**: Filter by configurable severity threshold (e.g., error and above)
+- [x] **OBSV-04**: Deduplicate by error fingerprint (one issue per unique error pattern)
+- [x] **OBSV-05**: Cooldown per fingerprint prevents duplicate issues within configurable window
+- [x] **OBSV-06**: Creates GitHub issue with agent:builder label when alert passes filters
+- [x] **OBSV-07**: Issue body includes severity, release/SHA, environment, repro breadcrumbs (from Sentry event)
+- [x] **OBSV-08**: Alert-to-issue correlation: issue links to Sentry event/issue for traceability
 
 ## Future Requirements (v1.x+)
 
@@ -66,14 +66,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APM-01 | Phase 12 | Complete |
 | APM-02 | Phase 12 | Complete |
 | APM-03 | Phase 12 | Complete |
-| OBSV-01 | Phase 13 | Pending |
-| OBSV-02 | Phase 13 | Pending |
-| OBSV-03 | Phase 13 | Pending |
-| OBSV-04 | Phase 13 | Pending |
-| OBSV-05 | Phase 13 | Pending |
-| OBSV-06 | Phase 13 | Pending |
-| OBSV-07 | Phase 13 | Pending |
-| OBSV-08 | Phase 13 | Pending |
+| OBSV-01 | Phase 13 | Complete |
+| OBSV-02 | Phase 13 | Complete |
+| OBSV-03 | Phase 13 | Complete |
+| OBSV-04 | Phase 13 | Complete |
+| OBSV-05 | Phase 13 | Complete |
+| OBSV-06 | Phase 13 | Complete |
+| OBSV-07 | Phase 13 | Complete |
+| OBSV-08 | Phase 13 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 15 total

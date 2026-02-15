@@ -5,7 +5,7 @@
 - ✅ **v1.0 MVP** — Phases 1-4 (shipped 2026-02-14)
 - ✅ **v1.1 Test Generation & PR Promotion** — Phases 5-6 (shipped 2026-02-15)
 - ✅ **v1.2 Verifier Agent** — Phases 7-10 (shipped 2026-02-15)
-- ◇ **v1.3 Observability** — Phases 11-13 (in progress)
+- ✅ **v1.3 Observability** — Phases 11-13 (shipped 2026-02-15)
 
 ## Phases
 
@@ -60,7 +60,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 | 10. Import/Compile Detection | v1.2 | Hallucination detection | Complete |
 | 11. Deploy Automation | v1.3 | GitHub Actions → SSH → DO, deploy.sh | Complete |
 | 12. Sentry APM | v1.3 | Error tracking, release/SHA correlation | Complete |
-| 13. Observability Agent | v1.3 | Sentry webhook → filter → GitHub issues | Pending |
+| 13. Observability Agent | v1.3 | Sentry webhook → filter → GitHub issues | Complete |
 
 ---
 
@@ -113,8 +113,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Webhook route, HMAC verify, severity/dedup/cooldown filters
-- [ ] 13-02-PLAN.md — Issue body builder, create_issue, retry, spool, wire to route
+- [x] 13-01-PLAN.md — Webhook route, HMAC verify, severity/dedup/cooldown filters
+- [x] 13-02-PLAN.md — Issue body builder, create_issue, retry, spool, wire to route
 
 **Success criteria:**
 1. POST route for Sentry webhook (e.g., `/webhooks/sentry`)
