@@ -63,6 +63,7 @@ def generate_code_changes(
     file_contents: dict[str, str],
     issue_title: str,
     issue_body: str,
+    test_conventions: str = "",
 ) -> CodeGenerationPlan:
     """Generate code changes as complete file contents.
 
@@ -71,6 +72,7 @@ def generate_code_changes(
         file_contents: Dict of file path -> current content for files to modify
         issue_title: Issue title text
         issue_body: Issue body/description text
+        test_conventions: Formatted test conventions string (empty if none detected)
 
     Returns:
         CodeGenerationPlan with complete file contents for all changes
@@ -79,7 +81,7 @@ def generate_code_changes(
     file_contents_formatted = _format_file_contents(file_contents)
 
     return _generate_code_changes_impl(
-        analysis_summary, file_contents_formatted, issue_title, issue_body
+        analysis_summary, file_contents_formatted, issue_title, issue_body, test_conventions
     )
 
 
@@ -105,6 +107,8 @@ Analysis summary:
 Current file contents:
 {file_contents_formatted}
 
+{test_conventions}
+
 Requirements:
 1. Generate COMPLETE file contents (not diffs or patches)
 2. For new files, provide full content from scratch
@@ -113,6 +117,13 @@ Requirements:
 5. Follow the existing code style and conventions visible in the provided files
 6. Ensure all imports are present and correct
 7. Include clear explanations of what changed and why
+
+Test Generation (when test conventions are provided above):
+- Generate unit test files for all changed source files
+- Place test files in the `test_files` array, NOT in the `changes` array
+- Follow the repository test conventions described above
+- Use ONLY imports that exist in the project dependencies - DO NOT hallucinate package names
+- Each test file should cover happy path and basic edge cases
 
 CRITICAL: Return the FULL file content, not a diff. The content field should contain the complete file as it should exist after the changes.
 """,
@@ -123,6 +134,7 @@ def _generate_code_changes_impl(
     file_contents_formatted: str,
     issue_title: str,
     issue_body: str,
+    test_conventions: str,
 ) -> CodeGenerationPlan:
     """Internal implementation of code generation with formatted file contents.
 
@@ -131,6 +143,7 @@ def _generate_code_changes_impl(
         file_contents_formatted: Pre-formatted string of file contents
         issue_title: Issue title text
         issue_body: Issue body/description text
+        test_conventions: Formatted test conventions string (empty if none detected)
 
     Returns:
         CodeGenerationPlan with complete file contents for all changes
@@ -160,6 +173,7 @@ def regenerate_code_changes(
     failed_files: str,
     issue_title: str,
     issue_body: str,
+    test_conventions: str = "",
 ) -> CodeGenerationPlan:
     """Regenerate code for failing tests.
 
@@ -170,6 +184,7 @@ def regenerate_code_changes(
         failed_files: Comma-separated list of files identified in failures
         issue_title: Issue title text
         issue_body: Issue body/description text
+        test_conventions: Formatted test conventions string (empty if none detected)
 
     Returns:
         CodeGenerationPlan with regenerated file contents for failing files
@@ -184,6 +199,7 @@ def regenerate_code_changes(
         failed_files,
         issue_title,
         issue_body,
+        test_conventions,
     )
 
 
@@ -214,6 +230,8 @@ Test error output:
 
 Files identified in failure: {failed_files}
 
+{test_conventions}
+
 Requirements:
 1. Analyze the test error output carefully - understand what went wrong
 2. Regenerate ONLY the files that need fixing to resolve the test failure
@@ -223,6 +241,8 @@ Requirements:
 6. Focus on the specific error - don't over-modify or add unrelated changes
 7. Follow the existing code style and conventions visible in the provided files
 8. Ensure all imports are present and correct
+
+IMPORTANT: DO NOT modify test files. Only fix the source code to make existing tests pass.
 
 CRITICAL: Return the FULL file content for files being fixed, not a diff. The content field should contain the complete file as it should exist after the fix.
 """,
@@ -241,6 +261,7 @@ def _regenerate_code_changes_impl(
     failed_files: str,
     issue_title: str,
     issue_body: str,
+    test_conventions: str,
 ) -> CodeGenerationPlan:
     """Internal implementation of code regeneration with retry logic.
 
@@ -251,6 +272,7 @@ def _regenerate_code_changes_impl(
         failed_files: Comma-separated list of files identified in failures
         issue_title: Issue title text
         issue_body: Issue body/description text
+        test_conventions: Formatted test conventions string (empty if none detected)
 
     Returns:
         CodeGenerationPlan with regenerated file contents for failing files
