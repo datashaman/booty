@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.3 Observability (Shipped: 2026-02-15)
+
+**Delivered:** Close the post-merge loop — automated deployment via GitHub Actions, Sentry APM for error tracking, and Observability agent that turns Sentry alerts into GitHub issues with agent:builder label.
+
+**Phases completed:** 11-13 (5 plans total)
+
+**Key accomplishments:**
+
+- GitHub Actions deploy workflow (push to main, paths-filter, ssh-agent, deploy.sh, health check)
+- Sentry SDK integrated with FastAPI; release/env from deploy for correlation
+- capture_exception in job and verifier failure handlers; GET /internal/sentry-test for E2E
+- POST /webhooks/sentry with HMAC verify, severity/dedup/cooldown filters
+- create_issue_from_sentry_event with agent:builder label, retry, spool
+- 15/15 v1.3 requirements; milestone audit passed
+
+**Stats:**
+
+- 58 files modified (v1.2..v1.3)
+- 6,805 lines of Python (total)
+- 3 phases, 5 plans
+- 1 day from v1.2 to ship (2026-02-15)
+
+**Git range:** `3afc78a` (docs: start milestone v1.3) → `ca1885d` (Merge PR #13)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.2 Verifier Agent (Shipped: 2026-02-15)
 
 **Delivered:** Verifier agent runs on every PR, runs tests in clean env, enforces diff limits, validates .booty.yml, detects import/compile failures, posts check run `booty/verifier`.

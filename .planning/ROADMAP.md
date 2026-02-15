@@ -42,6 +42,17 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 
 </details>
 
+<details>
+<summary>✅ v1.3 Observability (Phases 11-13) — SHIPPED 2026-02-15</summary>
+
+Automated deployment via GitHub Actions; Sentry APM; observability agent (Sentry webhook → filtered → GitHub issues with agent:builder label).
+
+**Stats:** 58 files modified (v1.2..v1.3), 3 phases, 5 plans, 6,805 LOC Python
+
+See [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) and [MILESTONES.md](MILESTONES.md) for details.
+
+</details>
+
 ---
 
 ## Progress
@@ -63,68 +74,4 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 | 13. Observability Agent | v1.3 | Sentry webhook → filter → GitHub issues | Complete |
 
 ---
-
-## Phase Details (v1.3)
-
-### Phase 11: Deploy Automation
-
-**Goal:** Automated deployment via GitHub Actions — push to main triggers SSH to DigitalOcean, runs deploy.sh, restarts Booty.
-
-**Requirements:** DEPLOY-01, DEPLOY-02, DEPLOY-03
-
-**Plans:** 1 plan
-
-Plans:
-- [x] 11-01-PLAN.md — Deploy workflow (trigger, preflight, paths-filter, ssh-agent, deploy.sh, health check)
-
-**Success criteria:**
-1. Workflow file exists at `.github/workflows/deploy.yml`
-2. Workflow triggers on `push` to `main` branch
-3. Workflow SSHs to deploy host and executes deploy steps (or invokes deploy.sh)
-4. Booty service restarts after deploy
-5. SSH key stored as GitHub secret; not in workflow file
-
-### Phase 12: Sentry APM
-
-**Goal:** Sentry SDK integrated for error tracking; release and environment set for deploy correlation.
-
-**Requirements:** APM-01, APM-02, APM-03
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 12-01-PLAN.md — SDK integration (dependency, config, init, deploy release.env, systemd)
-- [x] 12-02-PLAN.md — capture_exception (job + verifier), verification test, manual route
-
-**Success criteria:**
-1. `sentry-sdk` added to dependencies
-2. `sentry_sdk.init()` called at app startup with DSN from env
-3. `release` set to git SHA (from env or deploy)
-4. `environment` set (e.g., "production")
-5. FastAPI integration enabled; unhandled exceptions captured
-6. Test: Trigger error in app; event appears in Sentry with correct release
-
-### Phase 13: Observability Agent
-
-**Goal:** Sentry webhook → verify → filter (severity, dedup, cooldown) → create GitHub issue with agent:builder label.
-
-**Requirements:** OBSV-01 through OBSV-08
-
-**Plans:** 2 plans
-
-Plans:
-- [x] 13-01-PLAN.md — Webhook route, HMAC verify, severity/dedup/cooldown filters
-- [x] 13-02-PLAN.md — Issue body builder, create_issue, retry, spool, wire to route
-
-**Success criteria:**
-1. POST route for Sentry webhook (e.g., `/webhooks/sentry`)
-2. HMAC-SHA256 verification of `Sentry-Hook-Signature` before processing
-3. Configurable severity threshold filters low-severity alerts
-4. Dedup by fingerprint; cooldown per fingerprint prevents duplicate issues
-5. Creates GitHub issue with `agent:builder` label when alert passes filters
-6. Issue body includes severity, release/SHA, environment, breadcrumbs
-7. Issue links to Sentry event/issue URL for traceability
-8. Builder can pick up created issues (existing flow)
-
----
-*Last updated: 2026-02-15 — v1.3 roadmap created*
+*Last updated: 2026-02-15 — v1.3 milestone complete*

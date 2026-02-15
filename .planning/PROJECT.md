@@ -35,14 +35,20 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Verifier validates .booty.yml schema — v1.2
 - ✓ Verifier detects hallucinated imports / compile failures — v1.2
 
-### Active (v1.3)
+### Validated (v1.3)
 
-- [ ] Automated deployment via GitHub Actions (SSH to DO, pull, install, restart)
-- [ ] Sentry APM integration for error tracking and release correlation
-- [ ] Observability agent ingests Sentry alerts via webhook
-- [ ] Alert-to-issue correlation (SHA, release, environment)
-- [ ] Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint
-- [ ] Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs
+- ✓ Automated deployment via GitHub Actions (SSH to DO, deploy.sh, health check) — v1.3
+- ✓ Sentry APM integration for error tracking and release correlation — v1.3
+- ✓ Observability agent ingests Sentry alerts via webhook — v1.3
+- ✓ Alert-to-issue correlation (SHA, release, environment) — v1.3
+- ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
+- ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
+
+### Active (v1.x+)
+
+- [ ] Persistent cooldown store (OBSV-10) — deferred from v1.3
+- [ ] Staging vs production deploy targets (DEPLOY-04)
+- [ ] Rollback workflow (DEPLOY-05)
 
 ### Out of Scope
 
@@ -51,18 +57,18 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - Builder generates integration tests — deferred; Verifier first
 - Web UI or dashboard — CLI and GitHub are the interfaces
 - Custom LLM fine-tuning — use off-the-shelf models via magentic
-- Production deployment infrastructure — ~~runs locally first~~ addressed in v1.3 (deploy automation)
+- Production deployment infrastructure — ✓ addressed in v1.3 (GitHub Actions deploy automation)
 
 ## Context
 
 Shipped v1.0 with 3,012 LOC Python across 77 files.
 Shipped v1.1 with test generation (convention detection, AST import validation) and PR promotion (draft → ready when tests+lint pass).
 Shipped v1.2 with Verifier agent (GitHub Checks API, pull_request webhook, diff limits, .booty.yml schema v1, import/compile detection).
-Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings.
-All v1.0, v1.1, v1.2 requirements satisfied.
+Shipped v1.3 with deploy automation (GitHub Actions → SSH → deploy.sh), Sentry APM (release/env correlation), and Observability agent (Sentry webhook → GitHub issues with agent:builder).
+Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
+All v1.0, v1.1, v1.2, v1.3 requirements satisfied.
 Self-modification capability active with Verifier gates and protected paths.
-Deployed on DigitalOcean (systemd + nginx + uvicorn unix socket). Manual deploy via deploy.sh (SSH + git pull).
-No APM/monitoring in place yet — greenfield for observability.
+Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
 ## Constraints
 
@@ -95,28 +101,21 @@ No APM/monitoring in place yet — greenfield for observability.
 | Builder never promotes; Verifier owns agent PR promotion | Clear ownership; single promotion path | ✓ Good — v1.2 |
 | Early validation (schema + limits) before clone for agent PRs | Fail fast, no wasted clone | ✓ Good — v1.2 |
 | install_command required for agent PRs with BootyConfigV1 | Import validation needs deps installed | ✓ Good — v1.2 |
-
-## Current Milestone: v1.3 Observability
-
-**Goal:** Close the post-merge loop — production errors automatically flow back as GitHub issues for Builder intake.
-
-**Target features:**
-- Automated deployment via GitHub Actions (deploy.sh → CI/CD)
-- Sentry APM integration (error tracking, release/SHA correlation)
-- Observability agent (Sentry webhook → filtered → GitHub issues with repro context)
+| Push-to-main deploy trigger | Simplicity; staging/rollback deferred | ✓ Good — v1.3 |
+| Release omitted when SENTRY_RELEASE empty | Never placeholder; deploy writes release.env | ✓ Good — v1.3 |
+| In-memory cooldown for Sentry webhook | OBSV-10 persistent store deferred | ✓ Good — v1.3 |
+| Retry only on 5xx for issue creation | 4xx (auth, not found) not retried | ✓ Good — v1.3 |
 
 ## Current State
 
-**Shipped:** v1.2 (2026-02-15)
-**Current Milestone:** v1.3 Observability
+**Shipped:** v1.3 (2026-02-15)
+**Next Milestone:** TBD — run `/gsd:new-milestone` to define
 
-**What shipped in v1.2:**
-- Verifier runs on every PR (universal visibility); enforces gates only for agent PRs
-- Required status check `booty/verifier` via GitHub Checks API
-- Tests run in clean env; PR blocked if red
-- Diff limits: max_files_changed, max_diff_loc, max_loc_per_file
-- .booty.yml schema v1 validation
-- Import/compile failure detection with annotations
+**What shipped in v1.3:**
+- GitHub Actions deploy workflow (push to main → paths-filter → SSH → deploy.sh → health check)
+- Sentry SDK with FastAPI integration; release/env from deploy
+- Observability agent: POST /webhooks/sentry, HMAC verify, severity/dedup/cooldown → GitHub issues with agent:builder
+- 15/15 v1.3 requirements; milestone audit passed
 
 ---
-*Last updated: 2026-02-15 after v1.3 milestone start*
+*Last updated: 2026-02-15 after v1.3 milestone completion*
