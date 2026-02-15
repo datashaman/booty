@@ -23,7 +23,7 @@ app_start_time: datetime | None = None
 
 def get_app_version() -> str:
     """Get the application version from package metadata.
-    
+
     Returns:
         str: The version string, or "unknown" if version cannot be determined
     """
