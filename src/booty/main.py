@@ -73,6 +73,9 @@ async def process_job(job: Job) -> None:
         except Exception as e:
             # Pipeline crashed before PR was created — post on issue as fallback
             logger.error("pipeline_exception", error=str(e), exc_info=True)
+            sentry_sdk.set_tag("job_id", job.job_id)
+            sentry_sdk.set_tag("issue_number", str(job.issue_number))
+            sentry_sdk.capture_exception(e)
             post_failure_comment(
                 settings.GITHUB_TOKEN,
                 repo_url,
