@@ -64,7 +64,7 @@ jobs:
           if ./deploy.sh 2>&1 | tee /tmp/deploy.log; then
             echo "deploy_transport_success=true" >> $GITHUB_OUTPUT
           else
-            EXIT=$?
+            EXIT=${PIPESTATUS[0]}
             echo "deploy_transport_success=false" >> $GITHUB_OUTPUT
             echo "## Deploy Failure" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
