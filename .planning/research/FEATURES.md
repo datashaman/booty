@@ -1,6 +1,6 @@
-# Feature Research: Verifier Agent
+# Feature Research
 
-**Domain:** PR verification, CI gating, error-rate control
+**Domain:** Observability — deploy automation, Sentry APM, alert-to-issue pipeline
 **Researched:** 2026-02-15
 **Confidence:** HIGH
 
@@ -10,91 +10,86 @@
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Run tests in clean env | Verifier must not inherit Builder's workspace state | LOW | Reuse `prepare_workspace` pattern — clone PR branch, run `execute_tests` |
-| Block PR if red | Core value: gate merge on verification | MEDIUM | Checks API `conclusion: failure` + promotion control |
-| Enforce diff limits | Blast-radius control (user-specified) | MEDIUM | max_files_changed, max_diff_loc, max_loc_per_file (optional per-path) |
-| Validate .booty.yml | Deterministic execution; fail fast if config invalid | LOW | Extend existing BootyConfig; schema_version: 1 |
-| Detect hallucinated imports / compile failures | LLMs invent imports; must catch before test run | MEDIUM | AST parse changed files, validate imports exist; run setup/test with early failure capture |
+| Deploy on merge | CI/CD standard; no manual SSH | LOW | Workflow on push to main; reuse deploy.sh |
+| Error tracking with stack traces | Core APM value | LOW | sentry-sdk auto-captures |
+| Release/SHA correlation | Know which deploy caused errors | LOW | `release` = git SHA in sentry_sdk.init |
+| Webhook signature verification | Security baseline | LOW | HMAC-SHA256; Sentry docs specify |
+| Filter by severity | Avoid noise from low-severity | MEDIUM | Parse Sentry payload; configurable threshold |
+| Dedup by fingerprint | One issue per error pattern | MEDIUM | Sentry `grouping_fingerprint` or equivalent |
+| Cooldown per fingerprint | Prevent alert storm | MEDIUM | In-memory or lightweight store |
 
 ### Differentiators (Competitive Advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Universal visibility, selective authority | Every PR gets Verifier comment; only agent PRs get merge gate | LOW | Builds trust; humans see Verifier output without being blocked |
-| Required check `booty/verifier` | Branch protection can require it; hard merge gate | LOW | GitHub UI shows required checks clearly |
-| .booty.yml schema v1 | Repo-level config: allowed_paths, network_policy, etc. | MEDIUM | Enables sandboxing, deterministic execution |
+| Auto-created GitHub issues with agent:builder | Closes loop; Builder picks up automatically | MEDIUM | Same label as Builder webhook |
+| Repro breadcrumbs in issue body | Gives Builder context to fix | LOW | Copy from Sentry event |
+| Environment + release in issue | Correlate with deploy | LOW | Tag body or labels |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Rely on CI only | "CI already runs tests" | CI reports; Verifier decides. Separation of concerns. | Verifier runs own tests; can optionally aggregate CI results later |
-| Block all PRs equally | Simplicity | User specified: enforce only for agent PRs | Use `agent:builder` label or bot author check |
-| Dynamic .booty.yml from PR | Flexibility | Non-deterministic; security risk | Config from base branch only |
+|---------|---------------|-----------------|--------------|
+| Create issue for every Sentry event | "Don't miss anything" | Alert storm, duplicate issues | Filter + dedup + cooldown first |
+| Real-time Slack/Discord | Visibility | Diverges from GitHub-centric model | Stick to issues |
+| Custom dashboard for observability | "Need to see metrics" | Scope creep; CLI/GitHub are interfaces | Use Sentry UI |
 
 ## Feature Dependencies
 
 ```
-GitHub App auth
-    └──requires──> Checks API (create_check_run)
-                        └──enables──> Required status check, merge gate
+Deploy Automation
+    └── (standalone; no deps)
 
-pull_request webhook
-    └──requires──> Webhook handler for pull_request (opened, synchronize)
-    └──provides──> PR context (head_sha, repo, labels, author)
+Sentry APM
+    └── (standalone; release from deploy helps)
 
-.booty.yml schema v1
-    └──requires──> Extend BootyConfig (allowed_paths, forbidden_paths, etc.)
-    └──enables──> Diff limits, network policy, deterministic execution
-
-Clean env test run
-    └──requires──> Clone PR branch (fresh)
-    └──reuses──> execute_tests() from test_runner
+Observability Agent
+    ├── requires → Sentry APM (DSN, release format)
+    ├── requires → Webhook endpoint (new route)
+    └── requires → PyGithub (already present)
 ```
 
-## MVP Definition (v1.2)
+### Dependency Notes
 
-### Launch With
+- **Observability Agent requires Sentry APM:** Need DSN, release format; app must send events for correlation.
+- **Deploy automation is independent:** Can ship first; enables SHA-based release tagging.
 
-- [ ] GitHub App auth path for Verifier (checks:write)
-- [ ] pull_request webhook handler (opened, synchronize)
-- [ ] Create check run `booty/verifier` (queued → in_progress → completed)
-- [ ] Run tests in clean env (clone PR head, execute_tests)
-- [ ] Block PR if tests fail (conclusion: failure)
-- [ ] Enforce gates only for agent PRs (label or author check)
-- [ ] .booty.yml validation (schema_version: 1)
-- [ ] Diff limits: max_files_changed, max_diff_loc
-- [ ] Detect compile/import failures (AST + early subprocess failure)
+## MVP Definition
 
-### Add After Validation
+### Launch With (v1.3)
 
-- [ ] max_loc_per_file for safety-critical dirs (pathspec-scoped)
-- [ ] network_policy, allowed_commands in .booty.yml
-- [ ] Optional: aggregate CI check results (defer)
+- [ ] GitHub Actions workflow triggers on push to main → SSH deploy
+- [ ] Sentry SDK in FastAPI app with `release` = git SHA, `environment` = prod
+- [ ] Observability agent: Sentry webhook route, HMAC verify, filter (severity, dedup, cooldown)
+- [ ] Create GitHub issue with agent:builder label, severity, repro breadcrumbs, release/SHA
 
-### Future Consideration
+### Add After Validation (v1.x)
 
-- [ ] Integration tests generation (Builder) — deferred
-- [ ] Multi-repo Verifier (single App, multiple installations)
+- [ ] Multiple environments (staging vs prod)
+- [ ] Observability agent persistence (cooldown across restarts)
+
+### Future Consideration (v2+)
+
+- [ ] Dashboard for observability metrics
+- [ ] Multiple Sentry projects → routing
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Checks API + block if red | HIGH | MEDIUM (App auth) | P1 |
-| Clean env test run | HIGH | LOW (reuse) | P1 |
-| .booty.yml validation | HIGH | LOW | P1 |
-| Diff limits (files, LOC) | HIGH | MEDIUM | P1 |
-| Import/compile detection | HIGH | MEDIUM | P1 |
-| Selective enforcement | HIGH | LOW | P1 |
-| max_loc_per_file per-path | MEDIUM | MEDIUM | P2 |
+| Deploy automation | HIGH | LOW | P1 |
+| Sentry APM + release | HIGH | LOW | P1 |
+| Webhook + verify | HIGH | LOW | P1 |
+| Filter + dedup + cooldown | HIGH | MEDIUM | P1 |
+| Issue creation | HIGH | LOW | P1 |
+| Breadcrumbs in issue | MEDIUM | LOW | P2 |
 
 ## Sources
 
-- User requirements (booty/verifier, selective authority, .booty.yml schema)
-- PROJECT.md validated requirements
-- Existing test_runner, webhooks architecture
+- Sentry docs — webhook payload, signature
+- Booty PROJECT.md — Active (v1.3) requirements
+- deploy.sh — existing deploy flow
 
 ---
-*Feature research for: Verifier agent (Booty v1.2)*
+*Feature research for: v1.3 Observability*
 *Researched: 2026-02-15*
