@@ -370,11 +370,23 @@ async def process_verifier_job(
             )
 
             tests_passed = result.exit_code == 0 and not result.timed_out
+
+            # Agent PRs: 0 tests collected counts as failure
+            no_tests_collected = False
+            if tests_passed and job.is_agent_pr:
+                combined_output = (result.stdout or "") + (result.stderr or "")
+                if "no tests ran" in combined_output or "collected 0 items" in combined_output:
+                    tests_passed = False
+                    no_tests_collected = True
+
             conclusion = "success" if tests_passed else "failure"
-            output_summary = (
-                f"Tests {'passed' if tests_passed else 'failed'} (exit={result.exit_code})"
-            )
-            if not tests_passed and result.stderr:
+            if no_tests_collected:
+                output_summary = "No tests collected. Agent PRs must include tests."
+            else:
+                output_summary = (
+                    f"Tests {'passed' if tests_passed else 'failed'} (exit={result.exit_code})"
+                )
+            if not tests_passed and not no_tests_collected and result.stderr:
                 output_summary += f". {result.stderr[:200]}"
 
             edit_check_run(
