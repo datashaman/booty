@@ -20,6 +20,7 @@ async def refine_until_tests_pass(
     task_description: str,
     issue_title: str,
     issue_body: str,
+    test_conventions: str = "",
 ) -> tuple[bool, list[FileChange], str | None]:
     """Run test-refine iteration loop until tests pass or max retries exhausted.
 
@@ -36,6 +37,7 @@ async def refine_until_tests_pass(
         task_description: Summary of what needs to be done
         issue_title: Issue title text
         issue_body: Issue body/description text
+        test_conventions: Formatted test conventions string (empty if none detected)
 
     Returns:
         Tuple of (tests_passed, final_changes, error_message_or_none)
@@ -125,6 +127,7 @@ async def refine_until_tests_pass(
             ", ".join(sorted(failed_files)),
             issue_title,
             issue_body,
+            test_conventions=test_conventions,
         )
 
         logger.info(
