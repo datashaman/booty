@@ -143,8 +143,10 @@ def _spool_failed_sentry_event(event: dict, error: str) -> None:
     path = os.environ.get("OBSV_SPOOL_PATH", "/tmp/booty-sentry-spool.jsonl")
     line = json.dumps({"ts": time.time(), "event": event, "error": error}) + "\n"
     try:
-        # Create parent directory if it doesn't exist
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # Create parent directory if it doesn't exist and path is not in root
+        parent_dir = os.path.dirname(path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
         with open(path, "a") as f:
             f.write(line)
         logger.warning(
