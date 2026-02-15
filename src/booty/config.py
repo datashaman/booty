@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Code generation limits
     MAX_FILES_PER_ISSUE: int = 10  # File count cap
-    RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock"  # Comma-separated denylist patterns
+    RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock,.booty.yml"  # Comma-separated denylist patterns
 
     # Self-modification configuration
     BOOTY_OWN_REPO_URL: str = ""  # Empty means self-modification detection disabled
