@@ -59,7 +59,7 @@ See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) and [MILESTONES.md]
 | 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Complete |
 | 10. Import/Compile Detection | v1.2 | Hallucination detection | Complete |
 | 11. Deploy Automation | v1.3 | GitHub Actions → SSH → DO, deploy.sh | Complete |
-| 12. Sentry APM | v1.3 | Error tracking, release/SHA correlation | Pending |
+| 12. Sentry APM | v1.3 | Error tracking, release/SHA correlation | Complete |
 | 13. Observability Agent | v1.3 | Sentry webhook → filter → GitHub issues | Pending |
 
 ---
@@ -93,8 +93,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — SDK integration (dependency, config, init, deploy release.env, systemd)
-- [ ] 12-02-PLAN.md — capture_exception (job + verifier), verification test, manual route
+- [x] 12-01-PLAN.md — SDK integration (dependency, config, init, deploy release.env, systemd)
+- [x] 12-02-PLAN.md — capture_exception (job + verifier), verification test, manual route
 
 **Success criteria:**
 1. `sentry-sdk` added to dependencies

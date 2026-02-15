@@ -15,9 +15,9 @@ Requirements for milestone v1.3. Each maps to roadmap phases.
 
 ### Sentry APM
 
-- [ ] **APM-01**: Sentry SDK integrated with FastAPI app; errors and exceptions captured
-- [ ] **APM-02**: Release set to git SHA (or equivalent) for deploy correlation
-- [ ] **APM-03**: Environment tag set (e.g., production) for filtering in Sentry UI
+- [x] **APM-01**: Sentry SDK integrated with FastAPI app; errors and exceptions captured
+- [x] **APM-02**: Release set to git SHA (or equivalent) for deploy correlation
+- [x] **APM-03**: Environment tag set (e.g., production) for filtering in Sentry UI
 
 ### Observability Agent
 
@@ -63,9 +63,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEPLOY-01 | Phase 11 | Complete |
 | DEPLOY-02 | Phase 11 | Complete |
 | DEPLOY-03 | Phase 11 | Complete |
-| APM-01 | Phase 12 | Pending |
-| APM-02 | Phase 12 | Pending |
-| APM-03 | Phase 12 | Pending |
+| APM-01 | Phase 12 | Complete |
+| APM-02 | Phase 12 | Complete |
+| APM-03 | Phase 12 | Complete |
 | OBSV-01 | Phase 13 | Pending |
 | OBSV-02 | Phase 13 | Pending |
 | OBSV-03 | Phase 13 | Pending |
