@@ -78,6 +78,10 @@ class BootyConfigV1(BaseModel):
         description="Shell command to run tests (e.g., 'pytest tests/')",
     )
     setup_command: str | None = Field(default=None, description="Optional setup command")
+    install_command: str | None = Field(
+        default=None,
+        description="Command to install deps (e.g. 'pip install -r requirements.txt'). Required for agent PRs when import validation runs.",
+    )
     timeout_seconds: int = Field(
         default=300,
         ge=10,
