@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** - Phases 1-4 (shipped 2026-02-14)
-- 🚧 **v1.1 Test Generation & PR Promotion** - Phases 5-6 (in progress)
+- ✅ **v1.1 Test Generation & PR Promotion** - Phases 5-6 (complete 2026-02-15)
 
 ## Phases
 
@@ -18,7 +18,7 @@ See MILESTONES.md for details.
 
 </details>
 
-### 🚧 v1.1 Test Generation & PR Promotion (In Progress)
+### ✅ v1.1 Test Generation & PR Promotion (Complete 2026-02-15)
 
 **Milestone Goal:** Make the Builder generate tests with every code change and promote PRs to ready-for-review only when tests pass.
 
@@ -60,8 +60,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Promotion module and failure comment
-- [ ] 06-02-PLAN.md — Pipeline wiring (quality for all, promote when criteria met)
+- [x] 06-01-PLAN.md — Promotion module and failure comment
+- [x] 06-02-PLAN.md — Pipeline wiring (quality for all, promote when criteria met)
 
 ## Progress
 
@@ -72,7 +72,7 @@ Plans:
 | 3. Test-Driven Refinement | v1.0 | 4/4 | Complete | 2026-02-14 |
 | 4. Self-Modification Safety | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 5. Test Generation | v1.1 | 2/2 | Complete | 2026-02-15 |
-| 6. PR Promotion | v1.1 | 0/TBD | Not started | - |
+| 6. PR Promotion | v1.1 | 2/2 | Complete | 2026-02-15 |
 
 ---
-*Last updated: 2026-02-15 after Phase 5 completion*
+*Last updated: 2026-02-15 after Phase 6 completion*
