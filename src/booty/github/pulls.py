@@ -237,6 +237,8 @@ def format_self_modification_pr_body(
 
     safety_summary = f"""## Safety Summary
 
+**Draft by design:** Self-modification PRs are not auto-promoted.
+
 **File Changes:** {file_count} file(s) modified
 
 **Changed Files:**

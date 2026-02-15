@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Phase 5 - Test Generation (v1.1)
+**Current focus:** v1.1 complete — Test Generation & PR Promotion
 
 ## Current Position
 
-Phase: 5 of 6 (Test Generation)
-Plan: 2 of 2 (LLM Integration)
+Phase: 6 of 6 (PR Promotion)
+Plan: 2 of 2 (Pipeline wiring)
 Status: Phase complete
-Last activity: 2026-02-15 — Completed 05-02-PLAN.md
+Last activity: 2026-02-15 — Completed 06-02-PLAN.md
 
-Progress: [██████████] 100% (Phase 5)
+Progress: [██████████] 100% (Phase 6, v1.1)
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ Recent decisions affecting v1.1:
 - Test files tracked separately from source changes (test_files field)
 - Import validation logs warnings but doesn't block (refinement catches real failures)
 - Refinement prompt instructs LLM not to modify test files (one-shot generation)
+- Quality checks run for all jobs (promotion gate); always create draft PRs; promote when tests+lint pass and not self-mod
+- Retry promotion only on 5xx/network; post neutral failure comment on exception
 
 ### Pending Todos
 
@@ -68,6 +70,6 @@ None. Research completed with HIGH confidence, no new dependencies required.
 ## Session Continuity
 
 Last session: 2026-02-15 (plan execution)
-Stopped at: Completed 05-02-PLAN.md (LLM integration)
+Stopped at: Completed 06-02-PLAN.md (Pipeline wiring)
 Resume file: None
-Next step: Phase 5 complete - ready for Phase 6 (PR Promotion)
+Next step: v1.1 complete — ready for verification and ship

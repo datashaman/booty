@@ -9,6 +9,8 @@ from booty.code_gen.validator import validate_generated_code
 from booty.test_generation import detect_conventions, validate_test_imports
 from booty.config import Settings
 from booty.git.operations import commit_changes, format_commit_message, push_to_remote
+from booty.github.comments import post_promotion_failure_comment
+from booty.github.promotion import promote_to_ready_for_review
 from booty.github.pulls import (
     add_self_modification_metadata,
     create_pull_request,
@@ -47,10 +49,10 @@ async def process_issue_to_pr(
     8. Validate generated code
     9. Apply changes to workspace
     10. Run test-driven refinement loop (with test conventions)
-    10b. For self-modification: run quality checks (ruff)
+    10b. Run quality checks (ruff) for all jobs
     11. Commit changes
     12. Push to remote
-    13. Create pull request (draft if tests failed OR always draft for self-modification)
+    13. Create pull request (always draft; promote to ready when tests+lint pass and not self-mod)
 
     Args:
         job: Job containing issue details
@@ -315,25 +317,24 @@ async def process_issue_to_pr(
             test_conventions=test_conventions_text,
         )
 
-        # Step 10b: Self-modification quality checks
-        if is_self_modification:
-            logger.info("running_self_modification_quality_checks")
-            quality_result = await run_quality_checks(workspace_path)
-            logger.info(
-                "quality_checks_complete",
-                passed=quality_result.passed,
-                formatting_ok=quality_result.formatting_ok,
-                linting_ok=quality_result.linting_ok,
-            )
-            if not quality_result.passed:
-                # Append quality errors to error_message
-                quality_errors = "\n".join(quality_result.errors)
-                if error_message:
-                    error_message = f"{error_message}\n\nQuality Check Failures:\n{quality_errors}"
-                else:
-                    error_message = f"Quality Check Failures:\n{quality_errors}"
-                tests_passed = False
-                logger.warning("quality_checks_failed", errors_count=len(quality_result.errors))
+        # Step 10b: Quality checks for all jobs (promotion gate requires it)
+        logger.info("running_quality_checks")
+        quality_result = await run_quality_checks(workspace_path)
+        logger.info(
+            "quality_checks_complete",
+            passed=quality_result.passed,
+            formatting_ok=quality_result.formatting_ok,
+            linting_ok=quality_result.linting_ok,
+        )
+        if not quality_result.passed:
+            # Append quality errors to error_message
+            quality_errors = "\n".join(quality_result.errors)
+            if error_message:
+                error_message = f"{error_message}\n\nQuality Check Failures:\n{quality_errors}"
+            else:
+                error_message = f"Quality Check Failures:\n{quality_errors}"
+            tests_passed = False
+            logger.warning("quality_checks_failed", errors_count=len(quality_result.errors))
 
         # If changes were regenerated (final_changes differ from plan.changes), re-apply them
         if final_changes != plan.changes:
@@ -391,9 +392,8 @@ async def process_issue_to_pr(
         await push_to_remote(workspace.repo, settings.GITHUB_TOKEN)
         logger.info("push_complete")
 
-        # Step 13: Create PR
-        # Self-modification PRs are ALWAYS draft, regardless of test results
-        is_draft = (not tests_passed) if not is_self_modification else True
+        # Step 13: Create PR (always draft; promote when criteria met)
+        is_draft = True
         logger.info("creating_pull_request", draft=is_draft, is_self_modification=is_self_modification)
 
         # Format PR title
@@ -457,6 +457,32 @@ async def process_issue_to_pr(
                 settings.BOOTY_SELF_MODIFY_REVIEWER,
             )
             logger.info("self_modification_metadata_added")
+
+        # Promote to ready-for-review when tests+lint pass and not self-mod
+        quality_passed = quality_result.passed
+        should_promote = (
+            tests_passed and quality_passed and not is_self_modification
+        )
+        if should_promote:
+            try:
+                promote_to_ready_for_review(
+                    settings.GITHUB_TOKEN,
+                    settings.TARGET_REPO_URL,
+                    pr_number,
+                )
+            except Exception as e:
+                logger.warning(
+                    "promotion_failed_posting_comment",
+                    pr_number=pr_number,
+                    error=str(e),
+                )
+                post_promotion_failure_comment(
+                    settings.GITHUB_TOKEN,
+                    settings.TARGET_REPO_URL,
+                    pr_number,
+                    reason=str(e),
+                    attempts=3,
+                )
 
         logger.info(
             "process_issue_to_pr_complete",

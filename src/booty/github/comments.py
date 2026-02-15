@@ -95,6 +95,47 @@ A draft PR has been opened with the latest attempt for manual review.
         raise
 
 
+def post_promotion_failure_comment(
+    github_token: str,
+    repo_url: str,
+    pr_number: int,
+    reason: str,
+    attempts: int = 3,
+) -> None:
+    """Post a neutral comment when PR promotion to ready-for-review failed.
+
+    If posting the comment fails (permissions, API error), logs only and does
+    not re-raise (per CONTEXT: fall back to logs only, no UI change).
+
+    Args:
+        github_token: GitHub authentication token
+        repo_url: Repository URL
+        pr_number: PR number
+        reason: Brief reason for failure (e.g., API error message)
+        attempts: Number of promotion attempts made (default 3)
+    """
+    try:
+        repo = _get_repo(github_token, repo_url)
+        pr = repo.get_pull(pr_number)
+        body = f"""## Could not promote to ready for review
+
+Promotion was not completed after {attempts} attempt(s).
+
+{reason}
+
+---
+PR remains in draft for manual review."""
+        pr.as_issue().create_comment(body)
+        logger.info("promotion_failure_comment_posted", pr_number=pr_number)
+    except GithubException as e:
+        logger.error(
+            "promotion_failure_comment_failed",
+            pr_number=pr_number,
+            error=str(e),
+            status=e.status,
+        )
+
+
 def post_self_modification_disabled_comment(
     github_token: str,
     repo_url: str,
