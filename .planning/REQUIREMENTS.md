@@ -9,7 +9,7 @@ Requirements for Verifier agent milestone. Each maps to roadmap phases.
 
 ### Verification Pipeline
 
-- [ ] **VERIFY-01**: Verifier posts required status check `booty/verifier` via GitHub Checks API (GitHub App auth)
+- [x] **VERIFY-01**: Verifier posts required status check `booty/verifier` via GitHub Checks API (GitHub App auth)
 - [ ] **VERIFY-02**: Verifier runs on every PR (webhook: pull_request opened, synchronize); enforces gates only for agent PRs (agent:builder label or bot author)
 - [ ] **VERIFY-03**: Verifier clones PR head in clean env and runs tests via execute_tests()
 - [ ] **VERIFY-04**: Verifier blocks PR if red — promotion control (Builder skips promote) and Checks API conclusion: failure
@@ -58,7 +58,7 @@ Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VERIFY-01 | Phase 7 | Pending |
+| VERIFY-01 | Phase 7 | Complete |
 | VERIFY-02 | Phase 8 | Pending |
 | VERIFY-03 | Phase 8 | Pending |
 | VERIFY-04 | Phase 8 | Pending |

@@ -50,9 +50,9 @@ Add Verifier agent that runs on every PR, runs tests in clean env, enforces diff
 **Plans:** 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Settings extension, verifier enabled check, startup log
-- [ ] 07-02-PLAN.md — checks.py with create_check_run (App auth)
-- [ ] 07-03-PLAN.md — CLI (booty status, booty verifier check-test), docs
+- [x] 07-01-PLAN.md — Settings extension, verifier enabled check, startup log
+- [x] 07-02-PLAN.md — checks.py with create_check_run (App auth)
+- [x] 07-03-PLAN.md — CLI (booty status, booty verifier check-test), docs
 
 **Success criteria:**
 1. Settings include GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY (optional when empty — Verifier disabled)
@@ -123,7 +123,7 @@ Plans:
 | 4. Self-Modification Safety | v1.0 | Protected paths, draft PR | Complete |
 | 5. Test Generation | v1.1 | Unit tests for changed files | Complete |
 | 6. PR Promotion | v1.1 | Draft → ready when green | Complete |
-| 7. GitHub App + Checks | v1.2 | Checks API integration | Pending |
+| 7. GitHub App + Checks | v1.2 | Checks API integration | Complete |
 | 8. Verifier Runner | v1.2 | PR webhook, clone, test, check | Pending |
 | 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Pending |
 | 10. Import/Compile Detection | v1.2 | Hallucination detection | Pending |

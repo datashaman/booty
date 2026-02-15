@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 7 (GitHub App + Checks)
+Phase: 8 (pull_request Webhook + Verifier Runner)
 Plan: —
-Status: Ready to plan Phase 7
-Last activity: 2026-02-15 — Roadmap created
+Status: Phase 7 complete
+Last activity: 2026-02-15 — Phase 7 executed
 
-Progress: [░░░░░░░░░░] 0% (v1.2 not started)
+Progress: [██░░░░░░░░] 20% (v1.2 Phase 7 complete)
 
 ## Accumulated Context
 
