@@ -106,7 +106,6 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         is_agent_pr = (
             settings.TRIGGER_LABEL in labels
             or pr.get("user", {}).get("type") == "Bot"
-            or head_ref.startswith("agent/issue-")
         )
 
         if not head_sha:
