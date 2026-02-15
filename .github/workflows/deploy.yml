@@ -1,0 +1,105 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST || secrets.DEPLOY_HOST }}
+      SERVER_NAME: ${{ vars.SERVER_NAME || secrets.SERVER_NAME }}
+      REPO_URL: ${{ vars.REPO_URL || secrets.REPO_URL }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || secrets.DEPLOY_USER || '' }}
+
+    steps:
+      - name: Preflight
+        run: |
+          : "${DEPLOY_HOST:?Missing DEPLOY_HOST}"
+          : "${SERVER_NAME:?Missing SERVER_NAME}"
+          : "${REPO_URL:?Missing REPO_URL}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy filter
+        id: deploy_filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            deploy:
+              - 'src/**'
+              - 'deploy/**'
+              - 'deploy.sh'
+              - 'pyproject.toml'
+              - '.booty.yml'
+              - 'requirements*.txt'
+              - 'Dockerfile'
+              - 'docker-compose*.yml'
+              - '.github/workflows/deploy*.yml'
+
+      - name: Skip deploy if no relevant changes
+        if: steps.deploy_filter.outputs.deploy != 'true'
+        run: |
+          echo "No deploy-relevant changes" >> $GITHUB_STEP_SUMMARY
+          exit 0
+
+      - name: Load SSH key
+        if: steps.deploy_filter.outputs.deploy == 'true'
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy
+        if: steps.deploy_filter.outputs.deploy == 'true'
+        id: deploy
+        run: |
+          export DEPLOY_HOST SERVER_NAME REPO_URL
+          [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
+          OUTPUT=$(./deploy.sh 2>&1)
+          EXIT=$?
+          if [ $EXIT -ne 0 ]; then
+            echo "deploy_transport_success=false" >> $GITHUB_OUTPUT
+            echo "## Deploy Failure" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Failure class:** remote script exit" >> $GITHUB_STEP_SUMMARY
+            echo "**Host:** $DEPLOY_HOST" >> $GITHUB_STEP_SUMMARY
+            echo "**User:** ${DEPLOY_USER:-$(whoami)}" >> $GITHUB_STEP_SUMMARY
+            echo "**Stage:** deploy.sh" >> $GITHUB_STEP_SUMMARY
+            echo "**Exit code:** $EXIT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Last 20 lines</summary>" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$OUTPUT" | tail -20 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "deploy_transport_success=true" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        if: steps.deploy_filter.outputs.deploy == 'true' && steps.deploy.outputs.deploy_transport_success == 'true'
+        id: health
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sf "https://${SERVER_NAME}/health" > /dev/null; then
+              echo "runtime_ready=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::Deploy failed — health check timeout"
+          echo "runtime_ready=false" >> $GITHUB_OUTPUT
+          echo "## Deploy Failure" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Failure class:** health check timeout" >> $GITHUB_STEP_SUMMARY
+          echo "**Host:** ${SERVER_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stage:** health check (10 attempts, 6s interval)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          exit 1
