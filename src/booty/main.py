@@ -141,9 +141,18 @@ async def info():
     """
     if job_queue is None or app_start_time is None:
         return {
-            "error": "Application not fully initialized",
             "version": "1.0.0",
             "uptime_seconds": 0,
+            "jobs": {
+                "queued": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+            },
+            "workers": {
+                "active": 0,
+            },
+            "error": "Application not fully initialized",
         }
 
     # Calculate uptime
