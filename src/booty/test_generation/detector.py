@@ -400,7 +400,7 @@ def infer_naming_pattern(test_files: list[Path], language: str) -> str:
 
     # Return most common pattern
     if any(count > 0 for count in pattern_counts.values()):
-        return max(pattern_counts, key=pattern_counts.get)
+        return max(pattern_counts, key=lambda p: pattern_counts[p])
 
     # Default to first pattern for language
     return patterns[0] if patterns else "test_*"
