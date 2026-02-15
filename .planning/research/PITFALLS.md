@@ -1,118 +1,78 @@
-# Pitfalls Research: Verifier Agent
+# Pitfalls Research
 
-**Domain:** Adding Verifier to Booty
+**Domain:** Observability — deploy automation, Sentry APM, alert-to-issue pipeline
 **Researched:** 2026-02-15
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: PAT for Checks API
+### Pitfall 1: Skipping Webhook Signature Verification
 
-**What goes wrong:**
-Verifier tries to create check runs with `GITHUB_TOKEN` (PAT). GitHub returns 403 Forbidden. Checks API refuses PAT authentication.
+**What goes wrong:** Attacker posts fake Sentry payloads → creates spam/issues or triggers unintended behavior.
 
-**Why it happens:**
-GitHub docs: "OAuth apps and authenticated users cannot create check runs." Only GitHub Apps can. Booty currently uses PAT everywhere.
+**Why it happens:** Dev treats webhook as "internal" or prioritizes speed over security.
 
-**How to avoid:**
-- Add GitHub App authentication path before any Checks API work
-- Use `Auth.AppAuth(app_id, private_key)` and `GithubIntegration.get_github_for_installation()`
-- Verifier module must use App token exclusively for `create_check_run` / `edit`
+**How to avoid:** Always verify `Sentry-Hook-Signature` with HMAC-SHA256 before processing. Use constant-time comparison.
 
-**Warning signs:**
-- Tests or manual runs fail with 403 on POST to `/repos/.../check-runs`
-- Assumption "we already have a token" without checking Checks API requirements
+**Warning signs:** No verification in initial webhook handler; secret stored in code.
 
-**Phase to address:**
-Phase 1 (GitHub App + Checks integration)
+**Phase to address:** Observability agent phase (webhook route).
 
 ---
 
-### Pitfall 2: Verifier Runs on Wrong Branch
+### Pitfall 2: Alert Storm — No Dedup or Cooldown
 
-**What goes wrong:**
-Verifier clones `main` or base branch instead of PR head. Tests run against wrong code. Check passes/fails incorrectly.
+**What goes wrong:** Same error fires 100 times → 100 GitHub issues → Builder overwhelmed.
 
-**Why it happens:**
-Builder uses `prepare_workspace` which clones base and creates new branch. Verifier needs to verify PR head specifically.
+**Why it happens:** Sentry sends one webhook per triggered rule per event; no built-in dedup at receiver.
 
-**How to avoid:**
-- Verifier must clone/fetch PR head ref (`refs/pull/{id}/head` or branch name)
-- Use `head_sha` from webhook payload — that's the commit to verify
-- Document: "Verifier always runs against head_sha"
+**How to avoid:** Dedup by `grouping_fingerprint` (or equivalent); cooldown per fingerprint (e.g., 1 hour). Filter by severity.
 
-**Warning signs:**
-- Check passes but merged code fails
-- Tests pass locally (on head) but Verifier shows fail (if it ran on base)
+**Warning signs:** "Create issue for every webhook" in requirements without filtering.
 
-**Phase to address:**
-Phase 2 (Verifier runner — clone at head)
+**Phase to address:** Observability agent phase (filter module).
 
 ---
 
-### Pitfall 3: Blocking Human PRs
+### Pitfall 3: Release Not Set or Wrong Format
 
-**What goes wrong:**
-Verifier sets `conclusion: failure` for all failing PRs. Human developers get merge blocked by Booty's check. User wanted "selective authority."
+**What goes wrong:** Sentry shows "release: unknown" → can't correlate errors with deploy.
 
-**Why it happens:**
-Implementation defaults to "all PRs" unless explicitly checking agent PR criteria.
+**Why it happens:** Forgetting to pass `release` to sentry_sdk.init(); or using app version instead of git SHA.
 
-**How to avoid:**
-- Always run Verifier for every PR (universal visibility); always post check with real conclusion (success/failure)
-- Builder promotion: only skip when Verifier fails and it's an agent PR
-- Merge gate: GitHub branch protection is repo-level. User adds booty/verifier to required checks if desired. Document: for mixed repos, add only to agent branches or accept all PRs must pass
+**How to avoid:** Set `release="booty@${GIT_SHA}"` at startup; CI exports GIT_SHA and deploy passes to app (env or systemd).
 
-**Warning signs:**
-- Human developers complain Verifier blocks their PRs
-- Need to document when to add booty/verifier to branch protection
+**Warning signs:** Sentry events without release; manual deploy doesn't set env.
 
-**Phase to address:**
-Phase 1 (clarify in requirements); Phase 2 (implementation)
+**Phase to address:** Deploy automation + Sentry APM phase.
 
 ---
 
-### Pitfall 4: .booty.yml Schema Breaking Change
+### Pitfall 4: SSH Key Exposure in Workflow
 
-**What goes wrong:**
-New schema (allowed_paths, forbidden_paths, etc.) breaks existing repos with old .booty.yml. Builder and Verifier both fail.
+**What goes wrong:** Private key committed; or logged in step output.
 
-**Why it happens:**
-Adding required fields or renaming without backward compatibility.
+**Why it happens:** Copy-paste from examples; debug `echo $SSH_KEY`.
 
-**How to avoid:**
-- Use `schema_version: 1`; old configs without it use v0 (current BootyConfig)
-- New fields optional with sensible defaults
-- Validator: if schema_version >= 1, apply stricter validation
+**How to avoid:** Use GitHub Actions secrets; never echo secrets; use `appleboy/ssh-action` or pass via env to `ssh`.
 
-**Warning signs:**
-- Existing Booty repos start failing after Verifier deploy
-- `load_booty_config` raises ValidationError for previously-valid configs
+**Warning signs:** Key in workflow file; run step that prints env.
 
-**Phase to address:**
-Phase 3 (.booty.yml schema extension)
+**Phase to address:** Deploy automation phase.
 
 ---
 
-### Pitfall 5: Race Between Builder and Verifier
+### Pitfall 5: Webhook Secret Mismatch
 
-**What goes wrong:**
-Builder opens PR. Verifier webhook fires. Verifier starts cloning. Builder's push just landed; Verifier gets partial/wrong state. Or: Verifier runs before Builder finishes pushing.
+**What goes wrong:** Sentry configured with one secret; Booty expects another → all webhooks fail verify.
 
-**Why it happens:**
-Webhook delivery is async; clone happens seconds after push. Usually fine. Edge case: very fast Builder, slow Verifier.
+**Why it happens:** Env var typo; different secret in Sentry UI vs .env.
 
-**How to avoid:**
-- Verifier uses `head_sha` from webhook — that's the exact commit. Clone that ref.
-- GitHub ensures `head_sha` is the PR head at webhook delivery time. No race for same PR event.
-- Multiple pushes: each triggers `synchronize`; each has new `head_sha`. Verifier runs for each. Last run wins. Acceptable.
+**How to avoid:** Document exact env name (e.g. SENTRY_WEBHOOK_SECRET); verify in dev with test webhook.
 
-**Warning signs:**
-- Flaky "check ran on wrong commit" reports
-- Use `head_sha` consistently; log it in check output
+**Warning signs:** 401/403 on every webhook; "signature invalid" in logs.
 
-**Phase to address:**
-Phase 2 (Verifier runner)
+**Phase to address:** Observability agent phase.
 
 ---
 
@@ -120,27 +80,48 @@ Phase 2 (Verifier runner)
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Checks API | Using PAT | GitHub App with `checks:write` |
-| Clone PR head | Cloning default branch | `git fetch origin pull/ID/head:pr-BRANCH` or checkout `refs/pull/ID/head` |
-| Webhook | Ignoring `synchronize` | Handle both `opened` and `synchronize` — PRs get multiple commits |
+| Sentry webhook | Using raw body for HMAC then parsing JSON again | Use raw bytes for HMAC; parse once after verify |
+| GitHub issue | Missing agent:builder label | Builder won't pick up; label is required |
+| Deploy workflow | Running on every push (incl. PR) | Use `on.push.branches: [main]` |
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Cooldown store unbounded | Memory growth over days | TTL + periodic cleanup or max size | Long-running process |
+| Blocking Sentry in request path | Slow responses | Sentry SDK is async by default | If custom sync code |
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Logging webhook payload | PII/exceptions in logs | Log only fingerprint, action; never full body |
+| DSN in client code | DSN exposure | Server-only; never in frontend |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Checks API:** Verify 403 is gone — use App token, not PAT
-- [ ] **Clone:** Verify `head_sha` matches PR head in GitHub UI
-- [ ] **Selective enforcement:** Document branch protection setup for mixed repos
-- [ ] **.booty.yml:** Test with old format (no schema_version) still works
+- [ ] **Deploy workflow:** Verify it actually runs on merge to main; check Actions tab
+- [ ] **Sentry release:** Confirm Sentry UI shows release = git SHA for new events
+- [ ] **Webhook:** Test with Sentry "Send Test" or curl with valid signature
+- [ ] **Issue creation:** Check issue has agent:builder label; Builder picks it up
+- [ ] **Cooldown:** Trigger same error twice; second should not create issue
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| PAT for Checks | Phase 1 | Manual: create check run with App; confirm 201 |
-| Wrong branch | Phase 2 | E2E: PR with known fail; check fails |
-| Blocking humans | Phase 1/2 | Document; test with human-authored PR |
-| Schema break | Phase 3 | Run against repo with old .booty.yml |
-| Race | Phase 2 | Use head_sha; log in check output |
+| No webhook verify | Observability agent | Unit test: invalid signature → 401 |
+| Alert storm | Observability agent | Manual: fire same alert 2x → 1 issue |
+| Release not set | Deploy + Sentry APM | Sentry UI shows release |
+| SSH key exposure | Deploy automation | Audit workflow; no secrets in logs |
+| Webhook secret mismatch | Observability agent | Doc env name; test webhook |
+
+## Sources
+
+- Sentry docs — signature verification
+- GitHub Actions — secrets handling
+- Booty deploy.sh — existing patterns
 
 ---
-*Pitfalls research for: Verifier agent (Booty v1.2)*
+*Pitfalls research for: v1.3 Observability*
 *Researched: 2026-02-15*

@@ -2,10 +2,26 @@
 
 import asyncio
 import json
+import platform
 import py_compile
 import re
 import sys
 from pathlib import Path
+
+
+def _workspace_python(workspace_path: Path) -> str:
+    """Return Python executable to use for import validation.
+
+    Prefer workspace .venv when present (has dev deps like pytest); else fall back
+    to Booty's interpreter.
+    """
+    if platform.system() == "Windows":
+        venv_py = workspace_path / ".venv" / "Scripts" / "python.exe"
+    else:
+        venv_py = workspace_path / ".venv" / "bin" / "python"
+    if venv_py.exists():
+        return str(venv_py)
+    return sys.executable
 
 
 def compile_sweep(file_paths: list[Path | str], workspace_root: Path) -> list[dict]:
@@ -99,8 +115,9 @@ for arg in sys.argv[1:]:
 print(json.dumps(errors))
 '''
 
+    python_exe = _workspace_python(workspace_path)
     proc = await asyncio.create_subprocess_exec(
-        sys.executable,
+        python_exe,
         "-c",
         inner,
         "--",

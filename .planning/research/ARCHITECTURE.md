@@ -1,131 +1,135 @@
-# Architecture Research: Verifier Agent
+# Architecture Research
 
-**Domain:** Verifier integration with Booty
+**Domain:** Observability — deploy automation, Sentry APM, alert-to-issue pipeline
 **Researched:** 2026-02-15
 **Confidence:** HIGH
 
-## System Overview
+## Standard Architecture
+
+### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         GitHub (Webhook + Checks)                         │
-│  pull_request (opened, synchronize) ──► Booty webhook                    │
-│  check run booty/verifier ◄────────── Verifier posts result               │
-├─────────────────────────────────────────────────────────────────────────┤
-│                            Booty Application                            │
-│  ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐  │
-│  │ Webhook Handler │     │ Verifier Agent   │     │ Builder Agent   │  │
-│  │ (extended)      │────►│ (NEW)            │     │ (existing)      │  │
-│  │ + pull_request  │     │ - Clone PR head  │     │ - issue → PR    │  │
-│  └─────────────────┘     │ - Validate config│     └─────────────────┘  │
-│                          │ - Run tests      │                           │
-│                          │ - Post check run│                           │
-│                          └────────┬────────┘                           │
-│                                   │                                     │
-│  ┌────────────────────────────────┼────────────────────────────────┐   │
-│  │ Shared: test_runner, git ops   │                                │   │
-│  │ prepare_workspace (clone), execute_tests(), load_booty_config()   │   │
-│  └────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         GitHub (CI/CD + Issues)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  push to main → Actions workflow → SSH → DO server                          │
+│  Observability agent creates issues ← Sentry webhook                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Builder picks up agent:builder issues (existing flow)                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↑                    ↑                          ↑
+         │                    │                          │
+┌────────┴────────┐  ┌───────┴───────┐  ┌───────────────┴───────────────────┐
+│ GitHub Actions  │  │  Sentry.io     │  │  Booty (DO server)                 │
+│ .github/        │  │  APM + Alerts  │  │  FastAPI + Sentry SDK              │
+│ workflows/      │  │  Webhooks →    │  │  Observability agent (webhook)     │
+│ deploy.yml      │  │  Booty         │  │  Builder, Verifier (existing)      │
+└─────────────────┘  └───────────────┘  └───────────────────────────────────┘
 ```
 
-## Component Responsibilities
+### Component Responsibilities
 
-| Component | Responsibility | Implementation |
-|-----------|----------------|-----------------|
-| **Webhook (extended)** | Accept `pull_request` events; route to Verifier queue | Add branch for `event_type == "pull_request"` and `action in ("opened", "synchronize")` |
-| **Verifier worker** | Process PR: clone, validate, test, post check | New `process_pr_verification()` async; uses VerifierJob |
-| **VerifierJob** | PR context: repo, head_sha, pr_number, labels, author | Similar to Job; different payload shape |
-| **Check run poster** | Create/update `booty/verifier` check via Checks API | New module `booty/github/checks.py`; uses GitHub App auth |
-| **Diff limit checker** | Enforce max_files, max_loc, max_loc_per_file | pathspec for per-file limits; PR stats for totals |
-| **Import/compile detector** | AST parse changed files; validate imports | Extend or reuse test_runner import validation; run setup_command first |
+| Component | Responsibility | Typical Implementation |
+|-----------|-----------------|------------------------|
+| Deploy workflow | Trigger on main push; SSH to DO; run deploy.sh | .github/workflows/deploy.yml; appleboy/ssh-action or shell with ssh |
+| Sentry SDK | Capture errors, set release/env, send to Sentry | sentry_sdk.init() at app startup |
+| Observability agent | Receive Sentry webhook; filter; create GitHub issue | FastAPI POST route; HMAC verify; PyGithub create_issue |
+| Cooldown store | Prevent duplicate issues per fingerprint | In-memory dict with TTL; or Redis later |
 
 ## Recommended Project Structure
 
 ```
-src/booty/
-├── github/
-│   ├── pulls.py      # existing
-│   ├── comments.py  # existing
-│   └── checks.py    # NEW: create_check_run, update_check_run (App auth)
-├── verifier/
-│   ├── __init__.py
-│   ├── job.py       # VerifierJob dataclass
-│   ├── runner.py    # process_pr_verification() orchestration
-│   ├── limits.py    # diff limit enforcement
-│   └── imports.py   # hallucinated import detection
-├── webhooks.py      # EXTEND: pull_request handling
-├── test_runner/     # REUSE: config, executor
-└── ...
+booty/
+├── .github/workflows/
+│   └── deploy.yml              # NEW: Trigger on push, SSH deploy
+├── src/booty/
+│   ├── main.py                 # MODIFY: Add sentry_sdk.init()
+│   ├── observability/          # NEW
+│   │   ├── __init__.py
+│   │   ├── webhook.py          # Sentry webhook handler
+│   │   ├── filters.py          # Severity, dedup, cooldown
+│   │   └── issue_creator.py    # GitHub issue creation
+│   ├── builder/                # (existing)
+│   ├── verifier/               # (existing)
+│   └── github/                 # (existing)
+├── deploy.sh                   # (existing)
+└── pyproject.toml              # MODIFY: Add sentry-sdk
 ```
+
+### Structure Rationale
+
+- **observability/:** Mirrors builder/, verifier/ — agent-per-subsystem pattern.
+- **webhook.py:** Single route; verify → filter → create issue.
+- **filters.py:** Reusable logic; testable without HTTP.
+
+## Architectural Patterns
+
+### Pattern 1: Webhook → Verify → Filter → Act
+
+**What:** Receive webhook, verify signature, apply filters, then side effect (create issue).
+**When to use:** All inbound webhooks (already used for GitHub).
+**Trade-offs:** Fail fast on verify; filter before any external call.
+
+### Pattern 2: Release as Git SHA
+
+**What:** `release="booty@$(git rev-parse HEAD)"` or from env at deploy time.
+**When to use:** Sentry init; enables Sentry UI to correlate errors with deploy.
+**Trade-offs:** Must set at startup; CI passes SHA to deploy.
+
+### Pattern 3: Cooldown Dict
+
+**What:** `{fingerprint: last_created_ts}` with TTL; skip if within cooldown.
+**When to use:** Observability agent; simple for MVP.
+**Trade-offs:** Lost on restart; Redis for persistence later.
 
 ## Data Flow
 
-### Verifier Request Flow
+### Deploy Flow
 
 ```
-GitHub pull_request webhook
-    │
-    ▼
-Webhook handler (verify HMAC) ──► not duplicate? ──► Enqueue VerifierJob
-    │
-    ▼
-Verifier worker picks job
-    │
-    ├─► Clone repo at PR head_sha (clean env)
-    ├─► Load .booty.yml (validate schema)
-    ├─► Check diff limits (PR stats)
-    ├─► Detect import/compile issues (AST + setup run)
-    ├─► Run tests (execute_tests)
-    │
-    ▼
-Post check run: conclusion = success | failure
-    │
-    ├─► If agent PR: Check blocks merge (required)
-    └─► If human PR: Check informational only
+Push to main
+    → GitHub Actions triggered
+    → checkout, get SHA
+    → SSH to DO
+    → cd /opt/booty && git pull && pip install -e . && systemctl restart booty
+    → (optional) Set SENTRY_RELEASE env from SHA
 ```
 
-### Authentication Split
+### Sentry Alert → Issue Flow
 
-| Path | Auth | Purpose |
-|------|------|---------|
-| Builder (issues → PR) | PAT (GITHUB_TOKEN) | Issues, PR creation, comments |
-| Verifier (PR → check) | GitHub App | Checks API only; `booty/verifier` |
+```
+Sentry alert triggered
+    → POST /webhooks/sentry (Observability agent)
+    → Verify Sentry-Hook-Signature
+    → Parse: severity, fingerprint, event URL, contexts
+    → Filter: severity >= threshold? fingerprint not in cooldown?
+    → Create GitHub issue (agent:builder, severity, breadcrumbs, release)
+    → Update cooldown store
+```
 
 ## Integration Points
 
-### With Existing Codebase
+### External Services
 
-| Existing | Integration |
-|----------|-------------|
-| **prepare_workspace** | Verifier needs variant: clone at `head_sha` (PR branch), not `base` + new branch. New `prepare_verification_workspace(repo_url, head_ref)` |
-| **execute_tests** | Direct reuse; same `test_command`, `timeout` from .booty.yml |
-| **load_booty_config** | Extend BootyConfig for schema v1; validate before run |
-| **Job queue** | Verifier can use same queue (different job type) or separate; same worker pool pattern |
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Sentry | SDK (outbound) + Webhook (inbound) | DSN from env; webhook secret from env |
+| GitHub | REST API via PyGithub | Same as Builder; issue creation |
+| DigitalOcean | SSH | deploy.sh; workflow needs SSH key secret |
 
-### With GitHub
+### Internal Boundaries
 
-| Service | Pattern | Notes |
-|---------|---------|-------|
-| Webhook | One endpoint `/webhooks/github`; branch on `X-GitHub-Event` | Add `pull_request` handling |
-| Checks API | `repo.create_check_run()` → `check_run.edit()` | Requires GitHub App |
-| Branch protection | User configures "Require status checks: booty/verifier" | Out of Booty scope; docs |
-
-## Build Order
-
-1. **GitHub App auth** — Add Settings for `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`; `booty/github/checks.py` with App-authenticated `create_check_run`
-2. **pull_request webhook** — Extend webhooks.py; enqueue VerifierJob
-3. **Verifier runner** — Clone at head, load config, run tests, post check
-4. **Diff limits** — Add to runner; enforce before test run
-5. **Import/compile detection** — Add to runner; run setup_command, capture early failures
-6. **.booty.yml schema v1** — Extend BootyConfig; backward-compatible defaults
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| main.py ↔ observability | Import route, call handler | Same app; no new process |
+| observability ↔ github | PyGithub client | Shared client or new; minimal config |
 
 ## Sources
 
-- PROJECT.md, existing webhooks.py, test_runner
-- GitHub webhook events (pull_request)
-- PyGithub Checks API
+- Booty codebase — FastAPI, builder, verifier structure
+- Sentry docs — webhook, SDK init
+- deploy.sh — existing deploy flow
 
 ---
-*Architecture research for: Verifier agent (Booty v1.2)*
+*Architecture research for: v1.3 Observability*
 *Researched: 2026-02-15*

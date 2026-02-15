@@ -1,79 +1,73 @@
-# Stack Research: Verifier Agent
+# Stack Research
 
-**Domain:** GitHub Checks API, PR verification, CI gating
+**Domain:** Observability — deploy automation, APM, alert-to-issue pipeline
 **Researched:** 2026-02-15
 **Confidence:** HIGH
 
-## Executive Summary
+## Recommended Stack
 
-The Verifier agent requires **GitHub App authentication** — the Checks API does not accept PATs or OAuth tokens. Booty currently uses `Auth.Token(github_token)`; we must add GitHub App support for the Verifier path. PyGithub supports both; no library swap required.
+### Core Technologies (New for v1.3)
 
-## Recommended Stack Additions
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| sentry-sdk | 2.x (Python) | Error tracking, release correlation, APM | Official Sentry Python SDK; FastAPI integration built-in; `release` param maps to git SHA; structlog compatible |
+| GitHub Actions | — | Deploy workflow (SSH to DO) | Booty is already on GitHub; workflow triggers on push/merge; no new infra |
+| SSH (appleboy/ssh-action or native) | latest | Remote command execution | deploy.sh already exists; workflow invokes same pattern |
 
-### Core Requirement: GitHub App for Checks API
+### Supporting Libraries
 
-| Technology | Purpose | Why Required |
-|------------|---------|--------------|
-| **PyGithub Auth.AppAuth** | GitHub App JWT + installation token | Checks API only accepts GitHub App auth; PATs cannot create check runs |
-| **GithubIntegration** (PyGithub) | Get installation token per repo | Verifier needs `checks:write`; `repo.create_check_run()` requires App token |
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| sentry-sdk[fastapi] | same as core | FastAPI + Starlette integrations | Bootstrap Sentry in main app |
+| — | — | Webhook HMAC verification | Observability agent; use stdlib `hmac` + `hashlib` |
+| — | — | PyGithub | Already present; Observability agent creates issues |
 
-**Critical:** GitHub docs state: "OAuth apps and authenticated users can only view check runs and check suites, but cannot create them." [GitHub REST API]
+### Integration with Existing Stack
 
-### Stack Additions (Minimal)
+| Existing | New Addition | Integration Point |
+|----------|--------------|-------------------|
+| FastAPI | sentry_sdk.init() at app startup | Before app creation; set `release`, `environment` |
+| structlog | Sentry breadcrumbs | Sentry can attach log context; optional |
+| deploy.sh | .github/workflows/deploy.yml | Workflow calls `./deploy.sh` or equivalent SSH |
+| PyGithub | Issue creation | Same pattern as Builder; Observability agent uses it |
 
-| Addition | Version | Purpose | Integration |
-|----------|---------|---------|-------------|
-| **PyJWT** | 2.8+ | JWT generation for App auth | PyGithub's `Auth.AppAuth` uses it internally; may already be transitive |
-| **None** | — | Diff stats | Use `git diff --stat` or PyGithub PR `changed_files`, `additions`, `deletions` |
+## Installation
 
-### Existing Stack (Reuse)
+```bash
+# Sentry Python SDK
+pip install sentry-sdk[fastapi]
+```
 
-| Component | Current Use | Verifier Use |
-|-----------|-------------|--------------|
-| **test_runner/executor** | Builder runs tests in workspace | Verifier clones PR branch, runs same `execute_tests()` in clean env |
-| **test_runner/config** | .booty.yml loading | Extend BootyConfig for schema v1 (allowed_paths, forbidden_paths, etc.) |
-| **PyGithub** | PR creation, comments | Checks API via `repo.create_check_run()`, `check_run.edit()` |
-| **pathspec** | Path restrictions | Diff limit enforcement (max_loc_per_file for safety-critical dirs) |
+## Alternatives Considered
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Sentry | Datadog, New Relic | If org already has APM contract |
+| GitHub Actions deploy | Manual deploy.sh | Keeps current flow; CI/CD is explicit add |
+| Sentry webhook | Sentry email/Slack → custom parser | Webhook is direct, no parsing needed |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| **PAT for Checks API** | API rejects it — 403/401 | GitHub App with `checks:write` |
-| **Commit Status API** | User wanted required check `booty/verifier`; statuses are less first-class | Checks API (requires App) |
-| **New test runner** | Builder's `execute_tests()` is proven | Reuse; Verifier = fresh clone + same executor |
-
-## GitHub App Setup (Required)
-
-Booty must be deployed as a **GitHub App** (or run with an App installation token) for Verifier:
-
-1. Create GitHub App with permissions: `checks: write`, `pull_requests: read`, `contents: read`, `metadata: read`
-2. Subscribe to `pull_request` (actions: opened, synchronize)
-3. Generate installation access token via `GithubIntegration.get_github_for_installation(installation_id)`
-4. Use that token for `repo.create_check_run()` calls
-
-**Dual-auth strategy:** Builder can keep PAT (issues, PR creation, comments). Verifier uses App token (Checks API only). Two code paths, one app.
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use |
-|-------------|-------------|-------------|
-| GitHub App | Commit Status API | If user accepts "build failing" status instead of named check — lower setup but less first-class |
-| PyGithub | httpx direct to REST | PyGithub has `create_check_run`; no need for raw HTTP |
+| Custom APM from scratch | High complexity, Sentry is mature | sentry-sdk |
+| Polling Sentry API for alerts | Latency, rate limits | Webhook (push) |
+| Storing webhook secret in code | Security risk | Pydantic Settings from env |
 
 ## Version Compatibility
 
-| PyGithub | Auth.AppAuth | Notes |
-|----------|--------------|-------|
-| 2.x | Supported | `Auth.AppAuth(app_id, private_key)` |
-| — | GithubIntegration | `get_github_for_installation(installation_id)` returns `Github` with App token |
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| sentry-sdk | Python 3.10+ | Booty uses 3.11+ |
+| FastAPI integration | Starlette 0.14+ | Already in Booty deps |
 
 ## Sources
 
-- PyGithub Context7 — CheckRun, Auth.AppAuth, GithubIntegration
-- GitHub REST API docs — Checks API, authentication
-- Web search — "GitHub Checks API requires GitHub App not PAT"
+- /getsentry/sentry-python (Context7) — FastAPI init, release, integrations
+- /getsentry/sentry-docs (Context7) — Webhook signature verification, payload
+- /websites/github_en_actions — Secrets, shell, SSH patterns
+- deploy.sh — Existing deploy flow
 
 ---
-*Stack research for: Verifier agent (Booty v1.2)*
+*Stack research for: v1.3 Observability*
 *Researched: 2026-02-15*

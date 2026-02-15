@@ -60,6 +60,10 @@ sudo cp /tmp/booty.service "/etc/systemd/system/${SERVICE_NAME}.service"
 rm /tmp/booty.service
 sudo systemctl daemon-reload
 
+# Create /etc/booty and write release.env for Sentry correlation
+sudo mkdir -p /etc/booty
+printf 'SENTRY_RELEASE=%s\nSENTRY_ENVIRONMENT=production\n' "$(git rev-parse HEAD)" | sudo tee /etc/booty/release.env > /dev/null
+
 # Ensure that the booty service is enabled and restarted
 sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl restart "$SERVICE_NAME"
