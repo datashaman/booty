@@ -75,11 +75,15 @@ jobs:
             echo "**Stage:** deploy.sh" >> $GITHUB_STEP_SUMMARY
             echo "**Exit code:** $EXIT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "<details><summary>Last 20 lines</summary>" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -20 /tmp/deploy.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            if [ -f /tmp/deploy.log ] && [ -s /tmp/deploy.log ]; then
+              echo "<details><summary>Last 20 lines</summary>" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              tail -20 /tmp/deploy.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**No output captured**" >> $GITHUB_STEP_SUMMARY
+            fi
             exit 1
           fi
 

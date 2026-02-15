@@ -338,7 +338,7 @@ async def sentry_webhook(request: Request):
 
     # Normalize issue_id to string and validate it's not empty
     missing = []
-    if not issue_id or (isinstance(issue_id, str) and not issue_id.strip()):
+    if issue_id is None or (isinstance(issue_id, str) and not issue_id.strip()):
         missing.append("issue_id")
     else:
         issue_id = str(issue_id)  # Normalize to string for consistent dictionary keys

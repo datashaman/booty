@@ -220,8 +220,10 @@ app.include_router(webhook_router)
 async def sentry_test(x_internal_token: str = Header(None)):
     """Raise test exception for manual E2E Sentry verification. Hit with SENTRY_DSN set.
     
-    Requires X-Internal-Token header matching INTERNAL_TEST_TOKEN environment variable.
-    Only enabled in non-production environments or when explicitly configured.
+    Authentication:
+    - In production (SENTRY_ENVIRONMENT=production): Requires X-Internal-Token header
+    - When INTERNAL_TEST_TOKEN is set: Requires matching X-Internal-Token header
+    - In development (no token configured): No authentication required
     """
     settings = get_settings()
     expected_token = os.environ.get("INTERNAL_TEST_TOKEN", "")
