@@ -1,6 +1,9 @@
 """Verifier job runner — clone, test, update check run."""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from github import UnknownObjectException
 from pydantic import ValidationError
@@ -9,6 +12,7 @@ from booty.config import Settings, verifier_enabled
 from booty.github.checks import create_check_run, edit_check_run, get_verifier_repo
 from booty.github.comments import post_verifier_failure_comment
 from booty.github.promotion import promote_to_ready_for_review
+from booty.jobs import Job
 from booty.logging import get_logger
 from booty.test_runner.config import (
     BootyConfig,
@@ -33,12 +37,113 @@ from booty.verifier.limits import (
 )
 from booty.verifier.workspace import prepare_verification_workspace
 
+if TYPE_CHECKING:
+    from booty.jobs import JobQueue
+
 CHECK_OUTPUT_MAX = 65535
 
 logger = get_logger()
 
 
-async def process_verifier_job(job: VerifierJob, settings: Settings) -> None:
+async def _enqueue_builder_retry(
+    job: VerifierJob,
+    job_queue: JobQueue,
+    settings: Settings,
+    summary: str,
+    truncated_output: str,
+) -> None:
+    """Enqueue a builder retry job when verifier detects test failure on agent PR.
+
+    Fetches the original issue from GitHub and creates a new builder Job
+    with verifier_retries incremented. Only enqueues if under retry limit.
+    """
+    from github import Auth, Github
+
+    try:
+        # Determine current retry count from PR labels/comments or default to 0
+        # We need to check if there's already a retry job for this issue
+        # Look at existing jobs in the queue
+        existing_retries = 0
+        for existing_job in job_queue.jobs.values():
+            if (
+                existing_job.issue_number == job.issue_number
+                and existing_job.verifier_retries > existing_retries
+            ):
+                existing_retries = existing_job.verifier_retries
+
+        next_retry = existing_retries + 1
+
+        if next_retry > settings.MAX_VERIFIER_RETRIES:
+            logger.info(
+                "verifier_retry_limit_reached",
+                issue_number=job.issue_number,
+                pr_number=job.pr_number,
+                retries=existing_retries,
+                max_retries=settings.MAX_VERIFIER_RETRIES,
+            )
+            return
+
+        # Fetch original issue payload from GitHub API
+        auth = Auth.Token(settings.GITHUB_TOKEN)
+        g = Github(auth=auth)
+        repo = g.get_repo(f"{job.owner}/{job.repo_name}")
+        issue = repo.get_issue(job.issue_number)
+
+        # Build issue payload matching webhook format
+        issue_payload = {
+            "issue": {
+                "number": issue.number,
+                "title": issue.title,
+                "body": issue.body or "",
+                "html_url": issue.html_url,
+            },
+            "repository": {
+                "html_url": job.repo_url,
+            },
+        }
+
+        verifier_error = f"{summary}\n\n```\n{truncated_output}\n```"
+
+        retry_job = Job(
+            job_id=f"{job.issue_number}-verifier-retry-{next_retry}",
+            issue_url=issue.html_url,
+            issue_number=job.issue_number,
+            payload=issue_payload,
+            repo_url=job.repo_url,
+            verifier_retries=next_retry,
+            pr_number=job.pr_number,
+            verifier_error=verifier_error,
+        )
+
+        enqueued = await job_queue.enqueue(retry_job)
+        if enqueued:
+            logger.info(
+                "verifier_retry_enqueued",
+                issue_number=job.issue_number,
+                pr_number=job.pr_number,
+                retry=next_retry,
+                max_retries=settings.MAX_VERIFIER_RETRIES,
+            )
+        else:
+            logger.warning(
+                "verifier_retry_enqueue_failed",
+                issue_number=job.issue_number,
+                pr_number=job.pr_number,
+            )
+
+    except Exception as e:
+        logger.error(
+            "verifier_retry_error",
+            issue_number=job.issue_number,
+            pr_number=job.pr_number,
+            error=str(e),
+            exc_info=True,
+        )
+
+
+async def process_verifier_job(
+    job: VerifierJob, settings: Settings, job_queue: JobQueue | None = None
+) -> None:
     """Process a verifier job: clone PR head, run tests, update check run.
 
     Check run lifecycle: queued → in_progress → completed (success/failure).
@@ -313,6 +418,12 @@ async def process_verifier_job(job: VerifierJob, settings: Settings) -> None:
                         output_summary,
                         truncated,
                     )
+
+                    # Enqueue builder retry if within retry limit
+                    if job_queue is not None and job.issue_number is not None:
+                        await _enqueue_builder_retry(
+                            job, job_queue, settings, output_summary, truncated
+                        )
     except Exception as e:
         logger.error(
             "verifier_error",

@@ -44,8 +44,6 @@ def post_failure_comment(
     repo_url: str,
     issue_number: int,
     error_message: str,
-    attempts: int,
-    max_retries: int,
 ) -> None:
     """Post a failure comment on a GitHub issue.
 
@@ -54,8 +52,6 @@ def post_failure_comment(
         repo_url: Repository URL
         issue_number: GitHub issue number
         error_message: Error details from failed test run
-        attempts: Number of attempts made
-        max_retries: Maximum retry limit
 
     Raises:
         GithubException: If comment creation fails
@@ -68,13 +64,7 @@ def post_failure_comment(
         # Format comment body
         body = f"""## Booty Build Failed
 
-After {attempts}/{max_retries} attempt(s), the generated code did not pass tests.
-
-### Error Details
-
-```
 {error_message}
-```
 
 A draft PR has been opened with the latest attempt for manual review.
 

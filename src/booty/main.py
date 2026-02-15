@@ -46,11 +46,18 @@ async def process_job(job: Job) -> None:
     logger = get_logger().bind(job_id=job.job_id, issue_number=job.issue_number)
     settings = get_settings()
 
-    logger.info("job_started")
+    logger.info(
+        "job_started",
+        verifier_retries=job.verifier_retries,
+        pr_number=job.pr_number,
+    )
+
+    # Use repo_url from the job if set (retries), otherwise from settings
+    repo_url = job.repo_url or settings.TARGET_REPO_URL
 
     # Prepare workspace
     async with prepare_workspace(
-        job, settings.TARGET_REPO_URL, settings.TARGET_BRANCH, settings.GITHUB_TOKEN
+        job, repo_url, settings.TARGET_BRANCH, settings.GITHUB_TOKEN
     ) as workspace:
         logger.info("workspace_ready", path=workspace.path, branch=workspace.branch)
 
@@ -61,26 +68,30 @@ async def process_job(job: Job) -> None:
         logger.info("pr_created", pr_number=pr_number, tests_passed=tests_passed)
 
         # If tests failed, post failure comment on issue
-        if not tests_passed:
+        # Skip for verifier retries — the push triggers re-verification automatically
+        if not tests_passed and job.pr_number is None:
             logger.warning("tests_failed_posting_comment", pr_number=pr_number)
-            # Error message already includes attempt context from refiner
             post_failure_comment(
                 settings.GITHUB_TOKEN,
-                settings.TARGET_REPO_URL,
+                repo_url,
                 job.issue_number,
                 error_message or "Unknown error",
-                0,  # attempts not needed - error_message has context
-                0,  # max_retries not needed - error_message has context
             )
             logger.info("job_completed_with_failures", pr_number=pr_number)
+        elif not tests_passed:
+            logger.info(
+                "retry_completed_with_failures",
+                pr_number=pr_number,
+                verifier_retries=job.verifier_retries,
+            )
         else:
             logger.info("job_completed_successfully", pr_number=pr_number)
 
 
 async def _process_verifier_job(job: VerifierJob) -> None:
-    """Wrapper to pass settings to process_verifier_job."""
+    """Wrapper to pass settings and job_queue to process_verifier_job."""
     settings = get_settings()
-    await process_verifier_job(job, settings)
+    await process_verifier_job(job, settings, job_queue=job_queue)
 
 
 @asynccontextmanager

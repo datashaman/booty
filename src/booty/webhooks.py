@@ -2,6 +2,7 @@
 
 import hmac
 import hashlib
+import re
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -119,6 +120,12 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             )
             return {"status": "already_processed"}
 
+        # Extract issue number from branch name (agent/issue-N)
+        issue_number_from_branch = None
+        branch_match = re.match(r"^agent/issue-(\d+)$", head_ref)
+        if branch_match:
+            issue_number_from_branch = int(branch_match.group(1))
+
         job_id = f"verifier-{pr_number}-{head_sha[:7]}"
         job = VerifierJob(
             job_id=job_id,
@@ -131,6 +138,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             installation_id=installation_id,
             payload=payload,
             is_agent_pr=is_agent_pr,
+            issue_number=issue_number_from_branch,
         )
 
         enqueued = await verifier_queue.enqueue(job)
