@@ -1,2 +1,4 @@
-version: 1
-test_command: pytest
+schema_version: 1
+setup_command: python3 -m venv .venv
+install_command: .venv/bin/pip install -e '.[dev]'
+test_command: .venv/bin/pytest
