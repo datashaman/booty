@@ -38,12 +38,22 @@ class Settings(BaseSettings):
     BOOTY_SELF_MODIFY_ENABLED: bool = False  # Explicit opt-in required
     BOOTY_SELF_MODIFY_REVIEWER: str = ""  # GitHub username for review requests on self-PRs
 
+    # Verifier (GitHub App) configuration
+    GITHUB_APP_ID: str = ""  # Optional; empty = Verifier disabled
+    GITHUB_APP_PRIVATE_KEY: str = ""  # Optional; empty = Verifier disabled
+    VERIFIER_WORKER_COUNT: int = 2  # Number of verifier workers
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
     )
+
+
+def verifier_enabled(settings: Settings) -> bool:
+    """Return True if GitHub App credentials are configured for Verifier."""
+    return bool(settings.GITHUB_APP_ID and settings.GITHUB_APP_PRIVATE_KEY)
 
 
 @lru_cache

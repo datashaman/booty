@@ -6,11 +6,12 @@ import hashlib
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from booty.config import get_settings
+from booty.config import get_settings, verifier_enabled
 from booty.github.comments import post_self_modification_disabled_comment
 from booty.jobs import Job
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
+from booty.verifier import VerifierJob
 
 
 router = APIRouter(prefix="/webhooks")
@@ -67,21 +68,93 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     verify_signature(payload_body, settings.WEBHOOK_SECRET, signature_header)
     logger.info("signature_verified", delivery_id=delivery_id, event_type=event_type)
 
-    # Get job queue from app state
+    # Parse payload
+    payload = await request.json()
+
+    # Handle pull_request events (Verifier)
+    if event_type == "pull_request":
+        verifier_queue = getattr(request.app.state, "verifier_queue", None)
+        if verifier_queue is None or not verifier_enabled(settings):
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                reason="verifier_disabled",
+            )
+            return {"status": "ignored", "reason": "verifier_disabled"}
+
+        action = payload.get("action")
+        if action not in ("opened", "synchronize", "reopened"):
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                action=action,
+                reason="unhandled_action",
+            )
+            return {"status": "ignored"}
+
+        repo = payload.get("repository", {})
+        pr = payload.get("pull_request", {})
+        owner = repo.get("owner", {}).get("login", "")
+        repo_name = repo.get("name", "")
+        pr_number = pr.get("number", 0)
+        head_sha = pr.get("head", {}).get("sha", "")
+        head_ref = pr.get("head", {}).get("ref", "")
+        repo_url = repo.get("html_url", "")
+        installation_id = payload.get("installation", {}).get("id") or 0
+        labels = [l.get("name", "") for l in pr.get("labels", [])]
+        is_agent_pr = (
+            settings.TRIGGER_LABEL in labels
+            or pr.get("user", {}).get("type") == "Bot"
+        )
+
+        if not head_sha:
+            logger.warning("pull_request_missing_head_sha", pr_number=pr_number)
+            return {"status": "ignored", "reason": "missing_head_sha"}
+
+        if verifier_queue.is_duplicate(pr_number, head_sha):
+            logger.info(
+                "verifier_already_processed",
+                pr_number=pr_number,
+                head_sha=head_sha[:7],
+            )
+            return {"status": "already_processed"}
+
+        job_id = f"verifier-{pr_number}-{head_sha[:7]}"
+        job = VerifierJob(
+            job_id=job_id,
+            owner=owner,
+            repo_name=repo_name,
+            pr_number=pr_number,
+            head_sha=head_sha,
+            head_ref=head_ref,
+            repo_url=repo_url,
+            installation_id=installation_id,
+            payload=payload,
+            is_agent_pr=is_agent_pr,
+        )
+
+        enqueued = await verifier_queue.enqueue(job)
+        if not enqueued:
+            logger.error("verifier_enqueue_failed", job_id=job_id)
+            raise HTTPException(status_code=500, detail="Failed to enqueue verifier job")
+
+        logger.info("verifier_job_accepted", job_id=job_id, pr_number=pr_number)
+        return JSONResponse(
+            status_code=202,
+            content={"status": "accepted", "job_id": job_id},
+        )
+
+    # Handle issues events (Builder)
+    if event_type != "issues":
+        logger.info("event_filtered", event_type=event_type, reason="not_issues")
+        return {"status": "ignored"}
+
     job_queue = request.app.state.job_queue
 
     # Check idempotency
     if delivery_id and job_queue.is_duplicate(delivery_id):
         logger.info("duplicate_delivery", delivery_id=delivery_id)
         return {"status": "already_processed"}
-
-    # Parse payload
-    payload = await request.json()
-
-    # Filter: only process issues labeled events with trigger label
-    if event_type != "issues":
-        logger.info("event_filtered", event_type=event_type, reason="not_issues")
-        return {"status": "ignored"}
 
     if payload.get("action") != "labeled":
         logger.info(

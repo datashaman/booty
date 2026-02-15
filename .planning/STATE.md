@@ -5,38 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** v1.1 complete — Test Generation & PR Promotion
+**Current focus:** Milestone v1.2 Verifier Agent
 
 ## Current Position
 
-Phase: 6 of 6 (PR Promotion)
-Plan: 2 of 2 (Pipeline wiring)
-Status: Phase complete
-Last activity: 2026-02-15 — Completed 06-02-PLAN.md
+Phase: 10 (Import/Compile Detection)
+Plan: —
+Status: Phase 10 complete
+Last activity: 2026-02-15 — Phase 10 executed
 
-Progress: [██████████] 100% (Phase 6, v1.1)
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 13 (v1.0)
-- Average duration: ~45 min (estimated from 1-day v1.0 execution)
-- Total execution time: ~10 hours (v1.0)
-
-**By Phase (v1.0 baseline):**
-
-| Phase | Plans | Status |
-|-------|-------|--------|
-| 1. Foundation | 3 | Complete |
-| 2. GitHub Integration | 3 | Complete |
-| 3. Test-Driven Refinement | 4 | Complete |
-| 4. Self-Modification Safety | 3 | Complete |
-
-**Recent Trend:**
-- v1.0 shipped in 1 day (13 plans)
-- Starting v1.1 (Phase 5-6, 2 phases)
-
-*Metrics will update as v1.1 plans complete*
+Progress: [██████████] 100% (v1.2 complete)
 
 ## Accumulated Context
 
@@ -44,32 +22,16 @@ Progress: [██████████] 100% (Phase 6, v1.1)
 
 See PROJECT.md Key Decisions table for full history.
 
-Recent decisions affecting v1.1:
-- Single LLM call for code + tests (shared context, simpler architecture)
-- One-shot test generation, refine only code (preserves refinement loop stability)
-- Multi-criteria PR promotion (tests + linting + not self-modification)
-- GraphQL via PyGithub (zero new dependencies)
-- Test files in same commit as source (atomic changes)
-- File extension counting for language detection (99%+ accuracy, zero dependencies)
-- AST parsing for import extraction (not regex) to handle edge cases correctly
-- Check both project.dependencies and project.optional-dependencies for framework detection
-- Test files tracked separately from source changes (test_files field)
-- Import validation logs warnings but doesn't block (refinement catches real failures)
-- Refinement prompt instructs LLM not to modify test files (one-shot generation)
-- Quality checks run for all jobs (promotion gate); always create draft PRs; promote when tests+lint pass and not self-mod
-- Retry promotion only on 5xx/network; post neutral failure comment on exception
-
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
 
-None. Research completed with HIGH confidence, no new dependencies required.
+None.
 
 ## Session Continuity
 
-Last session: 2026-02-15 (plan execution)
-Stopped at: Completed 06-02-PLAN.md (Pipeline wiring)
-Resume file: None
-Next step: v1.1 complete — ready for verification and ship
+Last session: 2026-02-15 (Phase 10 execution)
+Stopped at: Phase 10 complete, v1.2 milestone complete
+Next step: `/gsd:audit-milestone` — verify v1.2 requirements

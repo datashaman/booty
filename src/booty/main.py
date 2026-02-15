@@ -8,16 +8,20 @@ from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 
 from booty.code_gen.generator import process_issue_to_pr
-from booty.config import get_settings
+from booty.config import get_settings, verifier_enabled
 from booty.github.comments import post_failure_comment
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
+from booty.verifier import VerifierJob
+from booty.verifier.queue import VerifierQueue
+from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
 
 
 # Module-level job queue and app start time
 job_queue: JobQueue | None = None
+verifier_queue: VerifierQueue | None = None
 app_start_time: datetime | None = None
 
 
@@ -73,13 +77,19 @@ async def process_job(job: Job) -> None:
             logger.info("job_completed_successfully", pr_number=pr_number)
 
 
+async def _process_verifier_job(job: VerifierJob) -> None:
+    """Wrapper to pass settings to process_verifier_job."""
+    settings = get_settings()
+    await process_verifier_job(job, settings)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
 
     Configures logging, starts workers on startup, shuts down on exit.
     """
-    global job_queue, app_start_time
+    global job_queue, verifier_queue, app_start_time
 
     settings = get_settings()
     logger = get_logger()
@@ -87,6 +97,12 @@ async def lifespan(app: FastAPI):
     # Startup
     configure_logging(settings.LOG_LEVEL)
     logger.info("app_starting", worker_count=settings.WORKER_COUNT)
+
+    if not verifier_enabled(settings):
+        logger.info(
+            "verifier_disabled",
+            reason="missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY",
+        )
 
     # Record app start time
     app_start_time = datetime.now(timezone.utc)
@@ -97,6 +113,18 @@ async def lifespan(app: FastAPI):
     # Store job queue in app state for webhooks to access
     app.state.job_queue = job_queue
 
+    # Verifier queue and workers
+    if verifier_enabled(settings):
+        verifier_queue = VerifierQueue(maxsize=100)
+        await verifier_queue.start_workers(
+            settings.VERIFIER_WORKER_COUNT,
+            _process_verifier_job,
+        )
+        app.state.verifier_queue = verifier_queue
+    else:
+        verifier_queue = None
+        app.state.verifier_queue = None
+
     logger.info("app_started")
 
     yield
@@ -105,6 +133,8 @@ async def lifespan(app: FastAPI):
     logger.info("app_shutting_down")
     if job_queue:
         await job_queue.shutdown()
+    if verifier_queue:
+        await verifier_queue.shutdown()
     logger.info("app_stopped")
 
 
