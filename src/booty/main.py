@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from importlib.metadata import version, PackageNotFoundError
 
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
@@ -18,6 +19,18 @@ from booty.webhooks import router as webhook_router
 # Module-level job queue and app start time
 job_queue: JobQueue | None = None
 app_start_time: datetime | None = None
+
+
+def get_app_version() -> str:
+    """Get the application version from package metadata.
+    
+    Returns:
+        str: The version string, or "unknown" if version cannot be determined
+    """
+    try:
+        return version("booty")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 async def process_job(job: Job) -> None:
@@ -142,7 +155,7 @@ async def info():
     if job_queue is None or app_start_time is None:
         return {
             "error": "Application not fully initialized",
-            "version": "1.0.0",
+            "version": get_app_version(),
             "uptime_seconds": 0,
         }
 
@@ -157,7 +170,7 @@ async def info():
     active_workers = job_queue.get_active_worker_count()
 
     return {
-        "version": "1.0.0",
+        "version": get_app_version(),
         "uptime_seconds": uptime_seconds,
         "jobs": {
             "queued": job_stats["queued"],
