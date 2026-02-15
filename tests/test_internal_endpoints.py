@@ -161,7 +161,7 @@ def test_rate_limiter_cleanup():
     
     # Age out all requests
     old_time = datetime.now(timezone.utc) - timedelta(seconds=150)
-    for ip in limiter.requests:
+    for ip in list(limiter.requests.keys()):
         limiter.requests[ip] = [old_time]
     
     # Cleanup should remove old entries

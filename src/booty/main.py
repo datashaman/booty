@@ -75,7 +75,11 @@ class SimpleRateLimiter:
         return False
     
     def cleanup_old_entries(self) -> None:
-        """Remove identifiers with no recent requests to prevent memory growth."""
+        """Remove identifiers with no recent requests to prevent memory growth.
+        
+        Uses a cutoff of 2x the rate limit window to ensure entries aren't
+        prematurely removed while still potentially relevant for rate limiting.
+        """
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(seconds=self.window_seconds * 2)
         
@@ -292,7 +296,14 @@ async def sentry_test(request: Request, x_internal_token: str = Header(None)):
     settings = get_settings()
     
     # Apply rate limiting based on client IP
-    client_ip = request.client.host if request.client else "unknown"
+    # Reject requests without valid client IP to prevent shared rate limit bucket
+    if not request.client or not request.client.host:
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to determine client IP address"
+        )
+    
+    client_ip = request.client.host
     if internal_endpoint_limiter.is_rate_limited(client_ip):
         raise HTTPException(
             status_code=429,
