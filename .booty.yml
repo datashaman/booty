@@ -1,2 +1,2 @@
 version: 1
-test_command: echo 'Tests passed'
+test_command: pytest
