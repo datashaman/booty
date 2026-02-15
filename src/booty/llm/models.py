@@ -2,7 +2,12 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _normalize_path(path: str) -> str:
+    """Strip leading slashes from LLM-generated paths to ensure they're relative."""
+    return path.lstrip("/")
 
 
 class IssueAnalysis(BaseModel):
@@ -14,6 +19,11 @@ class IssueAnalysis(BaseModel):
     files_to_delete: list[str] = Field(
         default_factory=list, description="Files to remove"
     )
+
+    @field_validator("files_to_modify", "files_to_create", "files_to_delete", mode="after")
+    @classmethod
+    def normalize_paths(cls, v: list[str]) -> list[str]:
+        return [_normalize_path(p) for p in v]
     acceptance_criteria: list[str] = Field(
         description="How to verify the changes are correct"
     )
@@ -28,6 +38,11 @@ class FileChange(BaseModel):
     """Single file modification from code generation."""
 
     path: str = Field(description="File path relative to workspace root")
+
+    @field_validator("path", mode="after")
+    @classmethod
+    def normalize_path(cls, v: str) -> str:
+        return _normalize_path(v)
     content: str = Field(description="Complete file content")
     operation: Literal["create", "modify", "delete"] = Field(
         description="Type of file operation"
