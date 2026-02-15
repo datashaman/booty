@@ -93,6 +93,13 @@ Plans:
 
 **Requirements:** VERIFY-06, VERIFY-07, VERIFY-08, VERIFY-09, VERIFY-10
 
+**Plans:** 3 plans
+
+Plans:
+- [x] 09-01-PLAN.md — BootyConfig schema v1, load_booty_config_from_content
+- [x] 09-02-PLAN.md — verifier/limits.py (DiffStats, check_diff_limits)
+- [x] 09-03-PLAN.md — Wire schema + limits into runner
+
 **Success criteria:**
 1. Verifier rejects PR exceeding max_files_changed or max_diff_loc (check failure)
 2. Optional max_loc_per_file enforced for pathspec-matched safety-critical dirs
@@ -132,7 +139,7 @@ Plans:
 | 6. PR Promotion | v1.1 | Draft → ready when green | Complete |
 | 7. GitHub App + Checks | v1.2 | Checks API integration | Complete |
 | 8. Verifier Runner | v1.2 | PR webhook, clone, test, check | Complete |
-| 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Pending |
+| 9. Diff Limits + Schema | v1.2 | Limits, .booty.yml v1 | Complete |
 | 10. Import/Compile Detection | v1.2 | Hallucination detection | Pending |
 
 ---

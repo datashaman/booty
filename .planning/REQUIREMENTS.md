@@ -17,14 +17,14 @@ Requirements for Verifier agent milestone. Each maps to roadmap phases.
 
 ### Diff Limits
 
-- [ ] **VERIFY-06**: Verifier enforces max_files_changed (from .booty.yml or default)
-- [ ] **VERIFY-07**: Verifier enforces max_diff_loc (added + deleted lines)
-- [ ] **VERIFY-08**: Verifier enforces max_loc_per_file for safety-critical dirs (optional, pathspec-scoped)
+- [x] **VERIFY-06**: Verifier enforces max_files_changed (from .booty.yml or default)
+- [x] **VERIFY-07**: Verifier enforces max_diff_loc (added + deleted lines)
+- [x] **VERIFY-08**: Verifier enforces max_loc_per_file for safety-critical dirs (optional, pathspec-scoped)
 
 ### Configuration
 
-- [ ] **VERIFY-09**: Verifier validates .booty.yml against schema_version: 1 before running
-- [ ] **VERIFY-10**: .booty.yml schema v1 supports: test_command, setup_command?, timeout_seconds, max_retries, allowed_paths, forbidden_paths, allowed_commands, network_policy, labels
+- [x] **VERIFY-09**: Verifier validates .booty.yml against schema_version: 1 before running
+- [x] **VERIFY-10**: .booty.yml schema v1 supports: test_command, setup_command?, timeout_seconds, max_retries, allowed_paths, forbidden_paths, allowed_commands, network_policy, labels
 
 ### Correctness Detection
 
@@ -63,11 +63,11 @@ Which phases cover which requirements.
 | VERIFY-03 | Phase 8 | Complete |
 | VERIFY-04 | Phase 8 | Complete |
 | VERIFY-05 | Phase 8 | Complete |
-| VERIFY-06 | Phase 9 | Pending |
-| VERIFY-07 | Phase 9 | Pending |
-| VERIFY-08 | Phase 9 | Pending |
-| VERIFY-09 | Phase 9 | Pending |
-| VERIFY-10 | Phase 9 | Pending |
+| VERIFY-06 | Phase 9 | Complete |
+| VERIFY-07 | Phase 9 | Complete |
+| VERIFY-08 | Phase 9 | Complete |
+| VERIFY-09 | Phase 9 | Complete |
+| VERIFY-10 | Phase 9 | Complete |
 | VERIFY-11 | Phase 10 | Pending |
 | VERIFY-12 | Phase 10 | Pending |
 
