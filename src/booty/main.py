@@ -61,10 +61,22 @@ async def process_job(job: Job) -> None:
     ) as workspace:
         logger.info("workspace_ready", path=workspace.path, branch=workspace.branch)
 
-        # Process issue through full pipeline
-        pr_number, tests_passed, error_message = await process_issue_to_pr(
-            job, workspace, settings, is_self_modification=job.is_self_modification
-        )
+        try:
+            # Process issue through full pipeline
+            pr_number, tests_passed, error_message = await process_issue_to_pr(
+                job, workspace, settings, is_self_modification=job.is_self_modification
+            )
+        except Exception as e:
+            # Pipeline crashed — post failure comment on issue
+            logger.error("pipeline_exception", error=str(e), exc_info=True)
+            post_failure_comment(
+                settings.GITHUB_TOKEN,
+                repo_url,
+                job.issue_number,
+                str(e),
+            )
+            return
+
         logger.info("pr_created", pr_number=pr_number, tests_passed=tests_passed)
 
         # If tests failed, post failure comment on issue
