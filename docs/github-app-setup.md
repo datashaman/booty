@@ -2,12 +2,38 @@
 
 The Verifier posts check runs via the GitHub Checks API. The Checks API requires **GitHub App** authentication — personal access tokens (PATs) cannot create check runs.
 
-## Required Permissions
+## Required GitHub App Permissions
 
-- **checks: write** — Create and update check runs
-- **pull_requests: read** — Read PR metadata (Phase 8)
-- **contents: read** — Clone repository (Phase 8)
-- **metadata: read** — Repository metadata
+| Permission | Access | Used for |
+|---|---|---|
+| **Checks** | Read & write | Create and update check runs on commits |
+| **Contents** | Read-only | Read `.booty.yml` config from PR head |
+| **Pull requests** | Read-only | Read PR metadata and diff statistics |
+| **Metadata** | Read-only | Repository metadata (auto-granted) |
+
+## Required Webhook Events
+
+Subscribe to these events in the GitHub App settings:
+
+| Event | Purpose |
+|---|---|
+| **Pull requests** | Triggers Verifier on `opened`, `synchronize`, `reopened` actions |
+| **Issues** | Triggers Builder when issue is labeled with trigger label |
+
+## Required `GITHUB_TOKEN` Scopes (PAT)
+
+The Builder uses a personal access token (`GITHUB_TOKEN`) for operations the GitHub App doesn't cover:
+
+| Scope | Used for |
+|---|---|
+| **repo** | Clone repositories, push branches |
+| **pull_requests:write** | Create draft PRs, mark ready for review, request reviewers |
+| **issues:write** | Comment on issues/PRs, manage labels |
+
+For fine-grained PATs, enable:
+- **Contents:** Read and write (clone + push)
+- **Pull requests:** Read and write (create PRs, promote drafts)
+- **Issues:** Read and write (comments, labels)
 
 ## Create a New App
 
@@ -15,12 +41,16 @@ The Verifier posts check runs via the GitHub Checks API. The Checks API requires
 2. Fill in:
    - **Name:** e.g. `Booty Verifier`
    - **Homepage URL:** Your repo or docs URL
-   - **Webhook:** Uncheck (or set for Phase 8)
+   - **Webhook URL:** `https://your-domain/webhooks/github`
+   - **Webhook secret:** Generate a random secret (same as `WEBHOOK_SECRET` env var)
    - **Permissions** → Repository permissions:
      - Checks: Read and write
      - Pull requests: Read-only
      - Contents: Read-only
      - Metadata: Read-only
+   - **Subscribe to events:**
+     - Pull requests
+     - Issues
 3. Create the App
 4. Note the **App ID** (visible on the App settings page)
 5. Under **Private keys**, click **Generate a private key** — download the `.pem` file
