@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     BOOTY_SELF_MODIFY_ENABLED: bool = False  # Explicit opt-in required
     BOOTY_SELF_MODIFY_REVIEWER: str = ""  # GitHub username for review requests on self-PRs
 
+    # Sentry error tracking
+    SENTRY_DSN: str = ""  # Empty = not configured
+    SENTRY_RELEASE: str = ""  # Optional; deploy sets from git rev-parse
+    SENTRY_ENVIRONMENT: str = "development"
+    SENTRY_SAMPLE_RATE: float = 1.0
+
     # Verifier (GitHub App) configuration
     GITHUB_APP_ID: str = ""  # Optional; empty = Verifier disabled
     GITHUB_APP_PRIVATE_KEY: str = ""  # Optional; empty = Verifier disabled
