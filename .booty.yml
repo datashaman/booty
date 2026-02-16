@@ -2,6 +2,7 @@ schema_version: 1
 setup_command: python3 -m venv .venv
 install_command: .venv/bin/pip install -e '.[dev]'
 test_command: .venv/bin/pytest
+timeout_seconds: 600
 max_files_changed: 30
 max_diff_loc: 1500
 

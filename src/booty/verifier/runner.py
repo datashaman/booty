@@ -351,9 +351,13 @@ async def process_verifier_job(
                         config.install_command, config.timeout, workspace_path
                     )
                     if install_result.exit_code != 0:
-                        summary = (
-                            (install_result.stderr or "install_command failed")[:500]
-                        )
+                        err = install_result.stderr or ""
+                        out = install_result.stdout or ""
+                        if not err.strip():
+                            err = out or "install_command failed"
+                        else:
+                            err = err.strip()
+                        summary = err[:500]
                         if repo is not None:
                             _ingest_verifier_record(
                                 job, "install", [], summary, config, repo

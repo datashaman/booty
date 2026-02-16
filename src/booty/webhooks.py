@@ -33,7 +33,7 @@ from booty.test_runner.config import (
     load_booty_config_from_content,
 )
 from booty.github.issues import create_sentry_issue_with_retry
-from booty.github.comments import post_self_modification_disabled_comment
+from booty.github.comments import post_builder_blocked_comment, post_self_modification_disabled_comment
 from booty.memory.surfacing import (
     build_related_history_for_incident,
     surface_governor_hold,
@@ -49,6 +49,7 @@ from booty.memory.adapters import (
 from booty.memory.config import apply_memory_env_overrides
 from booty.jobs import Job
 from booty.planner.jobs import PlannerJob, planner_enqueue, planner_is_duplicate, planner_mark_processed
+from booty.planner.store import load_plan, plan_path_for_issue
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
 from booty.security import SecurityJob
@@ -642,7 +643,8 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             content={"status": "accepted", "event": "push"},
         )
 
-    # Handle issues events (Planner agent:plan, then Builder)
+    # Handle issues events — Planner-first architecture
+    # Flow: Planner is single work originator; Builder only runs when plan exists
     if event_type != "issues":
         logger.info("event_filtered", event_type=event_type, reason="not_issues")
         return {"status": "ignored"}
@@ -650,6 +652,14 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     action = payload.get("action")
     issue = payload.get("issue", {})
     labels = [l.get("name", "") for l in issue.get("labels", [])]
+    repo_info = payload.get("repository", {})
+    owner = repo_info.get("owner", {}).get("login", "")
+    repo_name = repo_info.get("name", "")
+    full_name = repo_info.get("full_name", "")
+    repo_url = repo_info.get("html_url", "") or f"https://github.com/{full_name or 'unknown'}"
+    issue_number = issue.get("number", 0)
+
+    # Planner triggers: agent:plan on opened or labeled
     is_plan_trigger = (
         planner_enabled(settings)
         and (
@@ -661,15 +671,10 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         if delivery_id and planner_is_duplicate(delivery_id):
             logger.info("planner_already_processed", delivery_id=delivery_id)
             return {"status": "already_processed"}
-        repo = payload.get("repository", {})
-        owner = repo.get("owner", {}).get("login", "")
-        repo_name = repo.get("name", "")
-        full_name = repo.get("full_name", "")
-        repo_url = repo.get("html_url", "") or f"https://github.com/{full_name or 'unknown'}"
-        job_id = f"planner-{issue.get('number', 0)}-{delivery_id or 'no-delivery'}"
+        job_id = f"planner-{issue_number}-{delivery_id or 'no-delivery'}"
         job = PlannerJob(
             job_id=job_id,
-            issue_number=issue.get("number", 0),
+            issue_number=issue_number,
             issue_url=issue.get("html_url", ""),
             repo_url=repo_url,
             owner=owner,
@@ -685,39 +690,85 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             )
         if delivery_id:
             planner_mark_processed(delivery_id)
-        logger.info("planner_job_accepted", job_id=job_id, issue_number=issue.get("number"))
+        logger.info("planner_job_accepted", job_id=job_id, issue_number=issue_number)
         return JSONResponse(
             status_code=202,
             content={"status": "accepted", "event": "planner", "job_id": job_id},
         )
 
+    # Builder triggers: agent:builder on opened or labeled — REQUIRES plan to exist
+    # Safety net: if no plan, enqueue Planner first; Planner worker will enqueue Builder when done
+    is_builder_trigger = (
+        (action == "opened" and settings.TRIGGER_LABEL in labels)
+        or (action == "labeled" and payload.get("label", {}).get("name") == settings.TRIGGER_LABEL)
+    )
+    if not is_builder_trigger:
+        logger.info(
+            "event_filtered",
+            event_type=event_type,
+            action=action,
+            reason="not_plan_or_builder_trigger",
+        )
+        return {"status": "ignored"}
+
+    # Check plan existence — Builder is pure executor, no plan = block or run Planner first
+    plan_path = plan_path_for_issue(owner, repo_name, issue_number)
+    plan = load_plan(plan_path)
+    if plan is None:
+        # Safety net: enqueue Planner; it will enqueue Builder when done (if agent:builder on issue)
+        if planner_enabled(settings):
+            if delivery_id and planner_is_duplicate(delivery_id):
+                logger.info("planner_already_processed", delivery_id=delivery_id)
+                return {"status": "already_processed"}
+            job_id = f"planner-{issue_number}-{delivery_id or 'no-delivery'}"
+            planner_job = PlannerJob(
+                job_id=job_id,
+                issue_number=issue_number,
+                issue_url=issue.get("html_url", ""),
+                repo_url=repo_url,
+                owner=owner,
+                repo=repo_name,
+                payload=payload,
+            )
+            enqueued = await planner_enqueue(planner_job)
+            if enqueued:
+                if delivery_id:
+                    planner_mark_processed(delivery_id)
+                logger.info(
+                    "planner_enqueued_for_builder_safety_net",
+                    issue_number=issue_number,
+                    job_id=job_id,
+                )
+                return JSONResponse(
+                    status_code=202,
+                    content={"status": "accepted", "event": "planner", "reason": "builder_needs_plan", "job_id": job_id},
+                )
+        # Planner disabled or enqueue failed — block Builder with comment
+        background_tasks.add_task(
+            post_builder_blocked_comment,
+            settings.GITHUB_TOKEN,
+            repo_url,
+            issue_number,
+        )
+        logger.info("builder_blocked_no_plan", issue_number=issue_number)
+        return JSONResponse(
+            status_code=202,
+            content={"status": "ignored", "reason": "builder_blocked_no_plan"},
+        )
+
     job_queue = request.app.state.job_queue
 
-    # Check idempotency (Builder)
+    # Builder has valid plan — proceed with existing flow
     if delivery_id and job_queue.is_duplicate(delivery_id):
         logger.info("duplicate_delivery", delivery_id=delivery_id)
         return {"status": "already_processed"}
 
-    if payload.get("action") != "labeled":
-        logger.info(
-            "event_filtered",
-            event_type=event_type,
-            action=payload.get("action"),
-            reason="not_labeled",
-        )
-        return {"status": "ignored"}
+    # Race avoidance: Planner worker may have already enqueued Builder for this issue
+    if job_queue.has_issue_in_queue(repo_url, issue_number):
+        logger.info("builder_already_queued", issue_number=issue_number)
+        return {"status": "already_processed"}
 
-    if payload.get("label", {}).get("name") != settings.TRIGGER_LABEL:
-        logger.info(
-            "event_filtered",
-            label=payload.get("label", {}).get("name"),
-            trigger_label=settings.TRIGGER_LABEL,
-            reason="wrong_label",
-        )
-        return {"status": "ignored"}
-
-    # Self-modification detection
-    repo_url = payload.get("repository", {}).get("html_url", "")
+    # Self-modification detection (repo_url from payload extraction above)
     is_self = is_self_modification(repo_url, settings.BOOTY_OWN_REPO_URL)
 
     if is_self and not settings.BOOTY_SELF_MODIFY_ENABLED:

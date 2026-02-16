@@ -64,6 +64,13 @@ class JobQueue:
         """
         return delivery_id in self.processed_deliveries
 
+    def has_issue_in_queue(self, repo_url: str, issue_number: int) -> bool:
+        """Check if a job for this repo+issue is already queued or running."""
+        for j in self.jobs.values():
+            if j.repo_url == repo_url and j.issue_number == issue_number:
+                return True
+        return False
+
     def mark_processed(self, delivery_id: str) -> None:
         """Mark delivery ID as processed.
 

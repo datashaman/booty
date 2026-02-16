@@ -15,7 +15,13 @@ async def test_process_job_capture_exception_on_pipeline_crash():
         job_id="test-job-1",
         issue_url="https://github.com/owner/repo/issues/1",
         issue_number=1,
-        payload={},
+        payload={
+            "repository": {
+                "owner": {"login": "owner"},
+                "name": "repo",
+                "html_url": "https://github.com/owner/repo",
+            },
+        },
     )
 
     mock_workspace = MagicMock()
@@ -28,12 +34,20 @@ async def test_process_job_capture_exception_on_pipeline_crash():
     mock_settings.TARGET_BRANCH = "main"
     mock_settings.GITHUB_TOKEN = "test-token"
 
+    mock_plan = MagicMock()
+    mock_plan.goal = "test goal"
+    mock_plan.steps = []
+    mock_plan.handoff_to_builder = MagicMock()
+    mock_plan.handoff_to_builder.commit_message_hint = "fix: test"
+    mock_plan.handoff_to_builder.pr_title = "Test PR"
+
     with (
         patch("booty.main.process_issue_to_pr", new_callable=AsyncMock) as mock_process,
         patch("booty.main.prepare_workspace") as mock_prepare,
         patch("booty.main.post_failure_comment") as mock_post,
         patch("booty.main.sentry_sdk") as mock_sentry,
         patch("booty.main.get_settings", return_value=mock_settings),
+        patch("booty.main.load_plan", return_value=mock_plan),
     ):
         mock_process.side_effect = ValueError("pipeline crash")
         mock_prepare.return_value.__aenter__ = AsyncMock(return_value=mock_workspace)
