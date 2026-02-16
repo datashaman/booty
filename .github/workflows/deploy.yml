@@ -63,23 +63,6 @@ jobs:
       - name: Test SSH connectivity
         if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         run: |
-          SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
-          SSH_OPTS=(-o ConnectTimeout=30 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
-          [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
-          echo "Testing SSH to $SSH_TARGET..."
-          if ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "echo OK"; then
-            echo "SSH connectivity OK"
-          else
-            echo "::error::SSH connection failed. See docs/deploy-setup.md"
-            echo "::error::  • Firewall: Server must allow GitHub Actions IPs on port ${DEPLOY_PORT:-22}"
-            echo "::error::  • Fetch IP ranges: curl -s https://api.github.com/meta | jq '.actions'"
-            exit 1
-          fi
-
-      - name: Deploy
-        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
-        id: deploy
-        run: |
           {
             echo "## Deploy params"
             echo "| Param | Value |"
@@ -91,6 +74,43 @@ jobs:
             echo "| REPO_URL | \`$REPO_URL\` |"
             echo "| HEALTH_SCHEME | \`${HEALTH_SCHEME:-https}\` |"
           } >> $GITHUB_STEP_SUMMARY
+          SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
+          SSH_OPTS=(-o ConnectTimeout=30 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+          [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
+          echo "Testing SSH to $SSH_TARGET..."
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "echo OK" > /tmp/ssh-test.log 2>&1
+          SSH_EXIT=$?
+          cat /tmp/ssh-test.log
+          if [ $SSH_EXIT -eq 0 ]; then
+            echo "SSH connectivity OK"
+          else
+            {
+              echo "## Deploy Failure — SSH connection failed"
+              echo ""
+              echo "**Stage:** Test SSH connectivity"
+              echo "**Target:** \`$SSH_TARGET\` (port ${DEPLOY_PORT:-22})"
+              echo ""
+              echo "### Common cause: Firewall"
+              echo "GitHub Actions runners use dynamic IPs. Your server must allow SSH from [GitHub's IP ranges](https://api.github.com/meta) (filter \`.actions\`)."
+              echo ""
+              echo "See [docs/deploy-setup.md](docs/deploy-setup.md) for setup."
+              echo ""
+              if [ -f /tmp/ssh-test.log ] && [ -s /tmp/ssh-test.log ]; then
+                echo "<details><summary>SSH output</summary>"
+                echo '```'
+                cat /tmp/ssh-test.log
+                echo '```'
+                echo "</details>"
+              fi
+            } >> $GITHUB_STEP_SUMMARY
+            echo "::error::SSH connection failed. See job summary."
+            exit 1
+          fi
+
+      - name: Deploy
+        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
+        id: deploy
+        run: |
           export DEPLOY_HOST SERVER_NAME REPO_URL
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
           [ -n "$DEPLOY_PORT" ] && export DEPLOY_PORT
