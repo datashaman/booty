@@ -34,6 +34,19 @@ The deploy script uses SSH agent forwarding: the runner's key is forwarded to th
 2. **GitHub** — Repo → Settings → Deploy keys → Add deploy key (read-only is enough)
 
 
+## Sudo (required — passwordless)
+
+The deploy script runs non-interactive `sudo` for nginx, systemd, and file ops. The deploy user needs **passwordless sudo** for these commands only (replace `booty` with your `DEPLOY_USER`):
+
+```bash
+cat << 'EOF' | sudo tee /etc/sudoers.d/deploy
+booty ALL=(ALL) NOPASSWD: /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod, /usr/bin/cp, /usr/bin/ln, /usr/sbin/nginx, /usr/bin/systemctl, /usr/bin/tee
+EOF
+sudo chmod 440 /etc/sudoers.d/deploy
+```
+
+Paths may differ (e.g. `nginx` in `/usr/sbin/` or `/usr/bin/`); verify with `which`.
+
 ## Firewall (required for SSH)
 
 GitHub Actions runners use dynamic IPs. Your server must allow SSH from GitHub's IP ranges:
