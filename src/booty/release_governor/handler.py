@@ -50,7 +50,10 @@ def simulate_decision_for_cli(
     gh_repo = gh.get_repo(repo)
     comparison = gh_repo.compare(production_sha, head_sha)
 
-    override = get_security_override_with_poll(state_dir, repo, head_sha)
+    # CLI: no polling — single check. Webhook uses poll for Security race.
+    override = get_security_override_with_poll(
+        state_dir, repo, head_sha, max_wait_sec=0
+    )
     if override is not None:
         risk_class = "HIGH"
     else:
