@@ -3,7 +3,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
+from booty.github.issues import build_sentry_issue_body
 from booty.memory.surfacing import (
+    build_related_history_for_incident,
     format_matches_for_pr,
     surface_pr_comment,
 )
@@ -75,3 +77,55 @@ class TestSurfacePrComment:
         body = call_args[0][3]
         assert "incident" in body
         assert "x" in body
+
+
+class TestBuildRelatedHistoryForIncident:
+    @patch("booty.memory.surfacing.lookup")
+    def test_comment_on_incident_issue_false_returns_empty(self, mock_lookup):
+        config = MagicMock()
+        config.comment_on_incident_issue = False
+        result = build_related_history_for_incident({}, "o/r", config)
+        assert result == ""
+        mock_lookup.query.assert_not_called()
+
+    @patch("booty.memory.surfacing.lookup")
+    def test_zero_matches_returns_empty(self, mock_lookup):
+        mock_lookup.query.return_value = []
+        config = MagicMock()
+        config.comment_on_incident_issue = True
+        result = build_related_history_for_incident(
+            {"exception": {"values": [{"stacktrace": {"frames": [{"filename": "a.py"}]}}]}},
+            "o/r",
+            config,
+        )
+        assert result == ""
+
+    @patch("booty.memory.surfacing.lookup")
+    def test_with_matches_returns_related_history_section(self, mock_lookup):
+        mock_lookup.query.return_value = [
+            {"type": "incident", "timestamp": "2024-01-15T10:00:00Z", "summary": "x", "links": ["https://a"], "id": "1"},
+        ]
+        config = MagicMock()
+        config.comment_on_incident_issue = True
+        result = build_related_history_for_incident(
+            {"exception": {"values": [{"stacktrace": {"frames": [{"filename": "a.py"}]}}]}},
+            "o/r",
+            config,
+        )
+        assert "**Related history:**" in result
+        assert "incident" in result
+        assert "x" in result
+
+
+class TestBuildSentryIssueBodyRelatedHistory:
+    def test_with_related_history_inserts_before_location(self):
+        event = {"level": "error", "culprit": "foo.py"}
+        body = build_sentry_issue_body(
+            event, "https://x", related_history="**Related history:**\n\n- x"
+        )
+        assert "Related history" in body
+        assert "**Related history:**" in body
+        idx_rh = body.find("Related history")
+        idx_loc = body.find("**Location:**")
+        assert idx_loc >= 0
+        assert idx_rh < idx_loc
