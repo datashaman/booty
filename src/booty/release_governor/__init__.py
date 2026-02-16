@@ -8,3 +8,14 @@ from booty.release_governor.store import (
     record_delivery_id,
     save_release_state,
 )
+from booty.test_runner.config import (
+    apply_release_governor_env_overrides,
+)
+
+
+def is_governor_enabled(config) -> bool:
+    """True if release_governor is configured and enabled (after env overrides)."""
+    if getattr(config, "release_governor", None) is None:
+        return False
+    effective = apply_release_governor_env_overrides(config.release_governor)
+    return effective.enabled

@@ -6,6 +6,8 @@ import subprocess
 import click
 
 from booty.config import get_settings, verifier_enabled
+from booty.release_governor import is_governor_enabled
+from booty.release_governor.store import get_state_dir, load_release_state
 from booty.test_runner.config import load_booty_config
 from booty.test_runner.executor import execute_tests
 from booty.github.checks import create_check_run
@@ -39,6 +41,35 @@ def status() -> None:
         click.echo("verifier: enabled")
     else:
         click.echo("verifier: disabled (missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY)")
+
+
+@cli.group()
+def governor() -> None:
+    """Release Governor commands."""
+
+
+@governor.command("status")
+def governor_status() -> None:
+    """Show release state when Governor enabled."""
+    from pathlib import Path
+
+    try:
+        config = load_booty_config(Path.cwd())
+    except Exception:
+        click.echo("Governor: disabled")
+        return
+    if not is_governor_enabled(config):
+        click.echo("Governor: disabled")
+        return
+    state_dir = get_state_dir()
+    state = load_release_state(state_dir)
+    click.echo("Governor: enabled")
+    click.echo(f"  production_sha_current: {state.production_sha_current or '(none)'}")
+    click.echo(f"  production_sha_previous: {state.production_sha_previous or '(none)'}")
+    click.echo(f"  last_deploy_attempt_sha: {state.last_deploy_attempt_sha or '(none)'}")
+    click.echo(f"  last_deploy_time: {state.last_deploy_time or '(none)'}")
+    click.echo(f"  last_deploy_result: {state.last_deploy_result}")
+    click.echo(f"  last_health_check: {state.last_health_check or '(none)'}")
 
 
 @cli.group()
