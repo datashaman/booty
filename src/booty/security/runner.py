@@ -23,6 +23,9 @@ from booty.security.permission_drift import (
     sensitive_paths_touched,
 )
 from booty.security.scanner import build_annotations, run_secret_scan
+from booty.memory import add_record, get_memory_config
+from booty.memory.adapters import build_security_block_record
+from booty.memory.config import apply_memory_env_overrides
 from booty.test_runner.config import (
     BootyConfigV1,
     SecurityConfig,
@@ -35,6 +38,33 @@ if TYPE_CHECKING:
     pass
 
 logger = get_logger()
+
+
+def _ingest_security_record(
+    job: SecurityJob,
+    trigger: str,
+    title: str,
+    summary: str,
+    paths: list[str],
+    repo,
+) -> None:
+    """Ingest security_block record when memory is enabled. No-op on error."""
+    try:
+        fc = repo.get_contents(".booty.yml", ref=job.head_sha)
+        content = fc.decoded_content.decode()
+        booty_config = load_booty_config_from_content(content)
+        mem_config = get_memory_config(booty_config) if booty_config else None
+        if mem_config:
+            mem_config = apply_memory_env_overrides(mem_config)
+        if mem_config and mem_config.enabled:
+            record = build_security_block_record(job, trigger, title, summary, paths)
+            add_record(record, mem_config)
+    except Exception as e:
+        logger.warning(
+            "memory_ingestion_failed",
+            type="security_block",
+            error=str(e),
+        )
 
 
 def build_audit_summary(audit_result: AuditResult) -> str:
@@ -165,6 +195,7 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 run_secret_scan,
                 workspace.path,
                 scan_base,
+                job.head_sha,
                 security_config,
             )
 
@@ -178,6 +209,13 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                         "summary": result.error_message or "Scan incomplete",
                     },
                 )
+                if repo is not None:
+                    _ingest_security_record(
+                        job, "secret",
+                        "Security failed — secret detected",
+                        result.error_message or "Scan incomplete",
+                        [], repo,
+                    )
                 logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
                 return
 
@@ -195,6 +233,13 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                         "annotations": annotations,
                     },
                 )
+                if repo is not None:
+                    paths = [f.get("path") for f in result.findings if f.get("path")]
+                    _ingest_security_record(
+                        job, "secret",
+                        "Security failed — secret detected",
+                        summary, paths, repo,
+                    )
                 logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
                 return
 
@@ -216,6 +261,12 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                         "summary": f"Audit timed out or failed: {e!s}",
                     },
                 )
+                if repo is not None:
+                    _ingest_security_record(
+                        job, "vulnerability",
+                        "Security failed — high vulnerability",
+                        f"Audit timed out or failed: {e!s}", [], repo,
+                    )
                 logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
                 return
 
@@ -232,6 +283,9 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                     conclusion="failure",
                     output={"title": title, "summary": summary},
                 )
+                if repo is not None:
+                    paths = [f.get("path", "") for f in audit_result.findings if f.get("path")]
+                    _ingest_security_record(job, "vulnerability", title, summary, paths, repo)
                 logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
                 return
 
@@ -262,6 +316,11 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 )
                 repo_full_name = f"{job.owner}/{job.repo_name}"
                 persist_override(repo_full_name, job.head_sha, touched)
+                if repo is not None:
+                    _ingest_security_record(
+                        job, "permission_drift",
+                        title, summary, list(touched), repo,
+                    )
                 logger.info(
                     "security_escalated",
                     job_id=job.job_id,
@@ -301,4 +360,13 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 "summary": f"Scan incomplete: {e!s}",
             },
         )
+        repo = get_verifier_repo(
+            job.owner, job.repo_name, job.installation_id, settings
+        )
+        if repo is not None:
+            _ingest_security_record(
+                job, "secret",
+                "Security check failed",
+                f"Scan incomplete: {e!s}", [], repo,
+            )
         logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")

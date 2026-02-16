@@ -29,6 +29,9 @@ from booty.verifier.imports import (
     validate_imports,
 )
 from booty.verifier.job import VerifierJob
+from booty.memory import add_record, get_memory_config
+from booty.memory.adapters import build_verifier_cluster_record
+from booty.memory.config import apply_memory_env_overrides
 from booty.verifier.limits import (
     check_diff_limits,
     format_limit_failures,
@@ -43,6 +46,30 @@ if TYPE_CHECKING:
 CHECK_OUTPUT_MAX = 65535
 
 logger = get_logger()
+
+
+def _ingest_verifier_record(
+    job: VerifierJob,
+    failure_type: str,
+    paths: list[str],
+    summary: str,
+    config,
+    repo,
+) -> None:
+    """Ingest verifier_cluster record when memory is enabled. No-op on error."""
+    try:
+        mem_config = get_memory_config(config) if config else None
+        if mem_config:
+            mem_config = apply_memory_env_overrides(mem_config)
+        if mem_config and mem_config.enabled:
+            record = build_verifier_cluster_record(job, failure_type, paths, summary)
+            add_record(record, mem_config)
+    except Exception as e:
+        logger.warning(
+            "memory_ingestion_failed",
+            type="verifier_cluster",
+            error=str(e),
+        )
 
 
 async def _enqueue_builder_retry(
@@ -186,6 +213,8 @@ async def process_verifier_job(
                 pass
             except ValidationError as e:
                 msg = str(e)[:CHECK_OUTPUT_MAX]
+                if repo is not None:
+                    _ingest_verifier_record(job, "error", [], msg, config, repo)
                 edit_check_run(
                     check_run,
                     status="completed",
@@ -203,6 +232,10 @@ async def process_verifier_job(
             failures = check_diff_limits(stats, limits)
             if failures:
                 output_text = format_limit_failures(failures)
+                if repo is not None:
+                    _ingest_verifier_record(
+                        job, "error", [], output_text[:500], config, repo
+                    )
                 edit_check_run(
                     check_run,
                     status="completed",
@@ -233,6 +266,13 @@ async def process_verifier_job(
                 config = load_booty_config(Path(workspace.path))
             except ValidationError as e:
                 msg = str(e)[:CHECK_OUTPUT_MAX]
+                repo = get_verifier_repo(
+                    job.owner, job.repo_name, job.installation_id, settings
+                )
+                if repo is not None:
+                    _ingest_verifier_record(
+                        job, "error", [], msg, None, repo
+                    )
                 edit_check_run(
                     check_run,
                     status="completed",
@@ -246,6 +286,9 @@ async def process_verifier_job(
                 return
 
             workspace_path = Path(workspace.path)
+            repo = get_verifier_repo(
+                job.owner, job.repo_name, job.installation_id, settings
+            )
 
             # Phase 10: setup → install → import/compile sweep → tests
             if isinstance(config, BootyConfigV1):
@@ -253,6 +296,12 @@ async def process_verifier_job(
                     None,
                     "",
                 ):
+                    if repo is not None:
+                        _ingest_verifier_record(
+                            job, "error", [],
+                            "Config required for agent PRs: install_command.",
+                            config, repo,
+                        )
                     edit_check_run(
                         check_run,
                         status="completed",
@@ -279,6 +328,11 @@ async def process_verifier_job(
                         summary = setup_result.stderr[:500] or "setup_command failed."
                         if truncated:
                             summary += " Too many errors — showing first 50."
+                        paths = [a.get("path", "") for a in (setup_annotations or []) if a.get("path")]
+                        if repo is not None:
+                            _ingest_verifier_record(
+                                job, "compile", paths, summary, config, repo
+                            )
                         edit_check_run(
                             check_run,
                             status="completed",
@@ -300,6 +354,10 @@ async def process_verifier_job(
                         summary = (
                             (install_result.stderr or "install_command failed")[:500]
                         )
+                        if repo is not None:
+                            _ingest_verifier_record(
+                                job, "install", [], summary, config, repo
+                            )
                         edit_check_run(
                             check_run,
                             status="completed",
@@ -355,6 +413,17 @@ async def process_verifier_job(
                     )
                     if truncated:
                         summary += " Too many errors — showing first 50."
+                    if repo is not None:
+                        if has_import:
+                            import_paths = [a.get("path", "") for a in import_errors if a.get("path")]
+                            _ingest_verifier_record(
+                                job, "import", import_paths, summary, config, repo
+                            )
+                        if has_compile:
+                            compile_paths = [a.get("path", "") for a in compile_errors if a.get("path")]
+                            _ingest_verifier_record(
+                                job, "compile", compile_paths, summary, config, repo
+                            )
                     edit_check_run(
                         check_run,
                         status="completed",
@@ -400,6 +469,11 @@ async def process_verifier_job(
                 )
             if not tests_passed and not no_tests_collected and result.stderr:
                 output_summary += f". {result.stderr[:200]}"
+
+            if not tests_passed and repo is not None:
+                _ingest_verifier_record(
+                    job, "test", py_files, output_summary, config, repo
+                )
 
             edit_check_run(
                 check_run,
@@ -458,6 +532,15 @@ async def process_verifier_job(
             error=str(e),
             exc_info=True,
         )
+        repo = get_verifier_repo(
+            job.owner, job.repo_name, job.installation_id, settings
+        )
+        if repo is not None:
+            _ingest_verifier_record(
+                job, "error", [],
+                f"Verifier error: {str(e)[:500]}",
+                None, repo,
+            )
         edit_check_run(
             check_run,
             status="completed",

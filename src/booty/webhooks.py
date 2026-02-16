@@ -5,6 +5,8 @@ import hashlib
 import json
 import re
 import time
+from urllib.parse import urlparse
+
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -31,6 +33,19 @@ from booty.test_runner.config import (
 )
 from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.comments import post_self_modification_disabled_comment
+from booty.memory.surfacing import (
+    build_related_history_for_incident,
+    surface_governor_hold,
+    surface_pr_comment,
+)
+from booty.memory import add_record, get_memory_config
+from booty.memory.adapters import (
+    build_deploy_failure_record,
+    build_governor_hold_record,
+    build_incident_record,
+    build_revert_record,
+)
+from booty.memory.config import apply_memory_env_overrides
 from booty.jobs import Job
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
@@ -67,6 +82,39 @@ def _severity_rank(level: str) -> int:
         "info": 3,
         "debug": 4,
     }.get(level.lower(), 99)
+
+
+def _repo_from_url(repo_url: str) -> str:
+    """Parse owner/repo from GitHub URL (https://github.com/o/r or git@github.com:o/r.git)."""
+    if not repo_url:
+        return ""
+    # git@github.com:owner/repo.git
+    if repo_url.startswith("git@"):
+        part = repo_url.split(":")[-1].rstrip("/").removesuffix(".git")
+        return part
+    # https://github.com/owner/repo or https://github.com/owner/repo.git
+    parsed = urlparse(repo_url)
+    path = (parsed.path or "").lstrip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    return path
+
+
+def _load_booty_config_for_repo(repo_url: str, gh_token: str):
+    """Load BootyConfig from repo .booty.yml. Returns None on any error."""
+    logger = get_logger()
+    try:
+        owner_repo = _repo_from_url(repo_url)
+        if not owner_repo or "/" not in owner_repo:
+            return None
+        g = Github(gh_token)
+        repo = g.get_repo(owner_repo)
+        fc = repo.get_contents(".booty.yml", ref=repo.default_branch or "main")
+        content = fc.decoded_content.decode("utf-8")
+        return load_booty_config_from_content(content)
+    except Exception as e:
+        logger.warning("booty_config_load_failed", repo_url=repo_url, error=str(e))
+        return None
 
 
 def verify_sentry_signature(
@@ -144,6 +192,58 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
     # Parse payload
     payload = await request.json()
+
+    # Handle check_run events (Memory PR comment on Verifier completion)
+    if event_type == "check_run":
+        action = payload.get("action")
+        if action != "completed":
+            return {"status": "ignored", "reason": "check_not_completed"}
+        check_run = payload.get("check_run", {})
+        if check_run.get("name") != "booty/verifier":
+            return {"status": "ignored"}
+        pull_requests = check_run.get("pull_requests", [])
+        if not pull_requests:
+            return {"status": "ignored", "reason": "no_pr"}
+        pr_ref = pull_requests[0]
+        pr_number = pr_ref.get("number") if isinstance(pr_ref, dict) else getattr(pr_ref, "number", None)
+        if not pr_number:
+            return {"status": "ignored", "reason": "no_pr_number"}
+        repo = payload.get("repository", {})
+        repo_full_name = repo.get("full_name", "")
+        repo_url = repo.get("html_url", "") or f"https://github.com/{repo_full_name}"
+        try:
+            booty_config = _load_booty_config_for_repo(repo_url, settings.GITHUB_TOKEN)
+            mem_config = get_memory_config(booty_config) if booty_config else None
+            if mem_config:
+                mem_config = apply_memory_env_overrides(mem_config)
+            if not mem_config or not mem_config.enabled or not mem_config.comment_on_pr:
+                return {"status": "ignored", "reason": "memory_disabled"}
+            g = Github(settings.GITHUB_TOKEN)
+            gh_repo = g.get_repo(repo_full_name)
+            pr = gh_repo.get_pull(pr_number)
+            paths = [f.filename for f in pr.get_files()]
+            surface_pr_comment(
+                settings.GITHUB_TOKEN,
+                repo_url,
+                pr_number,
+                paths,
+                repo_full_name,
+                mem_config,
+            )
+            return JSONResponse(
+                status_code=202,
+                content={"status": "accepted", "event": "check_run", "memory_surfaced": True},
+            )
+        except Exception as e:
+            logger.warning(
+                "memory_surfacing_failed",
+                pr_number=pr_number,
+                error=str(e),
+            )
+            return JSONResponse(
+                status_code=202,
+                content={"status": "accepted", "event": "check_run", "memory_surfaced": False, "error": str(e)},
+            )
 
     # Handle pull_request events (Verifier + Security)
     if event_type == "pull_request":
@@ -354,6 +454,22 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 create_or_append_deploy_failure_issue(
                     gh_repo, head_sha, run_url, conclusion, failure_type
                 )
+                # Memory ingestion for deploy failure
+                mem_config = get_memory_config(config) if config else None
+                if mem_config:
+                    mem_config = apply_memory_env_overrides(mem_config)
+                if mem_config and mem_config.enabled:
+                    try:
+                        record = build_deploy_failure_record(
+                            head_sha, run_url, conclusion, failure_type, repo_full_name
+                        )
+                        add_record(record, mem_config)
+                    except Exception as e:
+                        logger.warning(
+                            "memory_ingestion_failed",
+                            type="deploy_failure",
+                            error=str(e),
+                        )
                 state.last_deploy_attempt_sha = head_sha
                 state.last_deploy_time = now_iso
                 state.last_deploy_result = "failure"
@@ -423,6 +539,30 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                     elif mode == "environment":
                         approval_hint = "Approval via env: RELEASE_GOVERNOR_APPROVED=true"
                 post_hold_status(gh_repo, head_sha, decision, target_url, approval_hint)
+                # Memory surfacing for Governor HOLD (1-2 hold-reason matches in PR comment)
+                mem_config = get_memory_config(config) if config else None
+                if mem_config:
+                    mem_config = apply_memory_env_overrides(mem_config)
+                if mem_config and mem_config.enabled and mem_config.comment_on_pr:
+                    background_tasks.add_task(
+                        surface_governor_hold,
+                        settings.GITHUB_TOKEN,
+                        repo_full_name,
+                        head_sha,
+                        decision.reason,
+                        mem_config,
+                    )
+                # Memory ingestion for Governor HOLD
+                if mem_config and mem_config.enabled:
+                    try:
+                        record = build_governor_hold_record(decision, repo_full_name)
+                        add_record(record, mem_config)
+                    except Exception as e:
+                        logger.warning(
+                            "memory_ingestion_failed",
+                            type="governor_hold",
+                            error=str(e),
+                        )
 
             if delivery_id:
                 record_delivery_id(state_dir, repo_full_name, head_sha, delivery_id)
@@ -446,6 +586,50 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             workflow_name=workflow_name,
         )
         return {"status": "ignored", "reason": "workflow_not_matched"}
+
+    # Handle push events (revert detection on main)
+    if event_type == "push":
+        ref = payload.get("ref", "")
+        if ref != "refs/heads/main":
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                reason="not_main",
+            )
+            return {"status": "ignored", "reason": "not_main"}
+        repo = payload.get("repository", {})
+        repo_full_name = repo.get("full_name", "")
+        commits = payload.get("commits", [])
+        revert_pattern = re.compile(r"(?i)revert\s+[\"\']?([a-f0-9]{7,40})[\"\']?")
+        for commit in commits:
+            message = commit.get("message", "")
+            sha = commit.get("id", "") or commit.get("sha", "")
+            match = revert_pattern.search(message)
+            if match:
+                reverted_sha = match.group(1)
+                try:
+                    booty_config = _load_booty_config_for_repo(
+                        f"https://github.com/{repo_full_name}",
+                        settings.GITHUB_TOKEN,
+                    )
+                    mem_config = get_memory_config(booty_config) if booty_config else None
+                    if mem_config:
+                        mem_config = apply_memory_env_overrides(mem_config)
+                    if mem_config and mem_config.enabled:
+                        record = build_revert_record(
+                            repo_full_name, sha, reverted_sha, source="push"
+                        )
+                        add_record(record, mem_config)
+                except Exception as e:
+                    logger.warning(
+                        "memory_ingestion_failed",
+                        type="revert",
+                        error=str(e),
+                    )
+        return JSONResponse(
+            status_code=202,
+            content={"status": "accepted", "event": "push"},
+        )
 
     # Handle issues events (Builder)
     if event_type != "issues":
@@ -602,14 +786,47 @@ async def sentry_webhook(request: Request):
     if issue_id in _obsv_seen and (now - _obsv_seen[issue_id]) < window_sec:
         return {"status": "ignored", "reason": "cooldown"}
 
+    related_history = ""
+    booty_config = _load_booty_config_for_repo(
+        settings.TARGET_REPO_URL, settings.GITHUB_TOKEN
+    )
+    mem_config = get_memory_config(booty_config) if booty_config else None
+    if mem_config:
+        mem_config = apply_memory_env_overrides(mem_config)
+    if mem_config and mem_config.enabled and mem_config.comment_on_incident_issue:
+        related_history = build_related_history_for_incident(
+            event,
+            _repo_from_url(settings.TARGET_REPO_URL),
+            mem_config,
+        )
+
     issue_number = create_sentry_issue_with_retry(
         event,
         settings.GITHUB_TOKEN,
         settings.TARGET_REPO_URL,
         settings.TRIGGER_LABEL,
+        related_history=related_history,
     )
     if issue_number is not None:
         _obsv_seen[issue_id] = now
+        # Memory ingestion when enabled
+        booty_config = _load_booty_config_for_repo(
+            settings.TARGET_REPO_URL, settings.GITHUB_TOKEN
+        )
+        mem_config = get_memory_config(booty_config) if booty_config else None
+        if mem_config:
+            mem_config = apply_memory_env_overrides(mem_config)
+        if mem_config and mem_config.enabled:
+            try:
+                repo = _repo_from_url(settings.TARGET_REPO_URL)
+                record = build_incident_record(event, issue_number, repo)
+                add_record(record, mem_config)
+            except Exception as e:
+                logger.warning(
+                    "memory_ingestion_failed",
+                    type="incident",
+                    error=str(e),
+                )
         logger.info(
             "observability_issue_created",
             issue_id=issue_id,
