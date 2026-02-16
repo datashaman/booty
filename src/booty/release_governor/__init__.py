@@ -1,5 +1,6 @@
 """Release Governor module — gates production deployment based on risk and approval."""
 
+from booty.release_governor.risk import compute_risk_class
 from booty.release_governor.store import (
     ReleaseState,
     get_state_dir,
