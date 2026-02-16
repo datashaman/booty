@@ -47,6 +47,7 @@ from booty.memory.adapters import (
 )
 from booty.memory.config import apply_memory_env_overrides
 from booty.jobs import Job
+from booty.planner.jobs import PlannerJob, planner_enqueue, planner_is_duplicate, planner_mark_processed
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
 from booty.security import SecurityJob
@@ -631,14 +632,52 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             content={"status": "accepted", "event": "push"},
         )
 
-    # Handle issues events (Builder)
+    # Handle issues events (Planner agent:plan, then Builder)
     if event_type != "issues":
         logger.info("event_filtered", event_type=event_type, reason="not_issues")
         return {"status": "ignored"}
 
+    action = payload.get("action")
+    issue = payload.get("issue", {})
+    labels = [l.get("name", "") for l in issue.get("labels", [])]
+    is_plan_trigger = (
+        (action == "opened" and "agent:plan" in labels)
+        or (action == "labeled" and payload.get("label", {}).get("name") == "agent:plan")
+    )
+    if is_plan_trigger:
+        if delivery_id and planner_is_duplicate(delivery_id):
+            logger.info("planner_already_processed", delivery_id=delivery_id)
+            return {"status": "already_processed"}
+        repo = payload.get("repository", {})
+        owner = repo.get("owner", {}).get("login", "")
+        repo_name = repo.get("name", "")
+        full_name = repo.get("full_name", "")
+        repo_url = repo.get("html_url", "") or f"https://github.com/{full_name or 'unknown'}"
+        job_id = f"planner-{issue.get('number', 0)}-{delivery_id or 'no-delivery'}"
+        job = PlannerJob(
+            job_id=job_id,
+            issue_number=issue.get("number", 0),
+            issue_url=issue.get("html_url", ""),
+            repo_url=repo_url,
+            owner=owner,
+            repo=repo_name,
+            payload=payload,
+        )
+        if delivery_id:
+            planner_mark_processed(delivery_id)
+        enqueued = await planner_enqueue(job)
+        if not enqueued:
+            logger.error("planner_enqueue_failed", job_id=job_id)
+        else:
+            logger.info("planner_job_accepted", job_id=job_id, issue_number=issue.get("number"))
+        return JSONResponse(
+            status_code=202,
+            content={"status": "accepted", "event": "planner", "job_id": job_id},
+        )
+
     job_queue = request.app.state.job_queue
 
-    # Check idempotency
+    # Check idempotency (Builder)
     if delivery_id and job_queue.is_duplicate(delivery_id):
         logger.info("duplicate_delivery", delivery_id=delivery_id)
         return {"status": "already_processed"}
