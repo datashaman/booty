@@ -9,7 +9,7 @@ from pathlib import Path
 
 import click
 
-from booty.config import get_settings, verifier_enabled
+from booty.config import get_settings, planner_enabled, security_enabled, verifier_enabled
 from booty.release_governor import is_governor_enabled
 from booty.release_governor.deploy import dispatch_deploy
 from booty.release_governor.handler import simulate_decision_for_cli
@@ -88,23 +88,65 @@ def cli() -> None:
 
 
 @cli.command()
-def status() -> None:
-    """Print verifier and configuration status."""
+@click.option("--workspace", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+def status(workspace: str, as_json: bool) -> None:
+    """Print agent and configuration status."""
+    ws = Path(workspace).resolve()
     try:
         settings = get_settings()
     except Exception:
         import os
         app_id = os.environ.get("GITHUB_APP_ID", "")
         app_key = os.environ.get("GITHUB_APP_PRIVATE_KEY", "")
-        if app_id and app_key:
-            click.echo("verifier: enabled (incomplete config for other commands)")
+        v_enabled = bool(app_id and app_key)
+        if as_json:
+            click.echo(
+                json.dumps(
+                    {
+                        "verifier": "enabled" if v_enabled else "disabled",
+                        "security": "enabled" if v_enabled else "disabled",
+                        "planner": "enabled",
+                        "governor": "unknown",
+                        "memory": "unknown",
+                    }
+                )
+            )
         else:
-            click.echo("verifier: disabled (missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY)")
+            click.echo(f"verifier: {'enabled' if v_enabled else 'disabled'} (incomplete config)")
+            click.echo(f"security: {'enabled' if v_enabled else 'disabled'}")
+            click.echo("planner: enabled")
+            click.echo("governor: unknown (no config)")
+            click.echo("memory: unknown (no config)")
         return
-    if verifier_enabled(settings):
-        click.echo("verifier: enabled")
+
+    # Load .booty.yml for governor/memory
+    gov_enabled = False
+    mem_enabled = False
+    try:
+        config = load_booty_config(ws)
+        gov_enabled = is_governor_enabled(config)
+        from booty.memory.config import apply_memory_env_overrides, get_memory_config
+
+        mem_cfg = get_memory_config(config) if config else None
+        if mem_cfg:
+            mem_cfg = apply_memory_env_overrides(mem_cfg)
+            mem_enabled = bool(mem_cfg and mem_cfg.enabled)
+    except Exception:
+        pass
+
+    result = {
+        "verifier": "enabled" if verifier_enabled(settings) else "disabled",
+        "security": "enabled" if security_enabled(settings) else "disabled",
+        "planner": "enabled" if planner_enabled(settings) else "disabled",
+        "governor": "enabled" if gov_enabled else "disabled",
+        "memory": "enabled" if mem_enabled else "disabled",
+    }
+    if as_json:
+        click.echo(json.dumps(result))
     else:
-        click.echo("verifier: disabled (missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY)")
+        for name, state in result.items():
+            click.echo(f"{name}: {state}")
 
 
 @cli.group()

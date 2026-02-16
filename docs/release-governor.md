@@ -170,6 +170,61 @@ For first deploy with `require_approval_for_first_deploy: true`, same rules appl
 
 ## Troubleshooting
 
+### Deploy not triggering after merges
+
+**Flow:** Push to main → Verify main runs → on success, GitHub sends `workflow_run` webhook → Governor receives it → decision → ALLOW triggers deploy via `workflow_dispatch`.
+
+**Check these in order:**
+
+1. **GitHub App: Workflow runs subscription**
+   - App Settings → Permissions and events → Subscribe to events.
+   - Ensure **Workflow runs** is checked. Without it, Booty never receives `workflow_run` events.
+   - Repo webhooks: same — enable "Workflow runs" if using a repo webhook.
+
+2. **Verify main completed successfully**
+   - GitHub → Actions → "Verify main" workflow.
+   - Confirm recent merges have successful runs. Governor only reacts to `conclusion=success`.
+   - Re-runs: Governor dedupes by commit SHA; re-running Verify main for the same SHA is ignored.
+
+3. **GITHUB_TOKEN has workflow permission**
+   - Governor uses `GITHUB_TOKEN` for `workflow_dispatch`.
+   - Classic PAT: must include `workflow` scope.
+   - Fine-grained PAT: Repository permissions → **Actions: Read and write**.
+   - Missing permission: `create_dispatch` raises; check Sentry/app logs.
+
+4. **Governor enabled**
+   - `.booty.yml` must have `release_governor.enabled: true`.
+   - If `.booty.yml` load fails (exception), Governor is treated as disabled (logs `reason=governor_disabled`).
+
+5. **Decision is ALLOW, not HOLD**
+   - `.github/workflows/**` and similar paths → HIGH risk → HOLD unless approved.
+   - Set `RELEASE_GOVERNOR_APPROVED=true` in Booty's environment for env approval.
+   - Or run `booty governor simulate <sha>` to see decision and reason.
+
+6. **Workflow name match**
+   - Config: `verification_workflow_name: "Verify main"` must match `workflow_run.name` from GitHub.
+   - `verify-main.yml` uses `name: Verify main` — should match.
+
+### How to see what the Governor is doing
+
+| Where | What |
+|-------|------|
+| **booty governor status** | Release state: `production_sha_current`, `last_deploy_attempt_sha`, `last_deploy_result` |
+| **booty governor simulate &lt;sha&gt;** | Dry-run: decision (ALLOW/HOLD), risk_class, reason, unblock hints |
+| **Commit status** | On merge commit: `booty/release-governor` (success = ALLOW, failure = HOLD) |
+| **Booty logs** | `event_filtered` (reason: governor_disabled, workflow_not_matched, etc.), `governor_workflow_processed` (outcome, reason) |
+| **Sentry** | `dispatch_deploy` or webhook errors (403 workflow, etc.) |
+| **GitHub Actions** | Verify main run history; Deploy workflow (only runs when Governor dispatches) |
+
+**Quick diagnostic:**
+```bash
+# Simulate the latest merge commit
+booty governor simulate $(git rev-parse HEAD) --repo datashaman/booty
+
+# Check release state
+booty governor status --json
+```
+
 ### Common hold reasons
 
 | Reason | Cause | Unblock |
