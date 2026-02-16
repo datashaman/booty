@@ -12,10 +12,10 @@ Configure the deploy workflow and server for automated deployments from GitHub A
 
 | Variable/Secret | Type | Description |
 |-----------------|------|-------------|
-| `SSH_PRIVATE_KEY` | Secret | Private key with SSH access to deploy host |
+| `SSH_PRIVATE_KEY` | Secret | Same key for both: in deploy host `authorized_keys` (runner→server) and repo [deploy key](https://docs.github.com/en/developers/overview/managing-deploy-keys) (clone via agent forwarding) |
 | `DEPLOY_HOST` | Variable or Secret | SSH host (IP or hostname) |
 | `SERVER_NAME` | Variable | Public hostname (e.g. booty.datashaman.com) |
-| `REPO_URL` | Variable | Git clone URL (e.g. git@github.com:org/repo.git) |
+| `REPO_URL` | Variable | Git clone URL (e.g. <git@github.com>:org/repo.git) |
 
 ### Optional
 
@@ -24,6 +24,14 @@ Configure the deploy workflow and server for automated deployments from GitHub A
 | `DEPLOY_PORT` | 22 | SSH port |
 | `DEPLOY_USER` | *(from runner)* | SSH user |
 | `HEALTH_SCHEME` | https | `http` or `https` — use https with Cloudflare/Certbot |
+
+## GitHub deploy key (required for private repos)
+
+The deploy script uses SSH agent forwarding: the runner's key is forwarded to the deploy server for `git clone`/`git pull`. Use the **same** key for:
+
+1. **Deploy host** — Add the public key to `~/.ssh/authorized_keys` on the server
+2. **GitHub** — Repo → Settings → Deploy keys → Add deploy key (read-only is enough)
+
 
 ## Firewall (required for SSH)
 
