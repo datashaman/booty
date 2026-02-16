@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Phase 21 — Permission Drift & Governor Integration
+**Current focus:** Milestone v1.5 complete
 
 ## Current Position
 
-Phase: 20 of 4 (Phase 20 complete)
+Phase: 21 of 21 (Phase 21 complete)
 Plan: —
-Status: Phase 20 complete
-Last activity: 2026-02-16 — Phase 20 executed
+Status: Milestone v1.5 complete
+Last activity: 2026-02-16 — Phase 21 executed
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -33,5 +33,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Phase 20 complete
-Next step: `/gsd:discuss-phase 21` — Permission Drift & Governor Integration
+Stopped at: Milestone v1.5 complete
+Next step: `/gsd:audit-milestone` — Verify requirements, cross-phase integration, E2E flows

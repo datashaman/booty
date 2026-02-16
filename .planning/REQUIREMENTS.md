@@ -22,10 +22,10 @@ Security Agent: merge veto authority. Verifier answers "Does it work?" — Secur
 
 ### Permission Drift
 
-- [ ] **SEC-08**: Security watches sensitive paths (`.github/workflows/**`, `infra/**`, `terraform/**`, `helm/**`, `k8s/**`, `iam/**`, `auth/**`, `security/**`)
-- [ ] **SEC-09**: When sensitive path touched: result ESCALATE (not FAIL), override deploy risk to HIGH, reason `permission_surface_change`
-- [ ] **SEC-10**: Governor consumes Security risk override before deploy decisions
-- [ ] **SEC-11**: Security does NOT fail PR on permission drift — only escalates to Governor
+- [x] **SEC-08**: Security watches sensitive paths (`.github/workflows/**`, `infra/**`, `terraform/**`, `helm/**`, `k8s/**`, `iam/**`, `auth/**`, `security/**`)
+- [x] **SEC-09**: When sensitive path touched: result ESCALATE (not FAIL), override deploy risk to HIGH, reason `permission_surface_change`
+- [x] **SEC-10**: Governor consumes Security risk override before deploy decisions
+- [x] **SEC-11**: Security does NOT fail PR on permission drift — only escalates to Governor
 
 ### Configuration
 
@@ -76,10 +76,10 @@ Deferred to later milestones.
 | SEC-05 | 20 | Complete |
 | SEC-06 | 20 | Complete |
 | SEC-07 | 20 | Complete |
-| SEC-08 | 21 | Pending |
-| SEC-09 | 21 | Pending |
-| SEC-10 | 21 | Pending |
-| SEC-11 | 21 | Pending |
+| SEC-08 | 21 | Complete |
+| SEC-09 | 21 | Complete |
+| SEC-10 | 21 | Complete |
+| SEC-11 | 21 | Complete |
 
 **Coverage:**
 - v1.5 requirements: 17 total

@@ -1,6 +1,6 @@
 # Roadmap: Booty — Milestone v1.5 Security Agent
 
-**Status:** ○ In progress
+**Status:** ✓ Complete
 **Phases:** 18–21
 **Requirements:** 17 (SEC-01 to SEC-17)
 
@@ -78,7 +78,7 @@ Plans:
 
 ---
 
-### Phase 21: Permission Drift & Governor Integration
+### Phase 21: Permission Drift & Governor Integration ✓
 
 **Goal:** Sensitive paths → ESCALATE; persist override; Governor consumes.
 
@@ -86,11 +86,13 @@ Plans:
 
 **Depends on:** Phase 18
 
-**Plans:** 2 plans
+**Completed:** 2026-02-16
+
+**Plans:** 2 plans (all complete)
 
 Plans:
-- [ ] 21-01-PLAN.md — Permission drift detection (permission_drift, override persist, runner integration)
-- [ ] 21-02-PLAN.md — Governor override integration (read, poll, handler wiring)
+- [x] 21-01-PLAN.md — Permission drift detection (permission_drift, override persist, runner integration)
+- [x] 21-02-PLAN.md — Governor override integration (read, poll, handler wiring)
 
 **Success criteria:**
 1. Sensitive paths matched (default: .github/workflows/**, infra/**, terraform/**, helm/**, k8s/**, iam/**, auth/**, security/**)
