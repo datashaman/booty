@@ -33,7 +33,7 @@ from booty.test_runner.config import (
 )
 from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.comments import post_self_modification_disabled_comment
-from booty.memory.surfacing import surface_pr_comment
+from booty.memory.surfacing import build_related_history_for_incident, surface_pr_comment
 from booty.memory import add_record, get_memory_config
 from booty.memory.adapters import (
     build_deploy_failure_record,
@@ -772,11 +772,26 @@ async def sentry_webhook(request: Request):
     if issue_id in _obsv_seen and (now - _obsv_seen[issue_id]) < window_sec:
         return {"status": "ignored", "reason": "cooldown"}
 
+    related_history = ""
+    booty_config = _load_booty_config_for_repo(
+        settings.TARGET_REPO_URL, settings.GITHUB_TOKEN
+    )
+    mem_config = get_memory_config(booty_config) if booty_config else None
+    if mem_config:
+        mem_config = apply_memory_env_overrides(mem_config)
+    if mem_config and mem_config.enabled and mem_config.comment_on_incident_issue:
+        related_history = build_related_history_for_incident(
+            event,
+            _repo_from_url(settings.TARGET_REPO_URL),
+            mem_config,
+        )
+
     issue_number = create_sentry_issue_with_retry(
         event,
         settings.GITHUB_TOKEN,
         settings.TARGET_REPO_URL,
         settings.TRIGGER_LABEL,
+        related_history=related_history,
     )
     if issue_number is not None:
         _obsv_seen[issue_id] = now
