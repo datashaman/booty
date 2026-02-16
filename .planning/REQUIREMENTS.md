@@ -11,8 +11,8 @@ Security Agent: merge veto authority. Verifier answers "Does it work?" — Secur
 
 - [ ] **SEC-01**: Security agent runs on `pull_request` opened and synchronize
 - [ ] **SEC-02**: Security publishes required GitHub check `booty/security`
-- [ ] **SEC-03**: Security scans changed files only for secrets (gitleaks preferred; trufflehog acceptable)
-- [ ] **SEC-04**: When secret detected: check FAIL, annotate file+line, title "Security failed — secret detected", cap 50 annotations
+- [x] **SEC-03**: Security scans changed files only for secrets (gitleaks preferred; trufflehog acceptable)
+- [x] **SEC-04**: When secret detected: check FAIL, annotate file+line, title "Security failed — secret detected", cap 50 annotations
 
 ### Dependency Vulnerability
 
@@ -40,7 +40,7 @@ Security Agent: merge veto authority. Verifier answers "Does it work?" — Secur
 
 ### Performance
 
-- [ ] **SEC-17**: Security check completes in under 60 seconds (diff-only scanning, parallelize when safe)
+- [x] **SEC-17**: Security check completes in under 60 seconds (diff-only scanning, parallelize when safe)
 
 ## Future Requirements
 
@@ -70,9 +70,9 @@ Deferred to later milestones.
 | SEC-14 | 18 | Complete |
 | SEC-15 | 18 | Complete |
 | SEC-16 | 18 | Complete |
-| SEC-03 | 19 | Pending |
-| SEC-04 | 19 | Pending |
-| SEC-17 | 19 | Pending |
+| SEC-03 | 19 | Complete |
+| SEC-04 | 19 | Complete |
+| SEC-17 | 19 | Complete |
 | SEC-05 | 20 | Pending |
 | SEC-06 | 20 | Pending |
 | SEC-07 | 20 | Pending |
