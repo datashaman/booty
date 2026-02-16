@@ -36,11 +36,11 @@ Requirements for milestone v1.6. Each maps to roadmap phases.
 
 ### Surfacing
 
-- [ ] **MEM-19**: On Builder PR open/update: post or update ONE comment titled "Memory: related history" (marker `<!-- booty-memory -->`)
-- [ ] **MEM-20**: PR comment includes up to 3 matches (type, date, summary, link); configurable max
-- [ ] **MEM-21**: On Governor HOLD: include 1-2 memory links when hold reason matches prior incidents
-- [ ] **MEM-22**: On Observability incident issue creation: append "Related history" section with up to 3 matches
-- [ ] **MEM-23**: Memory is informational only; no outcomes blocked or altered
+- [x] **MEM-19**: On Builder PR open/update: post or update ONE comment titled "Memory: related history" (marker `<!-- booty-memory -->`)
+- [x] **MEM-20**: PR comment includes up to 3 matches (type, date, summary, link); configurable max
+- [x] **MEM-21**: On Governor HOLD: include 1-2 memory links when hold reason matches prior incidents
+- [x] **MEM-22**: On Observability incident issue creation: append "Related history" section with up to 3 matches
+- [x] **MEM-23**: Memory is informational only; no outcomes blocked or altered
 
 ### Config
 
@@ -95,11 +95,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-16 | 24 | Complete |
 | MEM-17 | 24 | Complete |
 | MEM-18 | 24 | Complete |
-| MEM-19 | 25 | Pending |
-| MEM-20 | 25 | Pending |
-| MEM-21 | 25 | Pending |
-| MEM-22 | 25 | Pending |
-| MEM-23 | 25 | Pending |
+| MEM-19 | 25 | Complete |
+| MEM-20 | 25 | Complete |
+| MEM-21 | 25 | Complete |
+| MEM-22 | 25 | Complete |
+| MEM-23 | 25 | Complete |
 | MEM-24 | 22 | Complete |
 | MEM-25 | 22 | Complete |
 | MEM-26 | 22 | Complete |
