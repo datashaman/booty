@@ -5,11 +5,6 @@ test_command: .venv/bin/pytest
 max_files_changed: 30
 max_diff_loc: 1500
 
-security:
-  enabled: true
-  fail_severity: high
-  secret_scanner: gitleaks
-
 release_governor:
   enabled: true
   verification_workflow_name: "Verify main"

@@ -14,7 +14,7 @@ ESCALATE does not block merge — it escalates deploy risk to HIGH for the Relea
 
 ## Configuration
 
-Add a `security` block to `.booty.yml` (schema_version 1):
+Add a `security` block to `.booty.yml` (schema_version 1). **Optional** — when absent, Security runs with defaults (enabled, gitleaks, default sensitive_paths).
 
 ```yaml
 security:
@@ -87,7 +87,7 @@ If Verifier works, Security works with the same App configuration.
 
 ## Booty repo config
 
-The booty repo uses this config in `.booty.yml`:
+The booty repo can add an explicit `security` block to `.booty.yml` after the Security Agent is deployed. Until then, Security uses defaults when the block is absent. Example:
 
 ```yaml
 security:
@@ -95,6 +95,8 @@ security:
   fail_severity: high
   secret_scanner: gitleaks
 ```
+
+*Note: The `security` key requires BootyConfigV1 with the security field (milestone v1.5+). Older deployments will reject configs with `security` — omit the block for backward compatibility.*
 
 ---
 
