@@ -1,15 +1,85 @@
 """Release Governor handler — workflow_run pipeline (GOV-01, GOV-02, GOV-03)."""
 
 import os
+from pathlib import Path
 from typing import Literal
 
 from github import Github
 
 from booty.config import get_settings
 from booty.release_governor.decision import Decision, compute_decision
-from booty.release_governor.risk import compute_risk_class
+from booty.release_governor.risk import compute_risk_class, get_risk_paths
 from booty.release_governor.store import get_state_dir, load_release_state
 from booty.test_runner.config import ReleaseGovernorConfig
+
+
+def simulate_decision_for_cli(
+    repo: str,
+    head_sha: str,
+    config: ReleaseGovernorConfig,
+    workspace: Path,
+    state_dir_override: Path | None = None,
+) -> tuple[Decision, list[str]]:
+    """Compute decision for CLI simulate/trigger without webhook payload.
+
+    Args:
+        repo: owner/repo
+        head_sha: commit SHA to evaluate
+        config: effective ReleaseGovernorConfig
+        workspace: workspace path (for state dir when override not set)
+        state_dir_override: optional state dir override (e.g. workspace/.booty/state)
+
+    Returns:
+        (Decision, risk_paths) — risk_paths from get_risk_paths when --show-paths
+    """
+    state_dir = state_dir_override or get_state_dir()
+    state = load_release_state(state_dir)
+
+    production_sha = (
+        state.production_sha_current
+        or state.production_sha_previous
+        or head_sha
+    )
+
+    token = get_settings().GITHUB_TOKEN
+    if not token or not token.strip():
+        raise ValueError("GITHUB_TOKEN required for simulate; set it to fetch diff")
+
+    gh = Github(token)
+    gh_repo = gh.get_repo(repo)
+    comparison = gh_repo.compare(production_sha, head_sha)
+
+    risk_class: Literal["LOW", "MEDIUM", "HIGH"] = compute_risk_class(
+        comparison, config
+    )
+    risk_paths = get_risk_paths(comparison, config)
+
+    degraded: bool | None = None
+
+    env_approved = (
+        os.environ.get("RELEASE_GOVERNOR_APPROVED", "").lower()
+        in ("1", "true", "yes")
+    )
+    approval_context = {
+        "env_approved": env_approved,
+        "label_approved": False,
+        "comment_approved": False,
+    }
+
+    is_first_deploy = state.production_sha_current is None
+
+    decision = compute_decision(
+        head_sha=head_sha,
+        risk_class=risk_class,
+        config=config,
+        state=state,
+        state_dir=state_dir,
+        degraded=degraded,
+        approval_context=approval_context,
+        is_first_deploy=is_first_deploy,
+    )
+
+    return decision, risk_paths
 
 
 def handle_workflow_run(
