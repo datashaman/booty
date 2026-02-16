@@ -34,13 +34,13 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> IssueCreated: Human/Sentry creates
-    IssueCreated --> IssueLabeled: Label agent:plan or agent:builder
+    IssueCreated --> IssueLabeled: Label agent
     IssueLabeled --> PlannerCheck: Webhook received
-    PlannerCheck --> PlannerEnqueued: agent:plan OR (agent:builder + no plan)
+    PlannerCheck --> PlannerEnqueued: agent + no plan
     PlannerEnqueued --> PlanStored: Planner worker completes
-    PlanStored --> BuilderEnqueued: agent:builder on issue (worker enqueues)
-    PlannerCheck --> BuilderEnqueued: agent:builder + plan exists
-    PlannerCheck --> BuilderBlocked: agent:builder + no plan + Planner disabled
+    PlanStored --> BuilderEnqueued: (worker enqueues, autonomous)
+    PlannerCheck --> BuilderEnqueued: agent + plan exists
+    PlannerCheck --> BuilderBlocked: agent + no plan + Planner disabled
     BuilderBlocked --> [*]: post_builder_blocked_comment
     BuilderEnqueued --> BuilderProcessing: Job dequeued
     BuilderProcessing --> PRDraft: create_pull_request, add_agent_builder_label
@@ -67,10 +67,10 @@ stateDiagram-v2
 
 | Agent | Trigger | GitHub API Actions |
 |-------|---------|--------------------|
-| **Observability** | Sentry webhook (`event_alert`) | `create_issue` with `agent:builder` label |
-| **Planner** | `issues` webhook (action=`opened`/`labeled`, label=`agent:plan`) | Produce plan, post comment, store JSON |
+| **Observability** | Sentry webhook (`event_alert`) | `create_issue` with `agent` label |
+| **Planner** | `issues` webhook (action=`opened`/`labeled`, label=`agent`) | Produce plan, post comment, store JSON |
 | **Architect** | Plan from Planner | Define architecture (future) |
-| **Builder** | Plan exists + `agent:builder` (plan from Planner) | `clone`, `create_pull_request`, `add_to_labels`, `post_failure_comment`; requires valid Plan artifact |
+| **Builder** | Plan exists + `agent` | `clone`, `create_pull_request`, `add_to_labels`, `post_failure_comment`; requires valid Plan artifact |
 | **Verifier** | `pull_request` webhook (opened/synchronize/reopened) | `create_check_run`, `edit_check_run`, `promote_to_ready_for_review`, `post_verifier_failure_comment`, enqueue Builder retry |
 
 ## Verifier Check Run States
@@ -87,7 +87,7 @@ stateDiagram-v2
 
 ## Failure Paths
 
-- **Builder blocked (no plan)**: `post_builder_blocked_comment` on issue; add `agent:plan` or await Planner
+- **Builder blocked (no plan)**: `post_builder_blocked_comment` on issue; add `agent` or await Planner
 - **Builder pipeline crash**: `post_failure_comment` on issue; PR may exist in draft
 - **Verifier failure**: Verifier posts `post_verifier_failure_comment` on PR; **Router** enqueues **Builder** retry (up to `MAX_VERIFIER_RETRIES`). Builder responds by fixing and pushing.
 - **Self-modification disabled**: `post_self_modification_disabled_comment` on issue; job ignored

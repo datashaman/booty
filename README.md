@@ -2,11 +2,11 @@
 
 Self-managing agent platform — Builder (issues → PRs), Planner (structured plans), Verifier (PR checks), Security (secrets & vulns), Observability (Sentry → issues), and deploy automation.
 
-- **Planner:** Issues with `agent:plan` or CLI `booty plan` → structured Plan JSON (goal, steps, risk, handoff). See [docs/planner.md](docs/planner.md).
+- **Planner:** Issues with `agent` or CLI `booty plan` → structured Plan JSON (goal, steps, risk, handoff). See [docs/planner.md](docs/planner.md).
 - **Builder:** Labeled GitHub issues → LLM code generation → test-driven refinement → PRs (including self-modification).
 - **Verifier:** Runs on every PR; posts `booty/verifier` check; enforces diff limits, .booty.yml schema, import/compile detection.
 - **Security:** Runs on every PR; posts `booty/security` check; secret scan (gitleaks), dependency audit, permission drift → ESCALATE. See [docs/security-agent.md](docs/security-agent.md).
-- **Observability:** Sentry webhook → filtered alerts → auto-created GitHub issues with agent:builder.
+- **Observability:** Sentry webhook → filtered alerts → auto-created GitHub issues with agent.
 - **Memory:** Stores incidents, governor holds, verifier failures, reverts; surfaces related history in PR comments. See [docs/memory.md](docs/memory.md).
 - **Deploy:** GitHub Actions → SSH → deploy.sh → health check. See [docs/deploy-setup.md](docs/deploy-setup.md).
 

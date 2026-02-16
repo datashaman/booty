@@ -304,19 +304,17 @@ async def lifespan(app: FastAPI):
         security_queue = None
         app.state.security_queue = None
 
-    # Planner worker — Planner-first: after plan created, enqueue Builder if issue has agent:builder
+    # Planner worker — Planner-first: plan ready → Builder runs (autonomous)
     async def _planner_worker_loop() -> None:
         while True:
             try:
                 job = await planner_queue.get()
                 try:
                     await asyncio.to_thread(process_planner_job, job)
-                    # Safety net: if issue has agent:builder, enqueue Builder (plan now exists)
+                    # Autonomous: plan ready → Builder runs. No extra label required.
                     # Skip if webhook already enqueued Builder for same issue (race avoidance)
-                    labels = [l.get("name", "") for l in job.payload.get("issue", {}).get("labels", [])]
                     if (
-                        settings.TRIGGER_LABEL in labels
-                        and job_queue
+                        job_queue
                         and not job_queue.has_issue_in_queue(job.repo_url, job.issue_number)
                     ):
                         builder_job_id = f"{job.issue_number}-plan-complete-{id(job)}"

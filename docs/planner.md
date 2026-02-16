@@ -6,7 +6,7 @@ Produces structured execution plans from GitHub issues, Observability incidents,
 
 The Planner Agent:
 
-- **Accepts** GitHub issues (label `agent:plan`), Observability incident format, or free text via `booty plan text "..."`
+- **Accepts** GitHub issues (label `agent`), Observability incident format, or free text via `booty plan text "..."`
 - **Produces** Plan JSON conforming to schema (goal, steps, risk_level, touch_paths, handoff_to_builder)
 - **Posts** plan as issue comment and stores to `~/.booty/state/plans/`
 - **Caches** same input within 24h returns cached plan (no LLM call)
@@ -15,7 +15,7 @@ The Planner Agent:
 
 | Trigger | How |
 |---------|-----|
-| GitHub issue | Label `agent:plan` on opened or labeled |
+| GitHub issue | Label `agent` on opened or labeled |
 | CLI issue | `booty plan issue <n> --repo owner/repo` |
 | CLI text | `booty plan text "fix login validation"` |
 
@@ -66,4 +66,4 @@ Comment on the issue includes Goal, Risk, Step list, and Builder instructions.
 
 ---
 
-*See [github-app-setup.md](github-app-setup.md) for webhook events; Issues event triggers Planner when `agent:plan` is present.*
+*See [github-app-setup.md](github-app-setup.md) for webhook events; Issues event triggers Planner when `agent` is present.*

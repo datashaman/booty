@@ -1,12 +1,12 @@
 stateDiagram-v2
     [*] --> IssueCreated: Human/Sentry creates
-    IssueCreated --> IssueLabeled: Label agent:plan or agent:builder
+    IssueCreated --> IssueLabeled: Label agent
     IssueLabeled --> PlannerCheck: Webhook received
-    PlannerCheck --> PlannerEnqueued: agent:plan OR (agent:builder + no plan)
+    PlannerCheck --> PlannerEnqueued: agent + no plan
     PlannerEnqueued --> PlanStored: Planner worker completes
-    PlanStored --> BuilderEnqueued: agent:builder on issue (worker enqueues)
-    PlannerCheck --> BuilderEnqueued: agent:builder + plan exists
-    PlannerCheck --> BuilderBlocked: agent:builder + no plan + Planner disabled
+    PlanStored --> BuilderEnqueued: (worker enqueues, autonomous)
+    PlannerCheck --> BuilderEnqueued: agent + plan exists
+    PlannerCheck --> BuilderBlocked: agent + no plan + Planner disabled
     BuilderBlocked --> [*]: post_builder_blocked_comment
     BuilderEnqueued --> BuilderProcessing: Job dequeued
     BuilderProcessing --> PRDraft: create_pull_request, add_agent_builder_label

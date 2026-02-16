@@ -6,7 +6,7 @@ Booty is a self-managing software builder powered by AI. GitHub is the interface
 
 ## Builder Agent (v1.0, v1.1)
 
-**Planner-first:** Pure executor — only runs when a valid Plan artifact exists. Triggers on `agent:builder` label; if no plan, Planner runs first (safety net). Uses plan's goal, steps, handoff_to_builder for execution. No fallback to raw issue interpretation.
+**Planner-first:** Pure executor — only runs when a valid Plan artifact exists. Plan ready → Builder runs automatically (autonomous). Trigger: `agent` label. Uses plan's goal, steps, handoff_to_builder for execution. No fallback to raw issue interpretation.
 
 ## Verifier Agent (v1.2)
 
@@ -14,7 +14,7 @@ Runs on every PR, enforces gates for agent PRs: runs tests in clean env, validat
 
 ## Deploy & Observability (v1.3)
 
-Automated deployment via GitHub Actions (SSH to DigitalOcean, deploy.sh, health check). Sentry APM for error tracking and release correlation. Observability agent ingests Sentry alerts via webhook, filters (severity, dedup, cooldown), creates GitHub issues with `agent:builder` for follow-up.
+Automated deployment via GitHub Actions (SSH to DigitalOcean, deploy.sh, health check). Sentry APM for error tracking and release correlation. Observability agent ingests Sentry alerts via webhook, filters (severity, dedup, cooldown), creates GitHub issues with `agent` for follow-up.
 
 ## Release Governor (v1.4)
 
@@ -30,17 +30,17 @@ Append-only `memory.jsonl` store. Ingests from Observability, Governor, Security
 
 ## Planner Agent (v1.7)
 
-**Single work originator.** Turns GitHub issues, Observability incidents, or operator CLI prompts (`booty plan --text`) into structured Plan JSON: goal, steps (max 12), risk_level, touch_paths, handoff_to_builder. Triggers on `agent:plan`, `agent:builder` (safety net), issues.opened. Outputs plan as issue comment + artifact. Idempotent within 24h. Builder consumes plan artifacts.
+**Single work originator.** Turns GitHub issues, Observability incidents, or operator CLI prompts (`booty plan --text`) into structured Plan JSON: goal, steps (max 12), risk_level, touch_paths, handoff_to_builder. Triggers on `agent` label (opened or labeled). System figures out Planner→Builder. Outputs plan as issue comment + artifact. Idempotent within 24h. Plan ready → Builder runs autonomously.
 
 ---
 
-## End-to-end flow (Planner-first)
+## End-to-end flow (Planner-first, autonomous)
 
-1. Issue/incident → Planner (agent:plan or agent:builder) → Plan stored
-2. Issue labeled `agent:builder` + plan exists → Builder executes (plan-driven)
+1. Issue/incident → add `agent` → Planner runs → Plan stored
+2. Plan ready → Builder runs automatically (no extra label)
 2. Verifier runs checks on PR
 3. Merge → Verify main runs on main
 4. Governor decides deploy → HOLD or triggers Deploy workflow
 5. Sentry monitors production
-6. Observability creates issues for incidents → Planner picks up → Builder when agent:builder
+6. Observability creates issues for incidents → Planner picks up → Builder runs when plan ready
 7. Security and Memory support each stage

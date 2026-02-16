@@ -11,7 +11,7 @@ Booty is a self-managing software builder powered by AI. It receives GitHub issu
 Booty is a multi-agent system with the following components:
 
 ### Builder Agent (code_gen/)
-- **Trigger**: GitHub issues with `agent:builder` label
+- **Trigger**: GitHub issues with `agent` label
 - **Function**: Analyzes issue → generates code → runs tests → iterative refinement → opens PR
 - **Key modules**: generator.py, refiner.py, validator.py
 - **Safety**: Self-modification gates, path restrictions, token budget management
@@ -49,7 +49,7 @@ Booty is a multi-agent system with the following components:
 
 ### Observability (github/issues.py)
 - **Trigger**: Sentry webhook with filtered alerts
-- **Function**: Auto-creates GitHub issues with `agent:builder` label
+- **Function**: Auto-creates GitHub issues with `agent` label
 - **Integration**: Sentry → filtered alerts → GitHub issue → Builder enqueues
 - **Output**: GitHub issue ready for Builder agent
 

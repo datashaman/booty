@@ -124,15 +124,15 @@ def add_agent_builder_label(
     github_token: str,
     repo_url: str,
     pr_number: int,
-    label: str = "agent:builder",
+    label: str = "agent",
 ) -> None:
-    """Add agent:builder (or custom) label to a PR.
+    """Add agent (or custom) label to a PR.
 
     Args:
         github_token: GitHub authentication token
         repo_url: Repository URL
         pr_number: PR number
-        label: Label name (default agent:builder)
+        label: Label name (default agent)
 
     Raises:
         GithubException: If label addition fails

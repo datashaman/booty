@@ -288,7 +288,7 @@ def post_builder_blocked_comment(
         issue = repo.get_issue(issue_number)
         body = """## Builder blocked — no plan found
 
-Add `agent:plan` to generate a plan first, or ensure a plan exists for this issue.
+Add `agent` to generate a plan first, or ensure a plan exists for this issue.
 
 Builder is a pure executor: it only runs against structured Plan artifacts produced by the Planner.
 

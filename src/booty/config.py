@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # Repository configuration
     TARGET_REPO_URL: str  # Required, no default
     TARGET_BRANCH: str = "main"
-    TRIGGER_LABEL: str = "agent:builder"
+    TRIGGER_LABEL: str = "agent"
     GITHUB_TOKEN: str  # Required for cloning, pushing, and opening PRs
 
     # LLM configuration
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # Security (GitHub App) configuration — uses same App as Verifier
     SECURITY_WORKER_COUNT: int = 2  # Number of security workers
 
-    # Planner agent — set to false to disable agent:plan handling
+    # Planner agent — set to false to disable agent-triggered handling
     PLANNER_ENABLED: bool = True
 
     model_config = SettingsConfigDict(

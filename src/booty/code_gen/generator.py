@@ -515,7 +515,7 @@ async def process_issue_to_pr(
                 draft=is_draft,
             )
 
-            # Add agent:builder label to every Builder PR (Verifier promotes on success)
+            # Add agent label to every Builder PR (Verifier promotes on success)
             logger.info("adding_agent_builder_label", pr_number=pr_number)
             add_agent_builder_label(
                 settings.GITHUB_TOKEN,

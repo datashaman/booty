@@ -110,7 +110,7 @@ def create_issue_from_sentry_event(
     event: dict,
     github_token: str,
     repo_url: str,
-    label: str = "agent:builder",
+    label: str = "agent",
     related_history: str | None = None,
 ) -> int | None:
     """Create GitHub issue from Sentry event.
@@ -202,7 +202,7 @@ def create_sentry_issue_with_retry(
     event: dict,
     github_token: str,
     repo_url: str,
-    label: str = "agent:builder",
+    label: str = "agent",
     related_history: str | None = None,
 ) -> int | None:
     """Create GitHub issue with retry. Spools to disk on persistent failure."""

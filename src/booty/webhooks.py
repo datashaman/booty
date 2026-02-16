@@ -659,12 +659,12 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     repo_url = repo_info.get("html_url", "") or f"https://github.com/{full_name or 'unknown'}"
     issue_number = issue.get("number", 0)
 
-    # Planner triggers: agent:plan on opened or labeled
+    # Planner triggers: agent label on opened or labeled (system figures out Planner→Builder)
     is_plan_trigger = (
         planner_enabled(settings)
         and (
-            (action == "opened" and "agent:plan" in labels)
-            or (action == "labeled" and payload.get("label", {}).get("name") == "agent:plan")
+            (action == "opened" and settings.TRIGGER_LABEL in labels)
+            or (action == "labeled" and payload.get("label", {}).get("name") == settings.TRIGGER_LABEL)
         )
     )
     if is_plan_trigger:
@@ -696,7 +696,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             content={"status": "accepted", "event": "planner", "job_id": job_id},
         )
 
-    # Builder triggers: agent:builder on opened or labeled — REQUIRES plan to exist
+    # Builder triggers: agent on opened or labeled — REQUIRES plan to exist
     # Safety net: if no plan, enqueue Planner first; Planner worker will enqueue Builder when done
     is_builder_trigger = (
         (action == "opened" and settings.TRIGGER_LABEL in labels)
@@ -715,7 +715,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     plan_path = plan_path_for_issue(owner, repo_name, issue_number)
     plan = load_plan(plan_path)
     if plan is None:
-        # Safety net: enqueue Planner; it will enqueue Builder when done (if agent:builder on issue)
+        # Safety net: enqueue Planner; it will enqueue Builder when done (autonomous)
         if planner_enabled(settings):
             if delivery_id and planner_is_duplicate(delivery_id):
                 logger.info("planner_already_processed", delivery_id=delivery_id)
