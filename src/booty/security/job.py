@@ -13,6 +13,7 @@ class SecurityJob:
     pr_number: int
     head_sha: str
     head_ref: str
+    base_sha: str
     repo_url: str
     installation_id: int
     payload: dict

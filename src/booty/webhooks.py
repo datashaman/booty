@@ -235,6 +235,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         security_job_id = None
         if security_ok and not security_queue.is_duplicate(pr_number, head_sha):
             security_job_id = f"security-{pr_number}-{head_sha[:7]}"
+            base_sha = pr.get("base", {}).get("sha", "") or ""
             sec_job = SecurityJob(
                 job_id=security_job_id,
                 owner=owner,
@@ -242,6 +243,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 pr_number=pr_number,
                 head_sha=head_sha,
                 head_ref=head_ref,
+                base_sha=base_sha,
                 repo_url=repo_url,
                 installation_id=installation_id,
                 payload=payload,
