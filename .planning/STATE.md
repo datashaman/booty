@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 
 Phase: 31 (Idempotency)
 Plan: —
-Status: Phase 30 complete ✓
-Last activity: 2026-02-16 — Phase 30 executed
+Status: Phase 31 complete ✓
+Last activity: 2026-02-16 — Phase 31 executed, milestone v1.7 complete
 
 ## Accumulated Context
 
@@ -32,4 +32,4 @@ None.
 
 Last session: 2026-02-16
 Stopped at: Phase 29 complete
-Next step: `/gsd:discuss-phase 31` or `/gsd:plan-phase 31`
+Next step: `/gsd:audit-milestone` — audit v1.7
