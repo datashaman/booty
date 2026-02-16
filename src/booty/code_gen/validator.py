@@ -8,6 +8,25 @@ file types silently.
 import ast
 from pathlib import Path
 
+# Substrings that indicate prompt/instructions leaked into file content
+_PROMPT_LEAKAGE_PATTERNS = (
+    "## Test Generation Requirements",
+    "Generate unit tests alongside code changes",
+    "CRITICAL: Return the FULL file content",
+    "Place test files in the `test_files` array",
+    "Use ONLY imports that exist in the project dependencies",
+    "**Example Test Files (for reference):**",
+    "/tmp/booty-",
+)
+
+
+def detect_prompt_leakage(content: str) -> bool:
+    """Detect if LLM output contains prompt instructions instead of file content.
+
+    Returns True if content appears to include leaked prompt text.
+    """
+    return any(pattern in content for pattern in _PROMPT_LEAKAGE_PATTERNS)
+
 
 def validate_python_syntax(filepath: Path, content: str) -> tuple[bool, str | None]:
     """Validate Python file syntax without executing.
@@ -33,7 +52,7 @@ def validate_python_syntax(filepath: Path, content: str) -> tuple[bool, str | No
 def validate_generated_code(filepath: Path, content: str, workspace_root: Path) -> None:
     """Validate code before committing - fail fast on errors.
 
-    Only validates .py files. Non-Python files are skipped silently (no validation needed).
+    Validates all files for prompt leakage; only .py files get syntax validation.
 
     Args:
         filepath: Path to the file being validated
@@ -41,11 +60,18 @@ def validate_generated_code(filepath: Path, content: str, workspace_root: Path) 
         workspace_root: Root directory of the workspace (unused for now, reserved for future import checks)
 
     Raises:
-        ValueError: If validation fails (syntax error in Python file)
+        ValueError: If validation fails (prompt leakage or syntax error in Python file)
     """
-    # Only validate Python files
+    # Prompt leakage: reject content that contains our instructions
+    if detect_prompt_leakage(content):
+        raise ValueError(
+            "Generated content appears to include prompt instructions instead of file content; "
+            "regenerating."
+        )
+
+    # Only validate Python files for syntax
     if not str(filepath).endswith('.py'):
-        return  # Skip non-Python files silently
+        return  # Skip syntax check for non-Python files
 
     # Syntax validation
     valid_syntax, syntax_error = validate_python_syntax(filepath, content)

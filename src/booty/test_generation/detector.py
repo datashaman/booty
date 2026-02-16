@@ -104,7 +104,9 @@ def detect_conventions(workspace_path: Path) -> DetectedConventions:
         test_directory=test_dir,
         test_file_pattern=test_pattern,
         config_file=str(config_path) if config_path else None,
-        existing_test_examples=[str(f) for f in test_files[:3]],  # Max 3 examples
+        existing_test_examples=[
+            str(f.relative_to(workspace_path)) for f in test_files[:3]
+        ],  # Max 3 examples, relative paths only
     )
 
 

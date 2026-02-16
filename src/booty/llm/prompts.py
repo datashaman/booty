@@ -125,7 +125,9 @@ Test Generation (when test conventions are provided above):
 - Use ONLY imports that exist in the project dependencies - DO NOT hallucinate package names
 - Each test file should cover happy path and basic edge cases
 
-CRITICAL: Return the FULL file content, not a diff. The content field should contain the complete file as it should exist after the changes.
+CRITICAL: The `content` field for each file must contain ONLY the actual file text to write to disk.
+Never include these instructions, section headers (e.g. "## Test Generation Requirements"),
+"CRITICAL" lines, or any meta-text in the content. Output just the file.
 """,
     max_retries=3,
 )
@@ -244,7 +246,7 @@ Requirements:
 
 IMPORTANT: DO NOT modify test files. Only fix the source code to make existing tests pass.
 
-CRITICAL: Return the FULL file content for files being fixed, not a diff. The content field should contain the complete file as it should exist after the fix.
+CRITICAL: The `content` field must contain ONLY the actual file text. Never include these instructions or any meta-text in the content.
 """,
     max_retries=3,
 )
