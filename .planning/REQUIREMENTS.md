@@ -17,13 +17,13 @@ Requirements for milestone v1.6. Each maps to roadmap phases.
 
 ### Ingestion
 
-- [ ] **MEM-06**: Observability issue-from-Sentry → store `incident` record
-- [ ] **MEM-07**: Governor HOLD decisions → store `governor_hold` record
-- [ ] **MEM-08**: Governor deploy workflow failures → store `deploy_failure` record
-- [ ] **MEM-09**: Security FAIL blocks → store `security_block` record
-- [ ] **MEM-10**: Security ESCALATE (permission surface) → store `security_block` with reason
-- [ ] **MEM-11**: Verifier FAIL (import/compile/test) → store `verifier_cluster` record
-- [ ] **MEM-12**: Revert commits on main (detect via "Revert" or explicit input) → store `revert` record
+- [x] **MEM-06**: Observability issue-from-Sentry → store `incident` record
+- [x] **MEM-07**: Governor HOLD decisions → store `governor_hold` record
+- [x] **MEM-08**: Governor deploy workflow failures → store `deploy_failure` record
+- [x] **MEM-09**: Security FAIL blocks → store `security_block` record
+- [x] **MEM-10**: Security ESCALATE (permission surface) → store `security_block` with reason
+- [x] **MEM-11**: Verifier FAIL (import/compile/test) → store `verifier_cluster` record
+- [x] **MEM-12**: Revert commits on main (detect via "Revert" or explicit input) → store `revert` record
 - [ ] **MEM-13**: `memory.add_record(record)` API available for agents without direct adapter
 - [ ] **MEM-14**: Dedup by (type, repo, sha, fingerprint, pr_number) within 24h window
 
@@ -82,13 +82,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-03 | 22 | Complete |
 | MEM-04 | 22 | Complete |
 | MEM-05 | 22 | Complete |
-| MEM-06 | 23 | Pending |
-| MEM-07 | 23 | Pending |
-| MEM-08 | 23 | Pending |
-| MEM-09 | 23 | Pending |
-| MEM-10 | 23 | Pending |
-| MEM-11 | 23 | Pending |
-| MEM-12 | 23 | Pending |
+| MEM-06 | 23 | Complete |
+| MEM-07 | 23 | Complete |
+| MEM-08 | 23 | Complete |
+| MEM-09 | 23 | Complete |
+| MEM-10 | 23 | Complete |
+| MEM-11 | 23 | Complete |
+| MEM-12 | 23 | Complete |
 | MEM-13 | 22 | Complete |
 | MEM-14 | 22 | Complete |
 | MEM-15 | 24 | Pending |
