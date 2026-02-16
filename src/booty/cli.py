@@ -112,6 +112,123 @@ def memory() -> None:
     """Memory (event storage) commands."""
 
 
+@memory.command("status")
+@click.option("--workspace", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+def memory_status(workspace: str, as_json: bool) -> None:
+    """Show memory state (enabled, record count, retention)."""
+    from booty.memory.config import apply_memory_env_overrides, get_memory_config
+    from booty.memory.lookup import within_retention
+    from booty.memory.store import get_memory_state_dir, read_records
+
+    ws = Path(workspace).resolve()
+    try:
+        config = load_booty_config(ws)
+    except Exception:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    mem_config = get_memory_config(config) if config else None
+    if not mem_config:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    mem_config = apply_memory_env_overrides(mem_config)
+    if not mem_config.enabled:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    state_dir = get_memory_state_dir()
+    path = state_dir / "memory.jsonl"
+    records = read_records(path)
+    filtered = [r for r in records if within_retention(r, mem_config.retention_days)]
+    count = len(filtered)
+    if as_json:
+        click.echo(json.dumps({"enabled": True, "records": count, "retention_days": mem_config.retention_days}))
+        return
+    click.echo("enabled: true")
+    click.echo(f"records: {count}")
+    click.echo(f"retention_days: {mem_config.retention_days}")
+
+
+@memory.command("query")
+@click.option("--pr", type=int, help="PR number to query files from")
+@click.option("--sha", type=str, help="Commit SHA (resolves to PR for paths)")
+@click.option("--repo", help="Repository owner/repo (required when cannot infer from git)")
+@click.option("--workspace", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+def memory_query(
+    pr: int | None,
+    sha: str | None,
+    repo: str | None,
+    workspace: str,
+    as_json: bool,
+) -> None:
+    """Query memory by PR or commit SHA."""
+    from booty.memory import query as memory_query_fn
+    from booty.memory.config import apply_memory_env_overrides, get_memory_config
+    from booty.memory.surfacing import format_matches_for_pr
+    from booty.memory.store import get_memory_state_dir
+
+    if (pr is not None and sha is not None) or (pr is None and sha is None):
+        raise click.UsageError("Provide exactly one of --pr or --sha")
+    ws = Path(workspace).resolve()
+    repo_name = repo or _infer_repo_from_git(ws)
+    if not repo_name:
+        click.echo("Use --repo owner/repo", err=True)
+        raise SystemExit(1)
+    token = get_settings().GITHUB_TOKEN or ""
+    if not token.strip():
+        click.echo("GITHUB_TOKEN required", err=True)
+        raise SystemExit(1)
+    try:
+        config = load_booty_config(ws)
+    except Exception:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    mem_config = get_memory_config(config) if config else None
+    if not mem_config:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    mem_config = apply_memory_env_overrides(mem_config)
+    if not mem_config.enabled:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    try:
+        from github import Github
+
+        g = Github(token)
+        gh_repo = g.get_repo(repo_name)
+        if pr is not None:
+            pull = gh_repo.get_pull(pr)
+            paths = [f.filename for f in pull.get_files()]
+        else:
+            commit = gh_repo.get_commit(sha)
+            pulls = list(commit.get_pulls())
+            if not pulls:
+                click.echo("No PR found for sha", err=True)
+                raise SystemExit(1)
+            pull = pulls[0]
+            paths = [f.filename for f in pull.get_files()]
+        state_dir = get_memory_state_dir()
+        matches = memory_query_fn(
+            paths=paths,
+            repo=repo_name,
+            config=mem_config,
+            state_dir=state_dir,
+        )
+    except SystemExit:
+        raise
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
+    if as_json:
+        click.echo(json.dumps(matches, default=str))
+        return
+    formatted = format_matches_for_pr(matches)
+    if formatted:
+        click.echo(formatted)
+    else:
+        click.echo("(no related history)")
+
+
 @memory.group()
 def ingest() -> None:
     """Ingest records from external sources."""
