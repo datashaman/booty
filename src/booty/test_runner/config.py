@@ -8,6 +8,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from booty.logging import get_logger
+from booty.planner.config import PlannerConfig
 
 logger = get_logger()
 
@@ -240,6 +241,23 @@ class BootyConfigV1(BaseModel):
         default=None,
         description="Optional memory config; raw dict, validated lazily by Memory module",
     )
+    planner: PlannerConfig | None = Field(
+        default=None,
+        description="Optional planner config; invalid block sets planner=None",
+    )
+
+    @field_validator("planner", mode="before")
+    @classmethod
+    def validate_planner_block(cls, v: object) -> PlannerConfig | None:
+        """Parse planner block; invalid or unknown keys → planner=None."""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            try:
+                return PlannerConfig.model_validate(v)
+            except ValidationError:
+                return None
+        return None
 
     @field_validator("memory", mode="before")
     @classmethod
