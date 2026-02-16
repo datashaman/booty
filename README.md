@@ -27,3 +27,41 @@ booty verifier check-test --repo owner/repo --sha <commit-sha> --installation-id
 ```
 
 **Status:** `booty status` prints `verifier: enabled` or `verifier: disabled`.
+
+
+
+## Test Generation Requirements
+
+Generate unit tests alongside code changes following these repository conventions:
+
+**Language:** python
+**Test Framework:** pytest
+**Test Directory:** tests/
+**Test File Naming:** test_*.py
+
+**CRITICAL:** Use ONLY imports that exist in the project dependencies.
+DO NOT hallucinate package names or import paths.
+Verify all test imports match the detected framework and project structure.
+Check pyproject.toml, package.json, or other config files for available dependencies.
+
+**Example Test Files (for reference):**
+- /tmp/booty-20-1mpu3ywm/tests/test_sentry_integration.py
+- /tmp/booty-20-1mpu3ywm/tests/test_booty_config.py
+
+Requirements:
+1. Generate COMPLETE file contents (not diffs or patches)
+2. For new files, provide full content from scratch
+3. For modifications, provide the entire updated file with all changes applied
+4. For deletions, set operation="delete" and content="" (empty string)
+5. Follow the existing code style and conventions visible in the provided files
+6. Ensure all imports are present and correct
+7. Include clear explanations of what changed and why
+
+Test Generation (when test conventions are provided above):
+- Generate unit test files for all changed source files
+- Place test files in the `test_files` array, NOT in the `changes` array
+- Follow the repository test conventions described above
+- Use ONLY imports that exist in the project dependencies - DO NOT hallucinate package names
+- Each test file should cover happy path and basic edge cases
+
+CRITICAL: Return the FULL file content, not a diff. The content field should contain the complete file as it should exist after the changes.
