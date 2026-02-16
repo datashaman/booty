@@ -82,19 +82,19 @@ Deferred to later milestones.
 | PLAN-02 | 28 | Pending |
 | PLAN-03 | 28 | Pending |
 | PLAN-04 | 28 | Pending |
-| PLAN-05 | 27, 29 | Pending |
-| PLAN-06 | 27, 29 | Pending |
+| PLAN-05 | 27, 29 | Complete |
+| PLAN-06 | 27, 29 | Complete |
 | PLAN-07 | 27, 29 | Pending |
-| PLAN-08 | 27, 29 | Pending |
+| PLAN-08 | 27, 29 | Complete |
 | PLAN-09 | 29 | Pending |
 | PLAN-10 | 29 | Pending |
 | PLAN-11 | 29 | Pending |
 | PLAN-12 | 29 | Pending |
-| PLAN-13 | 27 | Pending |
-| PLAN-14 | 27 | Pending |
-| PLAN-15 | 27 | Pending |
+| PLAN-13 | 27 | Complete |
+| PLAN-14 | 27 | Complete |
+| PLAN-15 | 27 | Complete |
 | PLAN-16 | 30 | Pending |
-| PLAN-17 | 27, 30 | Pending |
+| PLAN-17 | 27, 30 | Complete |
 | PLAN-18 | 30 | Pending |
 | PLAN-19 | 29 | Pending |
 | PLAN-20 | 29 | Pending |
