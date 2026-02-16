@@ -82,6 +82,17 @@ class ReleaseGovernorConfig(BaseModel):
         default_factory=lambda: [".github/workflows/**", "**/migrations/**"],
         description="Pathspecs for HIGH risk",
     )
+    medium_risk_paths: list[str] = Field(
+        default_factory=lambda: [
+            "**/package.json",
+            "**/requirements*.txt",
+            "**/pyproject.toml",
+            "**/Cargo.toml",
+            "**/go.mod",
+            "**/go.sum",
+        ],
+        description="Pathspecs for MEDIUM risk (dependency manifests)",
+    )
     migration_paths: list[str] = Field(
         default_factory=list,
         description="Pathspecs for migrations",
@@ -125,6 +136,8 @@ def apply_release_governor_env_overrides(
         overrides["approval_label"] = v if v else None
     if (v := os.environ.get("RELEASE_GOVERNOR_APPROVAL_COMMAND")) is not None:
         overrides["approval_command"] = v if v else None
+    if (v := os.environ.get("RELEASE_GOVERNOR_MEDIUM_RISK_PATHS")) is not None:
+        overrides["medium_risk_paths"] = [p.strip() for p in v.split(",") if p.strip()]
 
     if not overrides:
         return config
