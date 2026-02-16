@@ -77,11 +77,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MEM-01 | 22 | Pending |
-| MEM-02 | 22 | Pending |
-| MEM-03 | 22 | Pending |
-| MEM-04 | 22 | Pending |
-| MEM-05 | 22 | Pending |
+| MEM-01 | 22 | Complete |
+| MEM-02 | 22 | Complete |
+| MEM-03 | 22 | Complete |
+| MEM-04 | 22 | Complete |
+| MEM-05 | 22 | Complete |
 | MEM-06 | 23 | Pending |
 | MEM-07 | 23 | Pending |
 | MEM-08 | 23 | Pending |
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-10 | 23 | Pending |
 | MEM-11 | 23 | Pending |
 | MEM-12 | 23 | Pending |
-| MEM-13 | 22 | Pending |
-| MEM-14 | 22 | Pending |
+| MEM-13 | 22 | Complete |
+| MEM-14 | 22 | Complete |
 | MEM-15 | 24 | Pending |
 | MEM-16 | 24 | Pending |
 | MEM-17 | 24 | Pending |
@@ -100,9 +100,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-21 | 25 | Pending |
 | MEM-22 | 25 | Pending |
 | MEM-23 | 25 | Pending |
-| MEM-24 | 22 | Pending |
-| MEM-25 | 22 | Pending |
-| MEM-26 | 22 | Pending |
+| MEM-24 | 22 | Complete |
+| MEM-25 | 22 | Complete |
+| MEM-26 | 22 | Complete |
 | MEM-27 | 26 | Pending |
 | MEM-28 | 26 | Pending |
 
