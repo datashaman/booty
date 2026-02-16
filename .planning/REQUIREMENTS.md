@@ -9,10 +9,10 @@ Requirements for Planner Agent milestone. Each maps to roadmap phases.
 
 ### Inputs
 
-- [ ] **PLAN-01**: Planner accepts GitHub Issue payload (title, body, labels)
-- [ ] **PLAN-02**: Planner accepts Observability incident issue format
-- [ ] **PLAN-03**: Planner accepts operator CLI prompt (free text) via `booty plan --text "..."`
-- [ ] **PLAN-04**: Planner can use optional repo context (default branch, tree, recent commits) when available
+- [x] **PLAN-01**: Planner accepts GitHub Issue payload (title, body, labels)
+- [x] **PLAN-02**: Planner accepts Observability incident issue format
+- [x] **PLAN-03**: Planner accepts operator CLI prompt (free text) via `booty plan --text "..."`
+- [x] **PLAN-04**: Planner can use optional repo context (default branch, tree, recent commits) when available
 
 ### Plan Output
 
@@ -78,10 +78,10 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLAN-01 | 28 | Pending |
-| PLAN-02 | 28 | Pending |
-| PLAN-03 | 28 | Pending |
-| PLAN-04 | 28 | Pending |
+| PLAN-01 | 28 | Complete |
+| PLAN-02 | 28 | Complete |
+| PLAN-03 | 28 | Complete |
+| PLAN-04 | 28 | Complete |
 | PLAN-05 | 27, 29 | Complete |
 | PLAN-06 | 27, 29 | Complete |
 | PLAN-07 | 27, 29 | Pending |
