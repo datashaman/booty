@@ -222,6 +222,49 @@ def post_memory_comment(
         raise
 
 
+def post_plan_comment(
+    github_token: str,
+    repo_url: str,
+    issue_number: int,
+    body: str,
+) -> None:
+    """Post or update Plan comment on a GitHub issue.
+
+    Finds existing comment with '<!-- booty-plan -->' and edits it;
+    otherwise creates new. Keeps a single plan comment per issue.
+    Body must include <!-- booty-plan --> for find-and-edit.
+
+    Args:
+        github_token: GitHub authentication token
+        repo_url: Repository URL
+        issue_number: GitHub issue number
+        body: Comment body (pre-formatted, must include marker)
+
+    Raises:
+        GithubException: If comment creation/update fails
+    """
+    try:
+        repo = _get_repo(github_token, repo_url)
+        issue = repo.get_issue(issue_number)
+
+        for comment in issue.get_comments():
+            if "<!-- booty-plan -->" in (comment.body or ""):
+                comment.edit(body)
+                logger.info("plan_comment_updated", issue_number=issue_number)
+                return
+
+        issue.create_comment(body)
+        logger.info("plan_comment_posted", issue_number=issue_number)
+    except GithubException as e:
+        logger.error(
+            "plan_comment_post_failed",
+            issue_number=issue_number,
+            error=str(e),
+            status=e.status,
+        )
+        raise
+
+
 def post_self_modification_disabled_comment(
     github_token: str,
     repo_url: str,
