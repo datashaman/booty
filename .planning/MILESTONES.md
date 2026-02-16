@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.6 Memory Agent (Shipped: 2026-02-16)
+
+**Delivered:** Memory Agent converts high-value system events into durable, queryable knowledge; deterministic lookup; surfaces context in PR comments, Governor HOLD, and Observability incidents. Informational only.
+
+**Phases completed:** 22–26 (12 plans total)
+
+**Key accomplishments:**
+
+- MemoryConfig schema, memory.jsonl append-only store, add_record API with 24h dedup (Phase 22)
+- 6 memory adapters; ingestion from Observability, Governor, Security, Verifier, Revert (Phase 23)
+- Deterministic lookup: path/fingerprint match, severity/recency sort, <1s for 10k records (Phase 24)
+- PR comment "Memory: related history" on Verifier check; Governor HOLD links; incident "Related history" (Phase 25)
+- booty memory status | query --pr/--sha --json CLI (Phase 26)
+- 28/28 v1.6 requirements; milestone audit passed
+
+**Stats:**
+
+- 73 files modified (v1.5..v1.6)
+- 13,312 lines of Python (total)
+- 5 phases, 12 plans
+- 1 day from v1.5 to ship (2026-02-16)
+
+**Git range:** `v1.5` → `33ceb93` (Merge PR #25)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.5 Security Agent (Shipped: 2026-02-16)
 
 **Delivered:** Security Agent as merge veto authority — pull_request check `booty/security`, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.

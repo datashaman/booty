@@ -44,6 +44,19 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
+### Validated (v1.6)
+
+- ✓ Memory persists to append-only memory.jsonl with atomic writes — v1.6
+- ✓ MemoryConfig (.booty.yml memory block) with env overrides — v1.6
+- ✓ add_record API with 24h dedup by (type, repo, sha, fingerprint, pr_number) — v1.6
+- ✓ Ingestion from Observability, Governor, Security, Verifier, Revert — v1.6
+- ✓ Deterministic lookup (path/fingerprint, <1s for 10k records) — v1.6
+- ✓ PR comment "Memory: related history" on Verifier check completion — v1.6
+- ✓ Governor HOLD surfaces 1–2 memory links in PR comment — v1.6
+- ✓ Observability incident "Related history" section — v1.6
+- ✓ booty memory status | query --pr/--sha --json — v1.6
+- ✓ Memory informational only; no outcomes blocked — v1.6
+
 ### Validated (v1.5)
 
 - ✓ Security agent runs on pull_request opened/synchronize — v1.5
@@ -89,6 +102,7 @@ Shipped v1.2 with Verifier agent (GitHub Checks API, pull_request webhook, diff 
 Shipped v1.3 with deploy automation (GitHub Actions → SSH → deploy.sh), Sentry APM (release/env correlation), and Observability agent (Sentry webhook → GitHub issues with agent:builder).
 Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, approval policy, workflow_dispatch deploy, HOLD/ALLOW UX, release state store, booty governor CLI.
 Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
+Shipped v1.6 with Memory Agent — append-only memory.jsonl, ingestion from Observability/Governor/Security/Verifier/Revert, deterministic lookup, PR/Governor/incident surfacing, booty memory status|query.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
 All v1.0 through v1.5 requirements satisfied.
 Self-modification capability active with Verifier gates and protected paths.
@@ -136,21 +150,22 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | ESCALATE does not block merge | Governor handles deploy gating; PR proceeds | ✓ Good — v1.5 |
 | Override poll for race handling | Governor may run before Security; poll up to 120s | ✓ Good — v1.5 |
 | Environment approval only for Phase 15 | Label/comment require PR lookup; deferred | ✓ Good — v1.4 |
-
-## Current Milestone: v1.6 Memory Agent
-
-**Goal:** Convert high-value system events into durable, queryable knowledge and surface that knowledge back into the workflow as context, without changing outcomes automatically.
-
-**Target features:**
-- Memory Agent ingests events from Observability, Governor, Security, Verifier, Builder (reverts)
-- Deterministic lookup by fingerprint/paths/ecosystem/keywords (no embeddings in v1)
-- Surface context: Builder PR comment, Governor HOLD details, Observability incident body
-- Append-only storage (.booty/state/memory.jsonl), 90-day retention, configurable
-- .booty.yml memory block + env overrides; booty memory status | query CLI
+| Memory block as raw dict; MemoryConfig validates on use | Unknown keys fail Memory only (MEM-25) | ✓ Good — v1.6 |
+| Trigger Memory surfacing on check_run completed | Memory surfaces only after Verifier runs | ✓ Good — v1.6 |
+| Governor section merges into existing Memory comment | Append or replace; single updatable comment | ✓ Good — v1.6 |
+| Stdlib-only lookup; derive paths_hash from candidate paths | No new deps; verifier_cluster matches when caller has paths | ✓ Good — v1.6 |
 
 ## Current State
 
-**Shipped:** v1.5 (2026-02-16)
+**Shipped:** v1.6 (2026-02-16)
+
+**What shipped in v1.6:**
+- Memory Agent: append-only memory.jsonl, MemoryConfig, add_record API with dedup
+- Ingestion from Observability, Governor, Security, Verifier, Revert (webhooks + runners + CLI)
+- Deterministic lookup (path/fingerprint match, severity/recency sort)
+- Surfacing: PR comment on Verifier check, Governor HOLD links, Observability incident "Related history"
+- booty memory status | query CLI
+- 28/28 v1.6 requirements; milestone audit passed
 
 **What shipped in v1.5:**
 - Security Agent: pull_request webhook, booty/security check (queued → in_progress → completed)
@@ -171,4 +186,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 </details>
 
 ---
-*Last updated: 2026-02-16 after v1.6 milestone start*
+*Last updated: 2026-02-16 after v1.6 milestone completion*
