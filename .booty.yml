@@ -9,8 +9,18 @@ security:
   enabled: true
   fail_severity: high
   secret_scanner: gitleaks
+  sensitive_paths:
+    - ".github/workflows/**"
+    - "infra/**"
 
 release_governor:
   enabled: true
   verification_workflow_name: "Verify main"
   deploy_workflow_name: deploy.yml
+
+memory:
+  enabled: true
+  retention_days: 90
+  max_matches: 3
+  comment_on_pr: true
+  comment_on_incident_issue: true
