@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from booty.planner.schema import Plan
 
 
@@ -64,3 +66,15 @@ def save_plan(plan: Plan | dict, path: Path) -> None:
         if os.path.exists(fd.name):
             os.unlink(fd.name)
         raise
+
+
+def load_plan(path: Path) -> Plan | None:
+    """Load plan from path. Returns None if file missing or invalid."""
+    if not path.exists():
+        return None
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return Plan.model_validate(data)
+    except (json.JSONDecodeError, ValidationError):
+        return None

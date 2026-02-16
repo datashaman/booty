@@ -61,3 +61,7 @@ class Plan(BaseModel):
     constraints: list[str] = Field(default_factory=list)
     tests: list[str] = Field(default_factory=list)
     rollback: list[str] = Field(default_factory=list)
+    metadata: dict = Field(
+        default_factory=dict,
+        description="Run metadata: created_at, input_hash, plan_hash (excluded from plan_hash)",
+    )
