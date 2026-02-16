@@ -16,9 +16,16 @@ from booty.github.checks import (
 from booty.logging import get_logger
 from booty.security.audit import AuditResult, run_dependency_audit
 from booty.security.job import SecurityJob
+from booty.security.override import persist_override
+from booty.security.permission_drift import (
+    _title_for_paths,
+    get_changed_paths,
+    sensitive_paths_touched,
+)
 from booty.security.scanner import build_annotations, run_secret_scan
 from booty.test_runner.config import (
     BootyConfigV1,
+    SecurityConfig,
     apply_security_env_overrides,
     load_booty_config_from_content,
 )
@@ -225,7 +232,41 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
                 return
 
-            # Both secret scan and dependency audit passed
+            # Both secret scan and dependency audit passed — check permission drift
+            sensitive_paths = (
+                security_config.sensitive_paths
+                if security_config
+                else SecurityConfig().sensitive_paths
+            )
+            paths = get_changed_paths(
+                workspace.repo,
+                base_sha or job.head_sha,
+                job.head_sha,
+            )
+            touched = sensitive_paths_touched(paths, sensitive_paths)
+            if touched:
+                title = _title_for_paths(touched)
+                summary = (
+                    "Paths that triggered escalation: "
+                    + ", ".join(sorted(touched)[:10])
+                    + (" …" if len(touched) > 10 else "")
+                )
+                edit_check_run(
+                    check_run,
+                    status="completed",
+                    conclusion="success",
+                    output={"title": title, "summary": summary},
+                )
+                repo_full_name = f"{job.owner}/{job.repo_name}"
+                persist_override(repo_full_name, job.head_sha, touched)
+                logger.info(
+                    "security_escalated",
+                    job_id=job.job_id,
+                    paths=touched,
+                )
+                return
+
+            # No sensitive paths touched — final success
             eco_count = len(
                 {k.split(":")[0] for k in audit_result.summary_by_ecosystem}
             )
