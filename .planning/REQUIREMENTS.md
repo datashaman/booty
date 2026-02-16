@@ -49,13 +49,13 @@ Requirements for Planner Agent milestone. Each maps to roadmap phases.
 
 ### Idempotency
 
-- [ ] **PLAN-23**: For same issue within 24h, Planner produces same plan unless inputs changed
-- [ ] **PLAN-24**: Plan includes plan_hash (hash of normalized plan) in metadata for dedup
+- [x] **PLAN-23**: For same issue within 24h, Planner produces same plan unless inputs changed
+- [x] **PLAN-24**: Plan includes plan_hash (hash of normalized plan) in metadata for dedup
 
 ### Acceptance
 
 - [x] **PLAN-25**: Given a real issue, Planner emits valid Plan JSON within the schema
-- [ ] **PLAN-26**: Output is reproducible for unchanged inputs
+- [x] **PLAN-26**: Output is reproducible for unchanged inputs
 
 ## Future Requirements (v1.x+)
 
@@ -100,10 +100,10 @@ Deferred to later milestones.
 | PLAN-20 | 29 | Complete |
 | PLAN-21 | 29 | Complete |
 | PLAN-22 | 29 | Pending |
-| PLAN-23 | 31 | Pending |
-| PLAN-24 | 31 | Pending |
+| PLAN-23 | 31 | Complete |
+| PLAN-24 | 31 | Complete |
 | PLAN-25 | 29 | Complete |
-| PLAN-26 | 31 | Pending |
+| PLAN-26 | 31 | Complete |
 
 **Coverage:**
 - v1.7 requirements: 26 total
