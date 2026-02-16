@@ -86,6 +86,12 @@ Plans:
 
 **Depends on:** Phase 18
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 21-01-PLAN.md — Permission drift detection (permission_drift, override persist, runner integration)
+- [ ] 21-02-PLAN.md — Governor override integration (read, poll, handler wiring)
+
 **Success criteria:**
 1. Sensitive paths matched (default: .github/workflows/**, infra/**, terraform/**, helm/**, k8s/**, iam/**, auth/**, security/**)
 2. Touched → ESCALATE (not FAIL); title "Security escalated — workflow modified"
