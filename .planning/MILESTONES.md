@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.4 Release Governor (Shipped: 2026-02-16)
+
+**Delivered:** Governor gates production deployment — workflow_run trigger, risk scoring from paths touched, approval policy (env/label/comment; env implemented), workflow_dispatch deploy for allowed SHAs, release state store, HOLD/ALLOW commit status, deploy failure issues.
+
+**Phases completed:** 14-17 (13 plans total)
+
+**Key accomplishments:**
+
+- ReleaseGovernorConfig schema, env overrides, file-based release.json, delivery ID cache for idempotency
+- risk.py compute_risk_class (LOW/MEDIUM/HIGH from pathspec); decision.py compute_decision; cooldown/rate limit
+- workflow_run webhook handler; config from repo .booty.yml via GitHub API
+- deploy.py dispatch_deploy; ux.py post_hold_status/post_allow_status; deploy outcome observation
+- booty governor status | simulate | trigger CLI; docs/release-governor.md
+- 32/32 v1.4 requirements; milestone audit passed (tech_debt: label/comment approval stubbed)
+
+**Stats:**
+
+- 74 files modified (v1.3..v1.4)
+- 8,638 lines of Python (total)
+- 4 phases, 13 plans
+- 1 day from v1.3 to ship (2026-02-15 → 2026-02-16)
+
+**Git range:** `7bbc939` (v1.3) → `7f59bf0` (Merge PR #22)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.3 Observability (Shipped: 2026-02-15)
 
 **Delivered:** Close the post-merge loop — automated deployment via GitHub Actions, Sentry APM for error tracking, and Observability agent that turns Sentry alerts into GitHub issues with agent:builder label.

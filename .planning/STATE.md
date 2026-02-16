@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-15)
+See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** v1.4 Release Governor — requirements and roadmap
+**Current focus:** Planning next milestone — run `/gsd:new-milestone`
 
 ## Current Position
 
-Phase: 17 (CLI & Documentation) ✓ Complete
-Plan: Milestone v1.4 complete
-Status: All 2 plans executed, goal verified
-Last activity: 2026-02-16 — Phase 17 CLI & Documentation complete
+Phase: —
+Plan: —
+Status: v1.4 complete; ready for next milestone
+Last activity: 2026-02-16 — v1.4 Release Governor milestone complete
 
 Progress: [########] 100%
 
@@ -33,5 +33,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 15 Trigger/Risk/Decision
-Next step: `/gsd:audit-milestone` or `/gsd:complete-milestone`
+Stopped at: v1.4 complete
+Next step: `/gsd:new-milestone` — define next milestone

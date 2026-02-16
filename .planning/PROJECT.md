@@ -44,16 +44,16 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
-### Active (v1.4 Release Governor)
+### Validated (v1.4)
 
-- [ ] Governor gates production deployment (allow/hold)
-- [ ] Governor triggers deploy workflow via workflow_dispatch with exact SHA
-- [ ] Governor records release state (production_sha, deploy outcome)
-- [ ] Risk-based gating (LOW/MEDIUM/HIGH) from paths touched
-- [ ] Operator approval for HIGH risk (env/label/comment)
-- [ ] Cooldown and rate limits on deploy attempts
-- [ ] HOLD/ALLOW UX (status or issue with reason + unblock instructions)
-- [ ] Deploy failure → operator-visible GitHub issue
+- ✓ Governor gates production deployment (allow/hold) — v1.4
+- ✓ Governor triggers deploy workflow via workflow_dispatch with exact SHA — v1.4
+- ✓ Governor records release state (production_sha, deploy outcome) — v1.4
+- ✓ Risk-based gating (LOW/MEDIUM/HIGH) from paths touched — v1.4
+- ✓ Operator approval for HIGH risk (env/label/comment; env implemented, label/comment stubbed) — v1.4
+- ✓ Cooldown and rate limits on deploy attempts — v1.4
+- ✓ HOLD/ALLOW UX (status or issue with reason + unblock instructions) — v1.4
+- ✓ Deploy failure → operator-visible GitHub issue — v1.4
 
 ### Deferred (v1.x+)
 
@@ -76,8 +76,9 @@ Shipped v1.0 with 3,012 LOC Python across 77 files.
 Shipped v1.1 with test generation (convention detection, AST import validation) and PR promotion (draft → ready when tests+lint pass).
 Shipped v1.2 with Verifier agent (GitHub Checks API, pull_request webhook, diff limits, .booty.yml schema v1, import/compile detection).
 Shipped v1.3 with deploy automation (GitHub Actions → SSH → deploy.sh), Sentry APM (release/env correlation), and Observability agent (Sentry webhook → GitHub issues with agent:builder).
+Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, approval policy, workflow_dispatch deploy, HOLD/ALLOW UX, release state store, booty governor CLI.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0, v1.1, v1.2, v1.3 requirements satisfied.
+All v1.0, v1.1, v1.2, v1.3, v1.4 requirements satisfied.
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -116,28 +117,21 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Release omitted when SENTRY_RELEASE empty | Never placeholder; deploy writes release.env | ✓ Good — v1.3 |
 | In-memory cooldown for Sentry webhook | OBSV-10 persistent store deferred | ✓ Good — v1.3 |
 | Retry only on 5xx for issue creation | 4xx (auth, not found) not retried | ✓ Good — v1.3 |
-
-## Current Milestone: v1.4 Release Governor
-
-**Goal:** Gate production deployment — Governor decides allow/hold based on risk, health, and approval; triggers deploy for allowed SHAs; records release state. No auto-remediation or rollback.
-
-**Target features:**
-- Governor agent: workflow_run trigger, risk scoring, approval policy, deploy dispatch
-- Release state store (file-based, atomic)
-- Config schema (release_governor in .booty.yml + env overrides)
-- `booty governor status|simulate|trigger` CLI
-- docs/release-governor.md
+| workflow_dispatch-only deploy trigger | Governor owns deploy; verify-main runs on push | ✓ Good — v1.4 |
+| Config from repo .booty.yml via GitHub API | Governor is multi-tenant; no local file | ✓ Good — v1.4 |
+| Environment approval only for Phase 15 | Label/comment require PR lookup; deferred | ✓ Good — v1.4 |
 
 ## Current State
 
-**Shipped:** v1.3 (2026-02-15)
-**Next Milestone:** v1.4 Release Governor
+**Shipped:** v1.4 (2026-02-16)
+**Next Milestone:** TBD — run `/gsd:new-milestone` to define
 
-**What shipped in v1.3:**
-- GitHub Actions deploy workflow (push to main → paths-filter → SSH → deploy.sh → health check)
-- Sentry SDK with FastAPI integration; release/env from deploy
-- Observability agent: POST /webhooks/sentry, HMAC verify, severity/dedup/cooldown → GitHub issues with agent:builder
-- 15/15 v1.3 requirements; milestone audit passed
+**What shipped in v1.4:**
+- Release Governor: workflow_run trigger, risk scoring (LOW/MEDIUM/HIGH), decision engine, cooldown/rate limit
+- workflow_dispatch deploy with sha input; HOLD/ALLOW commit status (booty/release-governor)
+- Release state store (.booty/state/release.json); deploy failure → GitHub issue
+- booty governor status | simulate | trigger CLI; docs/release-governor.md
+- 32/32 v1.4 requirements; milestone audit passed (tech_debt: label/comment approval stubbed)
 
 ---
-*Last updated: 2026-02-16 after starting v1.4 Release Governor milestone*
+*Last updated: 2026-02-16 after v1.4 Release Governor milestone*
