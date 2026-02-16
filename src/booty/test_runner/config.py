@@ -97,6 +97,7 @@ class ReleaseGovernorConfig(BaseModel):
         default_factory=list,
         description="Pathspecs for migrations",
     )
+    verification_workflow_name: str = "Verify main"
     deploy_workflow_name: str = "deploy.yml"
     deploy_workflow_ref: str = "main"
     cooldown_minutes: int = Field(default=30, ge=0)
@@ -123,6 +124,8 @@ def apply_release_governor_env_overrides(
             overrides["max_deploys_per_hour"] = int(v)
         except ValueError:
             pass
+    if (v := os.environ.get("RELEASE_GOVERNOR_VERIFICATION_WORKFLOW_NAME")) is not None:
+        overrides["verification_workflow_name"] = v
     if (v := os.environ.get("RELEASE_GOVERNOR_DEPLOY_WORKFLOW_NAME")) is not None:
         overrides["deploy_workflow_name"] = v
     if (v := os.environ.get("RELEASE_GOVERNOR_PRODUCTION_ENVIRONMENT_NAME")) is not None:
