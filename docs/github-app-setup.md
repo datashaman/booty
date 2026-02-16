@@ -20,6 +20,8 @@ Subscribe to these events in the GitHub App settings:
 | **Pull requests** | Triggers Verifier and Security on `opened`, `synchronize`, `reopened` actions |
 | **Issues** | Triggers Builder when issue is labeled with trigger label |
 | **Workflow runs** | Triggers Release Governor when verification workflow completes on main |
+| **Check runs** | Memory PR comment when Verifier check completes; Builder retry on check failure |
+| **Push** | Memory revert detection when reverts are pushed to main |
 
 **No new events or permissions needed for Security** — it uses the same Pull requests event, Checks API, and Contents API as the Verifier.
 
@@ -59,6 +61,8 @@ For fine-grained PATs, enable:
      - Pull requests
      - Issues
      - Workflow runs
+     - Check runs
+     - Push
 3. Create the App
 4. Note the **App ID** (visible on the App settings page)
 5. Under **Private keys**, click **Generate a private key** — download the `.pem` file

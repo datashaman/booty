@@ -6,6 +6,7 @@ Self-managing agent platform — Builder (issues → PRs), Verifier (PR checks),
 - **Verifier:** Runs on every PR; posts `booty/verifier` check; enforces diff limits, .booty.yml schema, import/compile detection.
 - **Security:** Runs on every PR; posts `booty/security` check; secret scan (gitleaks), dependency audit, permission drift → ESCALATE. See [docs/security-agent.md](docs/security-agent.md).
 - **Observability:** Sentry webhook → filtered alerts → auto-created GitHub issues with agent:builder.
+- **Memory:** Stores incidents, governor holds, verifier failures, reverts; surfaces related history in PR comments. See [docs/memory.md](docs/memory.md).
 - **Deploy:** GitHub Actions → SSH → deploy.sh → health check. See [docs/deploy-setup.md](docs/deploy-setup.md).
 
 ## Running the Server
