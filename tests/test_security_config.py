@@ -3,6 +3,7 @@
 import os
 
 import pytest
+from pydantic import ValidationError
 
 from booty.test_runner.config import (
     BootyConfigV1,
@@ -37,6 +38,26 @@ class TestSecurityConfig:
         assert c.enabled is True
         assert c.fail_severity == "high"
         assert ".github/workflows/**" in c.sensitive_paths
+        assert c.secret_scanner == "gitleaks"
+        assert c.secret_scan_exclude == []
+
+    def test_secret_scanner_default_and_trufflehog(self) -> None:
+        """secret_scanner defaults to gitleaks; trufflehog parses correctly."""
+        c = SecurityConfig()
+        assert c.secret_scanner == "gitleaks"
+        c2 = SecurityConfig(secret_scanner="trufflehog")
+        assert c2.secret_scanner == "trufflehog"
+
+    def test_secret_scan_exclude(self) -> None:
+        """secret_scan_exclude with paths parses correctly."""
+        c = SecurityConfig(secret_scan_exclude=["tests/fixtures/**", "vendor/**"])
+        assert "tests/fixtures/**" in c.secret_scan_exclude
+        assert "vendor/**" in c.secret_scan_exclude
+
+    def test_invalid_secret_scanner(self) -> None:
+        """Invalid secret_scanner value raises ValidationError."""
+        with pytest.raises(ValidationError):
+            SecurityConfig(secret_scanner="invalid")
 
 
 class TestBootyConfigV1Security:
