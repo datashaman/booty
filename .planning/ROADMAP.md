@@ -1,12 +1,120 @@
-# Roadmap: Booty
+# Roadmap: Booty — Milestone v1.5 Security Agent
 
-## Milestones
+**Status:** ✓ Complete
+**Phases:** 18–21
+**Requirements:** 17 (SEC-01 to SEC-17)
 
-✅ **v1.4 Release Governor** — Shipped 2026-02-16 | [Archive](.planning/milestones/v1.4-ROADMAP.md)
+## Overview
 
-## Next Milestone
+The Security Agent is a merge veto authority. It runs on pull_request events, publishes the `booty/security` check, blocks merges on secrets and high/critical vulnerabilities, and escalates permission-surface changes to the Release Governor. Decision model: PASS, FAIL, ESCALATE.
 
-_ Run `/gsd:new-milestone` to define the next milestone. _
+## Phases
+
+### Phase 18: Security Foundation & Check ✓
+
+**Goal:** Config schema, Security module skeleton, pull_request webhook, booty/security check.
+
+**Requirements:** SEC-01, SEC-02, SEC-12, SEC-13, SEC-14, SEC-15, SEC-16
+
+**Depends on:** Nothing
+
+**Completed:** 2026-02-16
+
+**Success criteria:**
+1. SecurityConfig in BootyConfigV1 (enabled, fail_severity, sensitive_paths); unknown keys fail
+2. SECURITY_ENABLED, SECURITY_FAIL_SEVERITY env overrides applied
+3. pull_request opened/synchronize triggers Security pipeline
+4. booty/security check published (queued → in_progress → completed)
+5. Clear check titles (secret detected, vulnerability, workflow modified)
 
 ---
-*Last updated: 2026-02-16 — v1.4 complete*
+
+### Phase 19: Secret Leakage Detection ✓
+
+**Goal:** Scan changed files for secrets with gitleaks (or trufflehog); FAIL + annotate.
+
+**Requirements:** SEC-03, SEC-04, SEC-17
+
+**Depends on:** Phase 18
+
+**Completed:** 2026-02-16
+
+**Plans:** 3 plans (all complete)
+
+Plans:
+- [x] 19-01-PLAN.md — SecurityConfig: secret_scanner, secret_scan_exclude
+- [x] 19-02-PLAN.md — Scanner module: run_secret_scan, build_annotations
+- [x] 19-03-PLAN.md — Runner integration: clone, scan, FAIL with annotations
+
+**Success criteria:**
+1. Changed files only scanned (diff-based)
+2. Secret detected → check FAIL, file+line annotations, cap 50
+3. Check completes in under 60 seconds
+4. Title "Security failed — secret detected"
+
+---
+
+### Phase 20: Dependency Vulnerability Gate ✓
+
+**Goal:** Auto-detect ecosystem from lockfiles; run audit; FAIL on severity >= HIGH.
+
+**Requirements:** SEC-05, SEC-06, SEC-07
+
+**Depends on:** Phase 18
+
+**Completed:** 2026-02-16
+
+**Plans:** 2 plans (all complete)
+
+Plans:
+- [x] 20-01-PLAN.md — Audit module: discover_lockfiles, run_dependency_audit
+- [x] 20-02-PLAN.md — Runner integration: audit after secret scan
+
+**Success criteria:**
+1. Lockfile detection: pip (requirements*.txt, pyproject.toml), npm (package-lock.json), composer (composer.lock), cargo (Cargo.lock)
+2. Correct audit tool invoked per ecosystem
+3. FAIL only on severity >= HIGH; low/medium ignored
+4. Title "Security failed — critical vulnerability" when failed
+
+---
+
+### Phase 21: Permission Drift & Governor Integration ✓
+
+**Goal:** Sensitive paths → ESCALATE; persist override; Governor consumes.
+
+**Requirements:** SEC-08, SEC-09, SEC-10, SEC-11
+
+**Depends on:** Phase 18
+
+**Completed:** 2026-02-16
+
+**Plans:** 2 plans (all complete)
+
+Plans:
+- [x] 21-01-PLAN.md — Permission drift detection (permission_drift, override persist, runner integration)
+- [x] 21-02-PLAN.md — Governor override integration (read, poll, handler wiring)
+
+**Success criteria:**
+1. Sensitive paths matched (default: .github/workflows/**, infra/**, terraform/**, helm/**, k8s/**, iam/**, auth/**, security/**)
+2. Touched → ESCALATE (not FAIL); title "Security escalated — workflow modified"
+3. Override persisted: risk_override=HIGH, reason=permission_surface_change, sha
+4. Governor reads override for head_sha before compute_decision; uses HIGH when present
+5. PR is not blocked — only deploy risk escalated
+
+---
+
+## Milestone Summary
+
+**Key decisions:**
+- gitleaks preferred for secrets; trufflehog acceptable
+- fail_severity: high (configurable)
+- ESCALATE does not block merge; Governor handles deploy gating
+- Security runs in parallel with Verifier (different check)
+
+**Technical notes:**
+- Security module: `src/booty/security/`
+- Governor integration: Security writes to `.booty/state/security_overrides.json` or similar; Governor reads before risk computation
+- Config loaded from repo .booty.yml (same as Governor)
+
+---
+*Last updated: 2026-02-16 — milestone v1.5 roadmap created*

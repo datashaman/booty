@@ -121,10 +121,20 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Config from repo .booty.yml via GitHub API | Governor is multi-tenant; no local file | ✓ Good — v1.4 |
 | Environment approval only for Phase 15 | Label/comment require PR lookup; deferred | ✓ Good — v1.4 |
 
+## Current Milestone: v1.5 Security Agent
+
+**Goal:** A Security agent that acts as merge veto authority — blocks secrets and high/critical vulnerabilities, escalates permission-surface changes to the Governor.
+
+**Target features:**
+- Secret leakage detection (gitleaks/trufflehog on changed files)
+- Dependency vulnerability gate (pip-audit, npm audit, etc.; fail on HIGH+)
+- Permission drift detection (sensitive paths → ESCALATE to Governor)
+- Independent GitHub check `booty/security`; &lt; 60s completion
+
 ## Current State
 
 **Shipped:** v1.4 (2026-02-16)
-**Next Milestone:** TBD — run `/gsd:new-milestone` to define
+**Next Milestone:** v1.5 Security Agent
 
 **What shipped in v1.4:**
 - Release Governor: workflow_run trigger, risk scoring (LOW/MEDIUM/HIGH), decision engine, cooldown/rate limit
@@ -134,4 +144,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 - 32/32 v1.4 requirements; milestone audit passed (tech_debt: label/comment approval stubbed)
 
 ---
-*Last updated: 2026-02-16 after v1.4 Release Governor milestone*
+*Last updated: 2026-02-16 — milestone v1.5 Security Agent started*

@@ -5,7 +5,7 @@ from typing import Literal
 
 import os
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from booty.logging import get_logger
 
@@ -66,6 +66,35 @@ class BootyConfig(BaseModel):
         if not v:
             return [".github/workflows/**", ".env", ".env.*"]
         return v
+
+
+class SecurityConfig(BaseModel):
+    """Security config block — enabled, fail_severity, sensitive_paths.
+    Unknown keys fail (model_config extra='forbid').
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    fail_severity: Literal["low", "medium", "high", "critical"] = "high"
+    sensitive_paths: list[str] = Field(
+        default_factory=lambda: [
+            ".github/workflows/**",
+            "infra/**",
+            "terraform/**",
+            "helm/**",
+            "k8s/**",
+            "iam/**",
+            "auth/**",
+            "security/**",
+        ],
+        description="Pathspecs for permission drift escalation",
+    )
+    secret_scanner: Literal["gitleaks", "trufflehog"] = "gitleaks"
+    secret_scan_exclude: list[str] = Field(
+        default_factory=list,
+        description="Path patterns to exclude from secret scan (e.g. test fixtures)",
+    )
 
 
 class ReleaseGovernorConfig(BaseModel):
@@ -147,6 +176,22 @@ def apply_release_governor_env_overrides(
     return config.model_copy(update=overrides)
 
 
+def apply_security_env_overrides(
+    config: SecurityConfig,
+) -> SecurityConfig:
+    """Apply SECURITY_* env vars over config. Returns new config."""
+    overrides: dict = {}
+    if (v := os.environ.get("SECURITY_ENABLED")) is not None:
+        low = v.lower()
+        overrides["enabled"] = low in ("1", "true", "yes")
+    if (v := os.environ.get("SECURITY_FAIL_SEVERITY")) is not None:
+        if v.lower() in ("low", "medium", "high", "critical"):
+            overrides["fail_severity"] = v.lower()
+    if not overrides:
+        return config
+    return config.model_copy(update=overrides)
+
+
 class BootyConfigV1(BaseModel):
     """Strict schema v1 — unknown keys fail validation."""
 
@@ -187,6 +232,23 @@ class BootyConfigV1(BaseModel):
         default=None,
         description="Optional release governor config",
     )
+    security: SecurityConfig | None = Field(
+        default=None,
+        description="Optional security config; invalid block sets security=None",
+    )
+
+    @field_validator("security", mode="before")
+    @classmethod
+    def validate_security_block(cls, v: object) -> SecurityConfig | None:
+        """Parse security block; invalid or unknown keys → Security skips, config loads."""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            try:
+                return SecurityConfig.model_validate(v)
+            except ValidationError:
+                return None
+        return None
 
     @property
     def timeout(self) -> int:

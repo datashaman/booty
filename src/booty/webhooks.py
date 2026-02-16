@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from github import Github
 
-from booty.config import get_settings, verifier_enabled
+from booty.config import get_settings, security_enabled, verifier_enabled
 from booty.release_governor.deploy import dispatch_deploy
 from booty.release_governor.failure_issues import create_or_append_deploy_failure_issue
 from booty.release_governor.handler import handle_workflow_run
@@ -34,6 +34,7 @@ from booty.github.comments import post_self_modification_disabled_comment
 from booty.jobs import Job
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
+from booty.security import SecurityJob
 from booty.verifier import VerifierJob
 
 
@@ -144,16 +145,19 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     # Parse payload
     payload = await request.json()
 
-    # Handle pull_request events (Verifier)
+    # Handle pull_request events (Verifier + Security)
     if event_type == "pull_request":
         verifier_queue = getattr(request.app.state, "verifier_queue", None)
-        if verifier_queue is None or not verifier_enabled(settings):
+        security_queue = getattr(request.app.state, "security_queue", None)
+        verifier_ok = verifier_queue is not None and verifier_enabled(settings)
+        security_ok = security_queue is not None and security_enabled(settings)
+        if not verifier_ok and not security_ok:
             logger.info(
                 "event_filtered",
                 event_type=event_type,
-                reason="verifier_disabled",
+                reason="verifier_and_security_disabled",
             )
-            return {"status": "ignored", "reason": "verifier_disabled"}
+            return {"status": "ignored", "reason": "verifier_and_security_disabled"}
 
         action = payload.get("action")
         if action not in ("opened", "synchronize", "reopened"):
@@ -185,45 +189,88 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             logger.warning("pull_request_missing_head_sha", pr_number=pr_number)
             return {"status": "ignored", "reason": "missing_head_sha"}
 
-        if verifier_queue.is_duplicate(pr_number, head_sha):
-            logger.info(
-                "verifier_already_processed",
+        # Verifier enqueue
+        verifier_enqueued = False
+        verifier_job_id = None
+        if verifier_ok:
+            if verifier_queue.is_duplicate(pr_number, head_sha):
+                logger.info(
+                    "verifier_already_processed",
+                    pr_number=pr_number,
+                    head_sha=head_sha[:7],
+                )
+            else:
+                issue_number_from_branch = None
+                branch_match = re.match(r"^agent/issue-(\d+)$", head_ref)
+                if branch_match:
+                    issue_number_from_branch = int(branch_match.group(1))
+
+                verifier_job_id = f"verifier-{pr_number}-{head_sha[:7]}"
+                job = VerifierJob(
+                    job_id=verifier_job_id,
+                    owner=owner,
+                    repo_name=repo_name,
+                    pr_number=pr_number,
+                    head_sha=head_sha,
+                    head_ref=head_ref,
+                    repo_url=repo_url,
+                    installation_id=installation_id,
+                    payload=payload,
+                    is_agent_pr=is_agent_pr,
+                    issue_number=issue_number_from_branch,
+                )
+                enqueued = await verifier_queue.enqueue(job)
+                if enqueued:
+                    verifier_enqueued = True
+                    logger.info(
+                        "verifier_job_accepted",
+                        job_id=verifier_job_id,
+                        pr_number=pr_number,
+                    )
+                else:
+                    logger.error("verifier_enqueue_failed", job_id=verifier_job_id)
+
+        # Security enqueue (runs on every PR, separate queue)
+        security_enqueued = False
+        security_job_id = None
+        if security_ok and not security_queue.is_duplicate(pr_number, head_sha):
+            security_job_id = f"security-{pr_number}-{head_sha[:7]}"
+            base_sha = pr.get("base", {}).get("sha", "") or ""
+            sec_job = SecurityJob(
+                job_id=security_job_id,
+                owner=owner,
+                repo_name=repo_name,
                 pr_number=pr_number,
-                head_sha=head_sha[:7],
+                head_sha=head_sha,
+                head_ref=head_ref,
+                base_sha=base_sha,
+                repo_url=repo_url,
+                installation_id=installation_id,
+                payload=payload,
             )
+            if await security_queue.enqueue(sec_job):
+                security_enqueued = True
+                logger.info(
+                    "security_job_accepted",
+                    job_id=security_job_id,
+                    pr_number=pr_number,
+                )
+            else:
+                logger.error("security_enqueue_failed", job_id=security_job_id)
+
+        if verifier_enqueued or security_enqueued:
+            job_id = verifier_job_id if verifier_enqueued else security_job_id
+            return JSONResponse(
+                status_code=202,
+                content={"status": "accepted", "job_id": job_id},
+            )
+
+        # Both duplicate or failed to enqueue
+        if verifier_ok:
             return {"status": "already_processed"}
-
-        # Extract issue number from branch name (agent/issue-N)
-        issue_number_from_branch = None
-        branch_match = re.match(r"^agent/issue-(\d+)$", head_ref)
-        if branch_match:
-            issue_number_from_branch = int(branch_match.group(1))
-
-        job_id = f"verifier-{pr_number}-{head_sha[:7]}"
-        job = VerifierJob(
-            job_id=job_id,
-            owner=owner,
-            repo_name=repo_name,
-            pr_number=pr_number,
-            head_sha=head_sha,
-            head_ref=head_ref,
-            repo_url=repo_url,
-            installation_id=installation_id,
-            payload=payload,
-            is_agent_pr=is_agent_pr,
-            issue_number=issue_number_from_branch,
-        )
-
-        enqueued = await verifier_queue.enqueue(job)
-        if not enqueued:
-            logger.error("verifier_enqueue_failed", job_id=job_id)
-            raise HTTPException(status_code=500, detail="Failed to enqueue verifier job")
-
-        logger.info("verifier_job_accepted", job_id=job_id, pr_number=pr_number)
-        return JSONResponse(
-            status_code=202,
-            content={"status": "accepted", "job_id": job_id},
-        )
+        if security_ok:
+            return {"status": "already_processed"}
+        return {"status": "ignored"}
 
     # Handle workflow_run events (Release Governor)
     if event_type == "workflow_run":

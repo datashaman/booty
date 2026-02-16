@@ -13,11 +13,13 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from booty.code_gen.generator import process_issue_to_pr
-from booty.config import get_settings, verifier_enabled
+from booty.config import get_settings, security_enabled, verifier_enabled
 from booty.github.comments import post_failure_comment
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
+from booty.security import SecurityJob, SecurityQueue
+from booty.security.runner import process_security_job
 from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
@@ -27,6 +29,7 @@ from booty.webhooks import router as webhook_router
 # Module-level job queue and app start time
 job_queue: JobQueue | None = None
 verifier_queue: VerifierQueue | None = None
+security_queue: SecurityQueue | None = None
 app_start_time: datetime | None = None
 
 
@@ -211,13 +214,26 @@ async def _process_verifier_job(job: VerifierJob) -> None:
         raise
 
 
+async def _process_security_job(job: SecurityJob) -> None:
+    """Wrapper to pass settings to process_security_job."""
+    settings = get_settings()
+    try:
+        await process_security_job(job, settings)
+    except Exception as e:
+        sentry_sdk.set_tag("job_id", job.job_id)
+        sentry_sdk.capture_exception(e)
+        logger = get_logger().bind(job_id=job.job_id, pr_number=job.pr_number)
+        logger.error("security_job_exception", error=str(e), exc_info=True)
+        raise
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
 
     Configures logging, starts workers on startup, shuts down on exit.
     """
-    global job_queue, verifier_queue, app_start_time
+    global job_queue, verifier_queue, security_queue, app_start_time
 
     settings = get_settings()
     logger = get_logger()
@@ -256,6 +272,18 @@ async def lifespan(app: FastAPI):
         verifier_queue = None
         app.state.verifier_queue = None
 
+    # Security queue and workers
+    if security_enabled(settings):
+        security_queue = SecurityQueue(maxsize=100)
+        await security_queue.start_workers(
+            settings.SECURITY_WORKER_COUNT,
+            _process_security_job,
+        )
+        app.state.security_queue = security_queue
+    else:
+        security_queue = None
+        app.state.security_queue = None
+
     logger.info("app_started")
 
     yield
@@ -266,6 +294,8 @@ async def lifespan(app: FastAPI):
         await job_queue.shutdown()
     if verifier_queue:
         await verifier_queue.shutdown()
+    if security_queue:
+        await security_queue.shutdown()
     logger.info("app_stopped")
 
 

@@ -8,6 +8,7 @@ from github import Github
 
 from booty.config import get_settings
 from booty.release_governor.decision import Decision, compute_decision
+from booty.release_governor.override import get_security_override_with_poll
 from booty.release_governor.risk import compute_risk_class, get_risk_paths
 from booty.release_governor.store import get_state_dir, load_release_state
 from booty.test_runner.config import ReleaseGovernorConfig
@@ -49,9 +50,11 @@ def simulate_decision_for_cli(
     gh_repo = gh.get_repo(repo)
     comparison = gh_repo.compare(production_sha, head_sha)
 
-    risk_class: Literal["LOW", "MEDIUM", "HIGH"] = compute_risk_class(
-        comparison, config
-    )
+    override = get_security_override_with_poll(state_dir, repo, head_sha)
+    if override is not None:
+        risk_class = "HIGH"
+    else:
+        risk_class = compute_risk_class(comparison, config)
     risk_paths = get_risk_paths(comparison, config)
 
     degraded: bool | None = None
@@ -112,9 +115,11 @@ def handle_workflow_run(
     gh_repo = gh.get_repo(repo_full_name)
     comparison = gh_repo.compare(production_sha, head_sha)
 
-    risk_class: Literal["LOW", "MEDIUM", "HIGH"] = compute_risk_class(
-        comparison, config
-    )
+    override = get_security_override_with_poll(state_dir, repo_full_name, head_sha)
+    if override is not None:
+        risk_class = "HIGH"
+    else:
+        risk_class = compute_risk_class(comparison, config)
 
     degraded: bool | None = None  # Stub; future Sentry integration
 

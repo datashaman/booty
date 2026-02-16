@@ -2,6 +2,8 @@
 
 Gates production deployment based on risk and approval. Runs when verification completes on main, computes risk from the diff, and either allows deploy (workflow_dispatch) or holds with a clear reason.
 
+When the [Security Agent](security-agent.md) detects sensitive path changes, it persists an override; the Governor reads this and uses `risk_class=HIGH` before computing path-based risk.
+
 ## Overview
 
 The Release Governor sits between verification (tests pass on main) and deploy. It:
