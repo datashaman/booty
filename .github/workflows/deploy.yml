@@ -47,7 +47,6 @@ jobs:
               - 'src/**'
               - 'deploy/**'
               - 'deploy.sh'
-              - 'docs/**'
               - 'pyproject.toml'
               - '.booty.yml'
               - 'requirements*.txt'
@@ -58,7 +57,7 @@ jobs:
       - name: Skip deploy if no relevant changes
         if: github.event_name != 'workflow_dispatch' && steps.deploy_filter.outputs.deploy != 'true'
         run: |
-          echo "No deploy-relevant changes" >> $GITHUB_STEP_SUMMARY
+          echo "No deploy-relevant changes (docs-only etc. do not trigger deploy)" >> $GITHUB_STEP_SUMMARY
 
       - name: Load SSH key
         if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')

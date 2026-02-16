@@ -83,3 +83,5 @@ Without this, the deploy will fail with "SSH connection failed" or timeout.
 1. Push to `main` with a deploy-relevant change (e.g. `src/`, `deploy.sh`)
 2. Check **GitHub Actions** → **Deploy** workflow
 3. Workflow runs: preflight → checkout → paths-filter → ssh-agent → Test SSH → Deploy → Health check
+
+**Note:** Docs-only changes do not trigger deploy. Use workflow_dispatch for manual deploy.

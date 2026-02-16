@@ -1,6 +1,11 @@
 # Booty
 
-Self-managing builder agent — GitHub issues to tested PRs.
+Self-managing agent platform — Builder (issues → PRs), Verifier (PR checks), Observability (Sentry → issues), and deploy automation.
+
+- **Builder:** Labeled GitHub issues → LLM code generation → test-driven refinement → PRs (including self-modification).
+- **Verifier:** Runs on every PR; posts `booty/verifier` check; enforces diff limits, .booty.yml schema, import/compile detection.
+- **Observability:** Sentry webhook → filtered alerts → auto-created GitHub issues with agent:builder.
+- **Deploy:** GitHub Actions → SSH → deploy.sh → health check. See [docs/deploy-setup.md](docs/deploy-setup.md).
 
 ## Running the Server
 
