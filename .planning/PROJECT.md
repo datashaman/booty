@@ -88,7 +88,6 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 ### Out of Scope
 
 - Multi-agent coordination protocols — pain will reveal what's needed
-- Planner/Architect agents — future agents added incrementally
 - Builder generates integration tests — deferred; Verifier first
 - Web UI or dashboard — CLI and GitHub are the interfaces
 - Custom LLM fine-tuning — use off-the-shelf models via magentic
@@ -155,6 +154,18 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Governor section merges into existing Memory comment | Append or replace; single updatable comment | ✓ Good — v1.6 |
 | Stdlib-only lookup; derive paths_hash from candidate paths | No new deps; verifier_cluster matches when caller has paths | ✓ Good — v1.6 |
 
+## Current Milestone: v1.7 Planner Agent
+
+**Goal:** Planner Agent turns input requests (issue, incident, operator prompt) into structured execution plans that Builder can consume without interpretation.
+
+**Target features:**
+- Accept inputs: GitHub issue (label `agent:plan`), Observability incident, operator CLI (`booty plan`)
+- Produce Plan JSON (max 12 steps, schema with goal, risk_level, touch_paths, handoff_to_builder)
+- Risk classification (LOW/MEDIUM/HIGH from touch_paths)
+- Output: issue comment + stored artifact `$HOME/.booty/state/plans/<issue_id>.json`
+- Idempotency: same plan for unchanged inputs within 24h (plan_hash for dedup)
+- Builder contract: executable without interpretation
+
 ## Current State
 
 **Shipped:** v1.6 (2026-02-16)
@@ -186,4 +197,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 </details>
 
 ---
-*Last updated: 2026-02-16 after v1.6 milestone completion*
+*Last updated: 2026-02-16 — Milestone v1.7 Planner Agent started*
