@@ -312,8 +312,13 @@ async def lifespan(app: FastAPI):
                 try:
                     await asyncio.to_thread(process_planner_job, job)
                     # Safety net: if issue has agent:builder, enqueue Builder (plan now exists)
+                    # Skip if webhook already enqueued Builder for same issue (race avoidance)
                     labels = [l.get("name", "") for l in job.payload.get("issue", {}).get("labels", [])]
-                    if settings.TRIGGER_LABEL in labels and job_queue:
+                    if (
+                        settings.TRIGGER_LABEL in labels
+                        and job_queue
+                        and not job_queue.has_issue_in_queue(job.repo_url, job.issue_number)
+                    ):
                         builder_job_id = f"{job.issue_number}-plan-complete-{id(job)}"
                         builder_job = Job(
                             job_id=builder_job_id,

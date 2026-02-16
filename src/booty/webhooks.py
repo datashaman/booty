@@ -763,8 +763,12 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         logger.info("duplicate_delivery", delivery_id=delivery_id)
         return {"status": "already_processed"}
 
-    # Self-modification detection
-    repo_url = payload.get("repository", {}).get("html_url", "")
+    # Race avoidance: Planner worker may have already enqueued Builder for this issue
+    if job_queue.has_issue_in_queue(repo_url, issue_number):
+        logger.info("builder_already_queued", issue_number=issue_number)
+        return {"status": "already_processed"}
+
+    # Self-modification detection (repo_url from payload extraction above)
     is_self = is_self_modification(repo_url, settings.BOOTY_OWN_REPO_URL)
 
     if is_self and not settings.BOOTY_SELF_MODIFY_ENABLED:
