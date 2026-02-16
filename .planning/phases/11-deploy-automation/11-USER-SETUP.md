@@ -16,6 +16,7 @@ Complete these items for the deploy workflow to function. Claude automated the w
 | [ ] | `DEPLOY_USER` | SSH user (optional; deploy.sh defaults to `whoami`) | GitHub Settings → Environments → production → Variables or Secrets |
 | [ ] | `SERVER_NAME` | Public hostname for health check (e.g. booty.datashaman.com) | GitHub Settings → Environments → production → Variables |
 | [ ] | `REPO_URL` | Git clone URL (e.g. git@github.com:org/repo.git) | GitHub Settings → Environments → production → Variables |
+| [ ] | `HEALTH_SCHEME` | `http` (default) or `https` — use https if SSL (Certbot, Cloudflare) | GitHub Settings → Environments → production → Variables |
 
 ## Dashboard Configuration
 

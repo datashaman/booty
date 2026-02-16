@@ -10,7 +10,7 @@ REPO_URL="${REPO_URL:-${3:-git@github.com:datashaman/booty.git}}"
 INSTALL_DIR="/opt/booty"
 SERVICE_NAME="booty"
 
-SSH_OPTS=()
+SSH_OPTS=(-o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
 
 ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" <<'REMOTE'

@@ -16,6 +16,8 @@ jobs:
       SERVER_NAME: ${{ vars.SERVER_NAME || secrets.SERVER_NAME }}
       REPO_URL: ${{ vars.REPO_URL || secrets.REPO_URL }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER || secrets.DEPLOY_USER || '' }}
+      # https when Cloudflare/Certbot/LB terminates SSL; http for bare nginx
+      HEALTH_SCHEME: ${{ vars.HEALTH_SCHEME || 'https' }}
 
     steps:
       - name: Preflight
@@ -62,6 +64,14 @@ jobs:
         if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         id: deploy
         run: |
+          echo "Deploy params:"
+          echo "  DEPLOY_HOST: $DEPLOY_HOST"
+          echo "  DEPLOY_PORT: ${DEPLOY_PORT:-22}"
+          echo "  DEPLOY_USER: ${DEPLOY_USER:-$(whoami)}"
+          echo "  SERVER_NAME: $SERVER_NAME"
+          echo "  REPO_URL: $REPO_URL"
+          echo "  HEALTH_SCHEME: ${HEALTH_SCHEME:-https}"
+          echo ""
           export DEPLOY_HOST SERVER_NAME REPO_URL
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
           [ -n "$DEPLOY_PORT" ] && export DEPLOY_PORT
@@ -94,19 +104,23 @@ jobs:
         if: ((github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')) && steps.deploy.outputs.deploy_transport_success == 'true'
         id: health
         run: |
-          for i in $(seq 1 10); do
-            if curl -sf "https://${SERVER_NAME}/health" > /dev/null; then
+          HEALTH_URL="${HEALTH_SCHEME}://${SERVER_NAME}/health"
+          echo "Probing $HEALTH_URL"
+          for i in $(seq 1 15); do
+            if curl -sf --connect-timeout 15 --max-time 25 "$HEALTH_URL" > /dev/null; then
               echo "runtime_ready=true" >> $GITHUB_OUTPUT
+              echo "Health check passed on attempt $i"
               exit 0
             fi
+            echo "Attempt $i failed, retrying in 6s..."
             sleep 6
           done
-          echo "::error::Deploy failed — health check timeout"
+          echo "::error::Deploy failed — health check timeout after 15 attempts"
           echo "runtime_ready=false" >> $GITHUB_OUTPUT
           echo "## Deploy Failure" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Failure class:** health check timeout" >> $GITHUB_STEP_SUMMARY
-          echo "**Host:** ${SERVER_NAME}" >> $GITHUB_STEP_SUMMARY
-          echo "**Stage:** health check (10 attempts, 6s interval)" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $HEALTH_URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Stage:** health check (15 attempts × 6s, curl connect 15s, max 25s)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           exit 1
