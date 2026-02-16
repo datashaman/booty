@@ -82,8 +82,20 @@ class TestRunDependencyAudit:
     """run_dependency_audit tests."""
 
     def test_missing_tool_errors(self) -> None:
-        """When pip-audit missing, errors list includes clear message."""
-        with patch("booty.security.audit.shutil.which", return_value=None):
+        """When pip-audit missing (binary not in PATH and module not importable), errors list includes clear message."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def import_error(name, *args, **kwargs):
+            if name == "pip_audit":
+                raise ImportError("pip_audit not installed")
+            return real_import(name, *args, **kwargs)
+
+        with (
+            patch("booty.security.audit.shutil.which", return_value=None),
+            patch("builtins.__import__", side_effect=import_error),
+        ):
             r = run_dependency_audit(".", None)
         assert not r.ok or "not found" in str(r.errors) or "not installed" in str(r.errors)
         assert any(
