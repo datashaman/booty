@@ -22,6 +22,7 @@ from booty.release_governor.store import (
 from booty.test_runner.config import (
     apply_release_governor_env_overrides,
     load_booty_config,
+    load_booty_config_from_content,
 )
 from booty.test_runner.executor import execute_tests
 from booty.github.checks import create_check_run
@@ -104,6 +105,57 @@ def status() -> None:
         click.echo("verifier: enabled")
     else:
         click.echo("verifier: disabled (missing GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY)")
+
+
+@cli.group()
+def memory() -> None:
+    """Memory (event storage) commands."""
+
+
+@memory.group()
+def ingest() -> None:
+    """Ingest records from external sources."""
+
+
+@ingest.command("revert")
+@click.option("--repo", required=True, help="Repository in owner/repo format")
+@click.option("--sha", required=True, help="Merge/revert commit SHA")
+@click.option("--reverted-sha", "reverted_sha", required=True, help="SHA being reverted")
+def ingest_revert(repo: str, sha: str, reverted_sha: str) -> None:
+    """Store a revert record in Memory (requires .booty.yml memory.enabled)."""
+    if "/" not in repo:
+        raise click.BadParameter("--repo must be in owner/repo format", param_hint="repo")
+    settings = get_settings()
+    token = settings.GITHUB_TOKEN or ""
+    if not token or not token.strip():
+        click.echo("GITHUB_TOKEN required", err=True)
+        raise SystemExit(1)
+    try:
+        from github import Github
+
+        g = Github(token)
+        gh_repo = g.get_repo(repo)
+        fc = gh_repo.get_contents(".booty.yml", ref=gh_repo.default_branch or "main")
+        config = load_booty_config_from_content(fc.decoded_content.decode())
+    except Exception as e:
+        click.echo(f"Cannot load .booty.yml: {e}", err=True)
+        raise SystemExit(1)
+    from booty.memory import add_record, get_memory_config
+    from booty.memory.adapters import build_revert_record
+    from booty.memory.config import apply_memory_env_overrides
+
+    mem_config = get_memory_config(config) if config else None
+    if mem_config:
+        mem_config = apply_memory_env_overrides(mem_config)
+    if not mem_config or not mem_config.enabled:
+        click.echo("Memory disabled")
+        raise SystemExit(0)
+    record = build_revert_record(repo, sha, reverted_sha, source="cli")
+    result = add_record(record, mem_config)
+    if result.get("added"):
+        click.echo("Added")
+    else:
+        click.echo("Duplicate")
 
 
 @cli.group()
