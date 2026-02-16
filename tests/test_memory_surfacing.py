@@ -7,6 +7,7 @@ from booty.github.issues import build_sentry_issue_body
 from booty.memory.surfacing import (
     build_related_history_for_incident,
     format_matches_for_pr,
+    surface_governor_hold,
     surface_pr_comment,
 )
 
@@ -77,6 +78,15 @@ class TestSurfacePrComment:
         body = call_args[0][3]
         assert "incident" in body
         assert "x" in body
+
+
+class TestSurfaceGovernorHold:
+    @patch("booty.memory.surfacing.lookup")
+    def test_comment_on_pr_false_does_nothing(self, mock_lookup):
+        config = MagicMock()
+        config.comment_on_pr = False
+        surface_governor_hold("token", "o/r", "abc123", "cooldown", config)
+        mock_lookup.query.assert_not_called()
 
 
 class TestBuildRelatedHistoryForIncident:

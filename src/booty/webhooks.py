@@ -33,7 +33,11 @@ from booty.test_runner.config import (
 )
 from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.comments import post_self_modification_disabled_comment
-from booty.memory.surfacing import build_related_history_for_incident, surface_pr_comment
+from booty.memory.surfacing import (
+    build_related_history_for_incident,
+    surface_governor_hold,
+    surface_pr_comment,
+)
 from booty.memory import add_record, get_memory_config
 from booty.memory.adapters import (
     build_deploy_failure_record,
@@ -535,10 +539,20 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                     elif mode == "environment":
                         approval_hint = "Approval via env: RELEASE_GOVERNOR_APPROVED=true"
                 post_hold_status(gh_repo, head_sha, decision, target_url, approval_hint)
-                # Memory ingestion for Governor HOLD
+                # Memory surfacing for Governor HOLD (1-2 hold-reason matches in PR comment)
                 mem_config = get_memory_config(config) if config else None
                 if mem_config:
                     mem_config = apply_memory_env_overrides(mem_config)
+                if mem_config and mem_config.enabled and mem_config.comment_on_pr:
+                    background_tasks.add_task(
+                        surface_governor_hold,
+                        settings.GITHUB_TOKEN,
+                        repo_full_name,
+                        head_sha,
+                        decision.reason,
+                        mem_config,
+                    )
+                # Memory ingestion for Governor HOLD
                 if mem_config and mem_config.enabled:
                     try:
                         record = build_governor_hold_record(decision, repo_full_name)
