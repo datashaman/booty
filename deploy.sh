@@ -12,8 +12,9 @@ SERVICE_NAME="booty"
 
 SSH_OPTS=(-o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
+SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
 
-ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" <<'REMOTE'
+ssh "${SSH_OPTS[@]}" "$SSH_TARGET" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" <<'REMOTE'
 set -e
 
 DEPLOY_USER="$1"
