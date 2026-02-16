@@ -44,7 +44,18 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
-### Active (v1.x+)
+### Active (v1.4 Release Governor)
+
+- [ ] Governor gates production deployment (allow/hold)
+- [ ] Governor triggers deploy workflow via workflow_dispatch with exact SHA
+- [ ] Governor records release state (production_sha, deploy outcome)
+- [ ] Risk-based gating (LOW/MEDIUM/HIGH) from paths touched
+- [ ] Operator approval for HIGH risk (env/label/comment)
+- [ ] Cooldown and rate limits on deploy attempts
+- [ ] HOLD/ALLOW UX (status or issue with reason + unblock instructions)
+- [ ] Deploy failure → operator-visible GitHub issue
+
+### Deferred (v1.x+)
 
 - [ ] Persistent cooldown store (OBSV-10) — deferred from v1.3
 - [ ] Staging vs production deploy targets (DEPLOY-04)
@@ -106,10 +117,21 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | In-memory cooldown for Sentry webhook | OBSV-10 persistent store deferred | ✓ Good — v1.3 |
 | Retry only on 5xx for issue creation | 4xx (auth, not found) not retried | ✓ Good — v1.3 |
 
+## Current Milestone: v1.4 Release Governor
+
+**Goal:** Gate production deployment — Governor decides allow/hold based on risk, health, and approval; triggers deploy for allowed SHAs; records release state. No auto-remediation or rollback.
+
+**Target features:**
+- Governor agent: workflow_run trigger, risk scoring, approval policy, deploy dispatch
+- Release state store (file-based, atomic)
+- Config schema (release_governor in .booty.yml + env overrides)
+- `booty governor status|simulate|trigger` CLI
+- docs/release-governor.md
+
 ## Current State
 
 **Shipped:** v1.3 (2026-02-15)
-**Next Milestone:** TBD — run `/gsd:new-milestone` to define
+**Next Milestone:** v1.4 Release Governor
 
 **What shipped in v1.3:**
 - GitHub Actions deploy workflow (push to main → paths-filter → SSH → deploy.sh → health check)
@@ -118,4 +140,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 - 15/15 v1.3 requirements; milestone audit passed
 
 ---
-*Last updated: 2026-02-15 after v1.3 milestone completion*
+*Last updated: 2026-02-16 after starting v1.4 Release Governor milestone*

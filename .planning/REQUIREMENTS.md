@@ -1,0 +1,128 @@
+# Requirements: Booty v1.4 Release Governor
+
+**Defined:** 2026-02-16
+**Core Value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
+
+## v1.4 Requirements (This Milestone)
+
+Requirements for Release Governor agent. Each maps to roadmap phases.
+
+### Trigger & Inputs
+
+- [ ] **GOV-01**: Governor runs when a verification workflow completes successfully on main (workflow_run event, conclusion=success, head_sha)
+- [ ] **GOV-02**: Governor uses head_sha from event payload (never "latest main")
+- [ ] **GOV-03**: Governor receives optional Observability signal "is production degraded" (in-process state or Sentry; default unknown)
+- [ ] **GOV-04**: Governor loads config from env + optional .booty.yml; env overrides .booty.yml; strict schema (unknown keys fail)
+
+### Decision & Risk
+
+- [ ] **GOV-05**: Governor computes risk_class (LOW | MEDIUM | HIGH) from paths touched vs production_sha
+- [ ] **GOV-06**: HIGH risk: workflow dirs, infra, auth-sensitive, lockfiles, migrations (configurable pathspecs)
+- [ ] **GOV-07**: MEDIUM risk: dependency manifests without lockfiles
+- [ ] **GOV-08**: Hard holds: deploy not configured; first deploy without approval (when required); degraded + high-risk
+- [ ] **GOV-09**: LOW risk: auto-ALLOW if Verifier passed and no active incident
+- [ ] **GOV-10**: MEDIUM risk: ALLOW if no incident; else HOLD
+- [ ] **GOV-11**: HIGH risk: HOLD unless operator approval exists (environment | label | comment)
+- [ ] **GOV-12**: Cooldown: no re-deploy of same SHA within N minutes after failure (default 30)
+- [ ] **GOV-13**: Rate limit: max M deploys per hour (default 6)
+
+### Deploy Trigger & Post-Deploy
+
+- [ ] **GOV-14**: On ALLOW: dispatch deploy workflow via workflow_dispatch with sha=input
+- [ ] **GOV-15**: On HOLD: emit explanation (status or issue) with reason code and unblock instructions
+- [ ] **GOV-16**: Governor observes deploy outcome (workflow_run or deployment_status)
+- [ ] **GOV-17**: On deploy failure: create/append GitHub issue with deploy-failure, severity:high, link to Actions run
+- [ ] **GOV-18**: Governor never deploys a SHA that wasn't the verifier head_sha
+
+### Persistence & Idempotency
+
+- [ ] **GOV-19**: Release state store: production_sha_current, production_sha_previous, last_deploy_attempt_sha, last_deploy_time, last_deploy_result, last_health_check
+- [ ] **GOV-20**: Store in file (.booty/state/release.json or similar); atomic writes; survives restarts
+- [ ] **GOV-21**: Dedup at (repo, head_sha); delivery ID caching for idempotency
+- [ ] **GOV-22**: Never trigger deploy twice for same SHA
+
+### Operator UX
+
+- [ ] **GOV-23**: HOLD message: Decision, SHA, Risk, Reason code, "How to unblock"
+- [ ] **GOV-24**: ALLOW message: Decision, SHA, "Triggered: deploy workflow run &lt;link&gt;"
+- [ ] **GOV-25**: Single consistent UX pattern (commit status `booty/release-governor` OR issue comment — pick one)
+
+### Config Schema
+
+- [ ] **GOV-26**: release_governor.enabled, production_environment_name, require_approval_for_first_deploy
+- [ ] **GOV-27**: release_governor.high_risk_paths, migration_paths (pathspecs)
+- [ ] **GOV-28**: release_governor.deploy_workflow_name, deploy_workflow_ref, cooldown_minutes, max_deploys_per_hour
+- [ ] **GOV-29**: release_governor.approval_mode (environment | label | comment); approval_label / approval_command when applicable
+
+### Deliverables
+
+- [ ] **GOV-30**: New agent module `release_governor`
+- [ ] **GOV-31**: docs/release-governor.md (config, approval, troubleshooting, manual test steps)
+- [ ] **GOV-32**: CLI: `booty governor status`, `booty governor simulate --sha <sha>`, `booty governor trigger --sha <sha>`
+
+## Future Requirements
+
+Deferred to later milestones.
+
+| ID | Requirement |
+|----|-------------|
+| OBSV-10 | Persistent cooldown store |
+| DEPLOY-04 | Staging vs production deploy targets |
+| DEPLOY-05 | Rollback workflow |
+| GOV-ROLLBACK | Rollback automation (explicitly out of scope for v1.4) |
+
+## Out of Scope (v1.4)
+
+| Feature | Reason |
+|---------|--------|
+| Rollback automation | Spec: no auto-remediation |
+| PR creation by Governor | Spec: no PR creation |
+| Code edits by Governor | Spec: no code edits |
+| Canary/gradual rollout | Spec: gate/hold/allow only |
+| Complex RBAC | Spec: pick simplest approval mechanism |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| GOV-01 | 15 | Pending |
+| GOV-02 | 15 | Pending |
+| GOV-03 | 15 | Pending |
+| GOV-04 | 14 | Pending |
+| GOV-05 | 15 | Pending |
+| GOV-06 | 15 | Pending |
+| GOV-07 | 15 | Pending |
+| GOV-08 | 15 | Pending |
+| GOV-09 | 15 | Pending |
+| GOV-10 | 15 | Pending |
+| GOV-11 | 15 | Pending |
+| GOV-12 | 15 | Pending |
+| GOV-13 | 15 | Pending |
+| GOV-14 | 16 | Pending |
+| GOV-15 | 16 | Pending |
+| GOV-16 | 16 | Pending |
+| GOV-17 | 16 | Pending |
+| GOV-18 | 16 | Pending |
+| GOV-19 | 14 | Pending |
+| GOV-20 | 14 | Pending |
+| GOV-21 | 14 | Pending |
+| GOV-22 | 14 | Pending |
+| GOV-23 | 16 | Pending |
+| GOV-24 | 16 | Pending |
+| GOV-25 | 16 | Pending |
+| GOV-26 | 14 | Pending |
+| GOV-27 | 14 | Pending |
+| GOV-28 | 14 | Pending |
+| GOV-29 | 14 | Pending |
+| GOV-30 | 14 | Pending |
+| GOV-31 | 17 | Pending |
+| GOV-32 | 17 | Pending |
+
+**Coverage:**
+- v1.4 requirements: 32 total
+- Mapped to phases: 32
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-02-16*
+*Last updated: 2026-02-16 after initial definition*
