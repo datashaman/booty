@@ -10,13 +10,15 @@ The Security Agent is a merge veto authority. It runs on pull_request events, pu
 
 ## Phases
 
-### Phase 18: Security Foundation & Check
+### Phase 18: Security Foundation & Check ✓
 
 **Goal:** Config schema, Security module skeleton, pull_request webhook, booty/security check.
 
 **Requirements:** SEC-01, SEC-02, SEC-12, SEC-13, SEC-14, SEC-15, SEC-16
 
 **Depends on:** Nothing
+
+**Completed:** 2026-02-16
 
 **Success criteria:**
 1. SecurityConfig in BootyConfigV1 (enabled, fail_severity, sensitive_paths); unknown keys fail

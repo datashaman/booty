@@ -63,13 +63,13 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | 18 | Pending |
-| SEC-02 | 18 | Pending |
-| SEC-12 | 18 | Pending |
-| SEC-13 | 18 | Pending |
-| SEC-14 | 18 | Pending |
-| SEC-15 | 18 | Pending |
-| SEC-16 | 18 | Pending |
+| SEC-01 | 18 | Complete |
+| SEC-02 | 18 | Complete |
+| SEC-12 | 18 | Complete |
+| SEC-13 | 18 | Complete |
+| SEC-14 | 18 | Complete |
+| SEC-15 | 18 | Complete |
+| SEC-16 | 18 | Complete |
 | SEC-03 | 19 | Pending |
 | SEC-04 | 19 | Pending |
 | SEC-17 | 19 | Pending |
