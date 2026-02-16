@@ -461,22 +461,50 @@ async def process_verifier_job(
                     no_tests_collected = True
 
             conclusion = "success" if tests_passed else "failure"
+            
+            # Build output summary based on test result
             if no_tests_collected:
                 output_summary = (
                     "No tests collected. Agent PRs must include tests. "
                     "Add test files (e.g. tests/test_*.py) that verify the changes. "
                     "Do NOT modify .booty.yml — it is a restricted file."
                 )
+            elif tests_passed:
+                output_summary = f"Tests passed (exit={result.exit_code})"
             else:
-                output_summary = (
-                    f"Tests {'passed' if tests_passed else 'failed'} (exit={result.exit_code})"
-                )
-            if not tests_passed and not no_tests_collected and result.stderr:
-                output_summary += f". {result.stderr[:200]}"
+                # Show full test output on failure
+                # Combine stdout and stderr - most test runners output to stdout
+                stdout_text = (result.stdout or "").strip()
+                stderr_text = (result.stderr or "").strip()
+                
+                # Prefer stdout if it has content, otherwise use stderr
+                if stdout_text:
+                    combined_output = stdout_text
+                    if stderr_text:
+                        combined_output += "\n\n=== STDERR ===\n" + stderr_text
+                elif stderr_text:
+                    combined_output = stderr_text
+                else:
+                    combined_output = "No output captured."
+                
+                # Build the summary with header
+                header = f"Test command failed with exit code {result.exit_code}\n\n"
+                
+                # Calculate available space for output (leave room for header and code block)
+                code_block_overhead = 10  # "```\n" + "\n```" plus some buffer
+                max_output_len = CHECK_OUTPUT_MAX - len(header) - code_block_overhead
+                
+                # Truncate from the beginning if needed (keep the end where failures typically are)
+                if len(combined_output) > max_output_len:
+                    truncation_marker = "... (output truncated, showing last ~64KB) ...\n\n"
+                    available_len = max_output_len - len(truncation_marker)
+                    combined_output = truncation_marker + combined_output[-available_len:]
+                
+                output_summary = f"{header}```\n{combined_output}\n```"
 
             if not tests_passed and repo is not None:
                 _ingest_verifier_record(
-                    job, "test", py_files, output_summary, config, repo
+                    job, "test", py_files, output_summary[:500], config, repo
                 )
 
             edit_check_run(
@@ -523,14 +551,14 @@ async def process_verifier_job(
                         settings.GITHUB_TOKEN,
                         job.repo_url,
                         job.pr_number,
-                        output_summary,
+                        f"Tests failed (exit={result.exit_code})",
                         truncated,
                     )
 
                     # Enqueue builder retry if within retry limit
                     if job_queue is not None and job.issue_number is not None:
                         await _enqueue_builder_retry(
-                            job, job_queue, settings, output_summary, truncated
+                            job, job_queue, settings, f"Tests failed (exit={result.exit_code})", truncated
                         )
     except Exception as e:
         logger.error(
