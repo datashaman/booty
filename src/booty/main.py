@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import asyncio
 import sys
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -294,8 +295,6 @@ async def lifespan(app: FastAPI):
 
     # Planner worker (single worker for Phase 27)
     async def _planner_worker_loop() -> None:
-        import asyncio
-        
         while True:
             try:
                 job = await planner_queue.get()
