@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
+import os
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -67,6 +68,85 @@ class BootyConfig(BaseModel):
         return v
 
 
+class ReleaseGovernorConfig(BaseModel):
+    """Release Governor config block — env vars RELEASE_GOVERNOR_* override.
+    unknown keys fail (model_config extra='forbid').
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    production_environment_name: str = "production"
+    require_approval_for_first_deploy: bool = False
+    high_risk_paths: list[str] = Field(
+        default_factory=lambda: [".github/workflows/**", "**/migrations/**"],
+        description="Pathspecs for HIGH risk",
+    )
+    medium_risk_paths: list[str] = Field(
+        default_factory=lambda: [
+            "**/package.json",
+            "**/requirements*.txt",
+            "**/pyproject.toml",
+            "**/Cargo.toml",
+            "**/go.mod",
+            "**/go.sum",
+        ],
+        description="Pathspecs for MEDIUM risk (dependency manifests)",
+    )
+    migration_paths: list[str] = Field(
+        default_factory=list,
+        description="Pathspecs for migrations",
+    )
+    verification_workflow_name: str = "Verify main"
+    deploy_workflow_name: str = "deploy.yml"
+    deploy_workflow_ref: str = "main"
+    cooldown_minutes: int = Field(default=30, ge=0)
+    max_deploys_per_hour: int = Field(default=6, ge=1)
+    approval_mode: Literal["environment", "label", "comment"] = "environment"
+    approval_label: str | None = None
+    approval_command: str | None = None
+
+
+def apply_release_governor_env_overrides(
+    config: ReleaseGovernorConfig,
+) -> ReleaseGovernorConfig:
+    """Apply RELEASE_GOVERNOR_* env vars over config. Returns new config."""
+    overrides: dict = {}
+    if (v := os.environ.get("RELEASE_GOVERNOR_ENABLED")) is not None:
+        overrides["enabled"] = v.lower() in ("1", "true", "yes")
+    if (v := os.environ.get("RELEASE_GOVERNOR_COOLDOWN_MINUTES")) is not None:
+        try:
+            overrides["cooldown_minutes"] = int(v)
+        except ValueError:
+            pass
+    if (v := os.environ.get("RELEASE_GOVERNOR_MAX_DEPLOYS_PER_HOUR")) is not None:
+        try:
+            overrides["max_deploys_per_hour"] = int(v)
+        except ValueError:
+            pass
+    if (v := os.environ.get("RELEASE_GOVERNOR_VERIFICATION_WORKFLOW_NAME")) is not None:
+        overrides["verification_workflow_name"] = v
+    if (v := os.environ.get("RELEASE_GOVERNOR_DEPLOY_WORKFLOW_NAME")) is not None:
+        overrides["deploy_workflow_name"] = v
+    if (v := os.environ.get("RELEASE_GOVERNOR_PRODUCTION_ENVIRONMENT_NAME")) is not None:
+        overrides["production_environment_name"] = v
+    if (v := os.environ.get("RELEASE_GOVERNOR_REQUIRE_APPROVAL_FOR_FIRST_DEPLOY")) is not None:
+        overrides["require_approval_for_first_deploy"] = v.lower() in ("1", "true", "yes")
+    if (v := os.environ.get("RELEASE_GOVERNOR_APPROVAL_MODE")) is not None:
+        if v in ("environment", "label", "comment"):
+            overrides["approval_mode"] = v
+    if (v := os.environ.get("RELEASE_GOVERNOR_APPROVAL_LABEL")) is not None:
+        overrides["approval_label"] = v if v else None
+    if (v := os.environ.get("RELEASE_GOVERNOR_APPROVAL_COMMAND")) is not None:
+        overrides["approval_command"] = v if v else None
+    if (v := os.environ.get("RELEASE_GOVERNOR_MEDIUM_RISK_PATHS")) is not None:
+        overrides["medium_risk_paths"] = [p.strip() for p in v.split(",") if p.strip()]
+
+    if not overrides:
+        return config
+    return config.model_copy(update=overrides)
+
+
 class BootyConfigV1(BaseModel):
     """Strict schema v1 — unknown keys fail validation."""
 
@@ -102,6 +182,10 @@ class BootyConfigV1(BaseModel):
     max_loc_per_file_pathspec: list[str] | None = None
     protected_paths: list[str] = Field(
         default_factory=lambda: list(BOOTY_CONFIG_PROTECTED_PATHS_DEFAULT),
+    )
+    release_governor: ReleaseGovernorConfig | None = Field(
+        default=None,
+        description="Optional release governor config",
     )
 
     @property

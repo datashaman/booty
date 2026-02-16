@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant GitHub
+    participant Sentry
+    participant Observability
+    participant Builder
+    participant Verifier
+
+    Sentry->>Observability: alert
+    Observability->>GitHub: create issue
+
+    GitHub->>Builder: issues.labeled
+    Builder->>GitHub: create PR
+
+    GitHub->>Verifier: pull_request
+    Verifier->>GitHub: check run
+    Verifier->>Builder: retry on failure

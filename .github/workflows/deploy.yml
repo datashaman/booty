@@ -3,7 +3,12 @@ name: Deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # Manual deploy when paths-filter would skip
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "SHA to deploy (required for governor-triggered deploys)"
+        required: false
+        type: string
 
 concurrency:
   group: production
@@ -15,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
+      DEPLOY_SHA: ${{ inputs.sha || github.sha }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST || secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || secrets.DEPLOY_PORT || '' }}
       SERVER_NAME: ${{ vars.SERVER_NAME || secrets.SERVER_NAME }}
@@ -30,10 +36,15 @@ jobs:
           : "${DEPLOY_HOST:?Missing DEPLOY_HOST}"
           : "${SERVER_NAME:?Missing SERVER_NAME}"
           : "${REPO_URL:?Missing REPO_URL}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -z "${{ inputs.sha }}" ]; then
+            echo "::error::workflow_dispatch requires sha input"
+            exit 1
+          fi
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.sha || github.sha }}
           fetch-depth: 0
 
       - name: Deploy filter
@@ -117,7 +128,7 @@ jobs:
         if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         id: deploy
         run: |
-          export DEPLOY_HOST SERVER_NAME REPO_URL DEPLOY_BRANCH
+          export DEPLOY_HOST SERVER_NAME REPO_URL DEPLOY_BRANCH DEPLOY_SHA
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
           [ -n "$DEPLOY_PORT" ] && export DEPLOY_PORT
           if ./deploy.sh 2>&1 | tee /tmp/deploy.log; then
