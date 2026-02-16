@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from github import Github
 
-from booty.config import get_settings, security_enabled, verifier_enabled
+from booty.config import get_settings, planner_enabled, security_enabled, verifier_enabled
 from booty.release_governor.deploy import dispatch_deploy
 from booty.release_governor.failure_issues import create_or_append_deploy_failure_issue
 from booty.release_governor.handler import handle_workflow_run
@@ -645,16 +645,13 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     issue = payload.get("issue", {})
     labels = [l.get("name", "") for l in issue.get("labels", [])]
     is_plan_trigger = (
-        (action == "opened" and "agent:plan" in labels)
-        or (action == "labeled" and payload.get("label", {}).get("name") == "agent:plan")
+        planner_enabled(settings)
+        and (
+            (action == "opened" and "agent:plan" in labels)
+            or (action == "labeled" and payload.get("label", {}).get("name") == "agent:plan")
+        )
     )
     if is_plan_trigger:
-        # Check if planner is enabled (via env var PLANNER_ENABLED)
-        planner_enabled_env = os.environ.get("PLANNER_ENABLED", "true").lower()
-        if planner_enabled_env not in ("1", "true", "yes"):
-            logger.info("planner_disabled", delivery_id=delivery_id)
-            return {"status": "ignored", "reason": "planner_disabled"}
-
         if delivery_id and planner_is_duplicate(delivery_id):
             logger.info("planner_already_processed", delivery_id=delivery_id)
             return {"status": "already_processed"}
@@ -677,8 +674,8 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         if not enqueued:
             logger.error("planner_enqueue_failed", job_id=job_id)
             return JSONResponse(
-                status_code=500,
-                content={"status": "error", "message": "Failed to enqueue planner job"},
+                status_code=503,
+                content={"status": "error", "event": "planner", "reason": "enqueue_failed"},
             )
         if delivery_id:
             planner_mark_processed(delivery_id)
