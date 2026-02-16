@@ -1,7 +1,11 @@
 """Memory config schema and env overrides."""
 
 import os
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+
+class MemoryConfigError(Exception):
+    """Raised when memory config is invalid (e.g. unknown keys)."""
 
 
 class MemoryConfig(BaseModel):
@@ -41,3 +45,14 @@ def apply_memory_env_overrides(config: MemoryConfig) -> MemoryConfig:
     if not overrides:
         return config
     return config.model_copy(update=overrides)
+
+
+def get_memory_config(booty_config: object) -> MemoryConfig | None:
+    """Validate booty_config.memory into MemoryConfig. Returns None if memory is None."""
+    memory = getattr(booty_config, "memory", None)
+    if memory is None:
+        return None
+    try:
+        return MemoryConfig.model_validate(memory)
+    except ValidationError as e:
+        raise MemoryConfigError(f"Memory config invalid: {e}") from e
