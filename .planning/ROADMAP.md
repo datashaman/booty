@@ -10,7 +10,7 @@ Release Governor gates production deployment. It runs when a verification workfl
 
 ## Phases
 
-### Phase 14: Governor Foundation & Persistence
+### Phase 14: Governor Foundation & Persistence ✓
 
 **Goal:** Config schema, release state store, agent skeleton, deploy workflow sha input.
 
@@ -29,11 +29,11 @@ Release Governor gates production deployment. It runs when a verification workfl
 **Plans:** 5 plans in 2 waves
 
 Plans:
-- [ ] 14-01-PLAN.md — Config schema (ReleaseGovernorConfig, env overrides)
-- [ ] 14-02-PLAN.md — State store + delivery ID cache
-- [ ] 14-03-PLAN.md — Governor module skeleton + booty governor status
-- [ ] 14-04-PLAN.md — Deploy workflow sha input + deploy.sh DEPLOY_SHA
-- [ ] 14-05-PLAN.md — Verify-main workflow
+- [x] 14-01-PLAN.md — Config schema (ReleaseGovernorConfig, env overrides)
+- [x] 14-02-PLAN.md — State store + delivery ID cache
+- [x] 14-03-PLAN.md — Governor module skeleton + booty governor status
+- [x] 14-04-PLAN.md — Deploy workflow sha input + deploy.sh DEPLOY_SHA
+- [x] 14-05-PLAN.md — Verify-main workflow
 
 ---
 

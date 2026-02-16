@@ -12,7 +12,7 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 - [ ] **GOV-01**: Governor runs when a verification workflow completes successfully on main (workflow_run event, conclusion=success, head_sha)
 - [ ] **GOV-02**: Governor uses head_sha from event payload (never "latest main")
 - [ ] **GOV-03**: Governor receives optional Observability signal "is production degraded" (in-process state or Sentry; default unknown)
-- [ ] **GOV-04**: Governor loads config from env + optional .booty.yml; env overrides .booty.yml; strict schema (unknown keys fail)
+- [x] **GOV-04**: Governor loads config from env + optional .booty.yml; env overrides .booty.yml; strict schema (unknown keys fail)
 
 ### Decision & Risk
 
@@ -36,10 +36,10 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 
 ### Persistence & Idempotency
 
-- [ ] **GOV-19**: Release state store: production_sha_current, production_sha_previous, last_deploy_attempt_sha, last_deploy_time, last_deploy_result, last_health_check
-- [ ] **GOV-20**: Store in file (.booty/state/release.json or similar); atomic writes; survives restarts
-- [ ] **GOV-21**: Dedup at (repo, head_sha); delivery ID caching for idempotency
-- [ ] **GOV-22**: Never trigger deploy twice for same SHA
+- [x] **GOV-19**: Release state store: production_sha_current, production_sha_previous, last_deploy_attempt_sha, last_deploy_time, last_deploy_result, last_health_check
+- [x] **GOV-20**: Store in file (.booty/state/release.json or similar); atomic writes; survives restarts
+- [x] **GOV-21**: Dedup at (repo, head_sha); delivery ID caching for idempotency
+- [x] **GOV-22**: Never trigger deploy twice for same SHA
 
 ### Operator UX
 
@@ -49,14 +49,14 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 
 ### Config Schema
 
-- [ ] **GOV-26**: release_governor.enabled, production_environment_name, require_approval_for_first_deploy
-- [ ] **GOV-27**: release_governor.high_risk_paths, migration_paths (pathspecs)
-- [ ] **GOV-28**: release_governor.deploy_workflow_name, deploy_workflow_ref, cooldown_minutes, max_deploys_per_hour
-- [ ] **GOV-29**: release_governor.approval_mode (environment | label | comment); approval_label / approval_command when applicable
+- [x] **GOV-26**: release_governor.enabled, production_environment_name, require_approval_for_first_deploy
+- [x] **GOV-27**: release_governor.high_risk_paths, migration_paths (pathspecs)
+- [x] **GOV-28**: release_governor.deploy_workflow_name, deploy_workflow_ref, cooldown_minutes, max_deploys_per_hour
+- [x] **GOV-29**: release_governor.approval_mode (environment | label | comment); approval_label / approval_command when applicable
 
 ### Deliverables
 
-- [ ] **GOV-30**: New agent module `release_governor`
+- [x] **GOV-30**: New agent module `release_governor`
 - [ ] **GOV-31**: docs/release-governor.md (config, approval, troubleshooting, manual test steps)
 - [ ] **GOV-32**: CLI: `booty governor status`, `booty governor simulate --sha <sha>`, `booty governor trigger --sha <sha>`
 
@@ -88,7 +88,7 @@ Deferred to later milestones.
 | GOV-01 | 15 | Pending |
 | GOV-02 | 15 | Pending |
 | GOV-03 | 15 | Pending |
-| GOV-04 | 14 | Pending |
+| GOV-04 | 14 | Complete |
 | GOV-05 | 15 | Pending |
 | GOV-06 | 15 | Pending |
 | GOV-07 | 15 | Pending |
@@ -103,18 +103,18 @@ Deferred to later milestones.
 | GOV-16 | 16 | Pending |
 | GOV-17 | 16 | Pending |
 | GOV-18 | 16 | Pending |
-| GOV-19 | 14 | Pending |
-| GOV-20 | 14 | Pending |
-| GOV-21 | 14 | Pending |
-| GOV-22 | 14 | Pending |
+| GOV-19 | 14 | Complete |
+| GOV-20 | 14 | Complete |
+| GOV-21 | 14 | Complete |
+| GOV-22 | 14 | Complete |
 | GOV-23 | 16 | Pending |
 | GOV-24 | 16 | Pending |
 | GOV-25 | 16 | Pending |
-| GOV-26 | 14 | Pending |
-| GOV-27 | 14 | Pending |
-| GOV-28 | 14 | Pending |
-| GOV-29 | 14 | Pending |
-| GOV-30 | 14 | Pending |
+| GOV-26 | 14 | Complete |
+| GOV-27 | 14 | Complete |
+| GOV-28 | 14 | Complete |
+| GOV-29 | 14 | Complete |
+| GOV-30 | 14 | Complete |
 | GOV-31 | 17 | Pending |
 | GOV-32 | 17 | Pending |
 
