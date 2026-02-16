@@ -46,13 +46,17 @@ def test_handle_workflow_run_returns_decision(minimal_payload, mock_config):
             mock_settings.return_value.GITHUB_TOKEN = "token"
 
             with unittest.mock.patch(
-                "booty.release_governor.handler.get_state_dir"
-            ) as mock_state_dir:
-                import tempfile
-                from pathlib import Path
-                with tempfile.TemporaryDirectory() as d:
-                    mock_state_dir.return_value = Path(d)
-                    decision = handle_workflow_run(minimal_payload, mock_config)
+                "booty.release_governor.handler.get_security_override_with_poll",
+                return_value=None,
+            ):
+                with unittest.mock.patch(
+                    "booty.release_governor.handler.get_state_dir"
+                ) as mock_state_dir:
+                    import tempfile
+                    from pathlib import Path
+                    with tempfile.TemporaryDirectory() as d:
+                        mock_state_dir.return_value = Path(d)
+                        decision = handle_workflow_run(minimal_payload, mock_config)
 
     assert isinstance(decision, Decision)
     assert decision.outcome in ("ALLOW", "HOLD")
@@ -78,13 +82,17 @@ def test_uses_head_sha_from_payload(minimal_payload, mock_config):
             return_value=mock_settings,
         ):
             with unittest.mock.patch(
-                "booty.release_governor.handler.get_state_dir"
-            ) as mock_state_dir:
-                import tempfile
-                from pathlib import Path
-                with tempfile.TemporaryDirectory() as d:
-                    mock_state_dir.return_value = Path(d)
-                    decision = handle_workflow_run(minimal_payload, mock_config)
+                "booty.release_governor.handler.get_security_override_with_poll",
+                return_value=None,
+            ):
+                with unittest.mock.patch(
+                    "booty.release_governor.handler.get_state_dir"
+                ) as mock_state_dir:
+                    import tempfile
+                    from pathlib import Path
+                    with tempfile.TemporaryDirectory() as d:
+                        mock_state_dir.return_value = Path(d)
+                        decision = handle_workflow_run(minimal_payload, mock_config)
 
     assert decision.sha == "abc123def456"
     mock_repo.compare.assert_called_once()
