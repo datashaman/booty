@@ -1,13 +1,13 @@
 name: Deploy
 
+# Deploy is triggered ONLY by the Release Governor via workflow_dispatch.
+# Push to main → Verify main runs → Governor decides ALLOW → dispatches this workflow.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       sha:
-        description: "SHA to deploy (required for governor-triggered deploys)"
-        required: false
+        description: "SHA to deploy"
+        required: true
         type: string
 
 concurrency:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      DEPLOY_SHA: ${{ inputs.sha || github.sha }}
+      DEPLOY_SHA: ${{ inputs.sha }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST || secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || secrets.DEPLOY_PORT || '' }}
       SERVER_NAME: ${{ vars.SERVER_NAME || secrets.SERVER_NAME }}
@@ -36,48 +36,20 @@ jobs:
           : "${DEPLOY_HOST:?Missing DEPLOY_HOST}"
           : "${SERVER_NAME:?Missing SERVER_NAME}"
           : "${REPO_URL:?Missing REPO_URL}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -z "${{ inputs.sha }}" ]; then
-            echo "::error::workflow_dispatch requires sha input"
-            exit 1
-          fi
+          : "${DEPLOY_SHA:?Missing sha input}"
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.sha || github.sha }}
+          ref: ${{ inputs.sha }}
           fetch-depth: 0
 
-      - name: Deploy filter
-        id: deploy_filter
-        uses: dorny/paths-filter@v3
-        if: github.event_name != 'workflow_dispatch'
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            deploy:
-              - 'src/**'
-              - 'deploy/**'
-              - 'deploy.sh'
-              - 'pyproject.toml'
-              - '.booty.yml'
-              - 'requirements*.txt'
-              - 'Dockerfile'
-              - 'docker-compose*.yml'
-              - '.github/workflows/deploy*.yml'
-
-      - name: Skip deploy if no relevant changes
-        if: github.event_name != 'workflow_dispatch' && steps.deploy_filter.outputs.deploy != 'true'
-        run: |
-          echo "No deploy-relevant changes (docs-only etc. do not trigger deploy)" >> $GITHUB_STEP_SUMMARY
-
       - name: Load SSH key
-        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Test SSH connectivity
-        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         run: |
           {
             echo "## Deploy params"
@@ -125,7 +97,6 @@ jobs:
           fi
 
       - name: Deploy
-        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         id: deploy
         run: |
           export DEPLOY_HOST SERVER_NAME REPO_URL DEPLOY_BRANCH DEPLOY_SHA
@@ -157,7 +128,7 @@ jobs:
           fi
 
       - name: Health check
-        if: ((github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')) && steps.deploy.outputs.deploy_transport_success == 'true'
+        if: steps.deploy.outputs.deploy_transport_success == 'true'
         id: health
         run: |
           HEALTH_URL="${HEALTH_SCHEME}://${SERVER_NAME}/health"
