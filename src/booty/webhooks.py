@@ -3,6 +3,7 @@
 import hmac
 import hashlib
 import json
+import os
 import re
 import time
 from urllib.parse import urlparse
@@ -648,6 +649,12 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         or (action == "labeled" and payload.get("label", {}).get("name") == "agent:plan")
     )
     if is_plan_trigger:
+        # Check if planner is enabled (via env var PLANNER_ENABLED)
+        planner_enabled_env = os.environ.get("PLANNER_ENABLED", "true").lower()
+        if planner_enabled_env not in ("1", "true", "yes"):
+            logger.info("planner_disabled", delivery_id=delivery_id)
+            return {"status": "ignored", "reason": "planner_disabled"}
+        
         if delivery_id and planner_is_duplicate(delivery_id):
             logger.info("planner_already_processed", delivery_id=delivery_id)
             return {"status": "already_processed"}
@@ -666,13 +673,16 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             repo=repo_name,
             payload=payload,
         )
-        if delivery_id:
-            planner_mark_processed(delivery_id)
         enqueued = await planner_enqueue(job)
         if not enqueued:
             logger.error("planner_enqueue_failed", job_id=job_id)
-        else:
-            logger.info("planner_job_accepted", job_id=job_id, issue_number=issue.get("number"))
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": "Failed to enqueue planner job"},
+            )
+        if delivery_id:
+            planner_mark_processed(delivery_id)
+        logger.info("planner_job_accepted", job_id=job_id, issue_number=issue.get("number"))
         return JSONResponse(
             status_code=202,
             content={"status": "accepted", "event": "planner", "job_id": job_id},

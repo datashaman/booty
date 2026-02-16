@@ -14,7 +14,7 @@ from booty.planner.schema import Plan
 def get_planner_state_dir() -> Path:
     """Return planner state directory. Precedence: PLANNER_STATE_DIR env, $HOME/.booty/state, ./.booty/state."""
     if path := os.environ.get("PLANNER_STATE_DIR"):
-        p = Path(path)
+        p = Path(path).expanduser()
     elif home := os.environ.get("HOME"):
         p = Path(home) / ".booty" / "state"
     else:

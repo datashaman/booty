@@ -83,8 +83,11 @@ def find_cached_issue_plan(
     created_str = plan.metadata.get("created_at")
     if not created_str:
         return None
-    created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
-    if not is_plan_fresh(created, ttl):
+    try:
+        created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+        if not is_plan_fresh(created, ttl):
+            return None
+    except (ValueError, TypeError):
         return None
     return plan
 
@@ -119,8 +122,11 @@ def find_cached_ad_hoc_plan(
         created_str = plan.metadata.get("created_at")
         if not created_str:
             return None
-        created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
-        if not is_plan_fresh(created, ttl):
+        try:
+            created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+            if not is_plan_fresh(created, ttl):
+                return None
+        except (ValueError, TypeError):
             return None
         return plan
     except (json.JSONDecodeError, OSError):
