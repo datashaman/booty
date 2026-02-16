@@ -9,10 +9,12 @@ from pathlib import Path
 import pytest
 
 from booty.planner.cache import (
+    find_cached_ad_hoc_plan,
     find_cached_issue_plan,
     input_hash,
     is_plan_fresh,
     plan_hash,
+    save_ad_hoc_plan,
 )
 from booty.planner.input import PlannerInput
 from booty.planner.schema import HandoffToBuilder, Plan, Step
@@ -154,3 +156,109 @@ def test_is_plan_fresh() -> None:
     now = datetime.now(timezone.utc)
     assert is_plan_fresh(now, 24) is True
     assert is_plan_fresh(now - timedelta(hours=25), 24) is False
+
+
+def test_find_cached_ad_hoc_plan_hit() -> None:
+    """save via save_ad_hoc_plan, find returns plan."""
+    handoff = HandoffToBuilder(
+        branch_name_hint="b", commit_message_hint="c", pr_title="t", pr_body_outline="o"
+    )
+    plan = Plan(
+        goal="g",
+        steps=[Step(id="P1", action="read", path="x", acceptance="d")],
+        handoff_to_builder=handoff,
+        metadata={
+            "input_hash": "abc123",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    inp = PlannerInput(goal="x", body="y", labels=[])
+    with tempfile.TemporaryDirectory() as d:
+        os.environ["PLANNER_STATE_DIR"] = d
+        try:
+            path = save_ad_hoc_plan(plan, inp)
+            assert path.exists()
+            cached = find_cached_ad_hoc_plan(input_hash(inp), 24.0)
+            assert cached is not None
+            assert cached.goal == "g"
+        finally:
+            os.environ.pop("PLANNER_STATE_DIR", None)
+
+
+def test_find_cached_ad_hoc_plan_miss_hash() -> None:
+    """find_cached_ad_hoc_plan returns None when input_hash doesn't match."""
+    handoff = HandoffToBuilder(
+        branch_name_hint="b", commit_message_hint="c", pr_title="t", pr_body_outline="o"
+    )
+    plan = Plan(
+        goal="g",
+        steps=[Step(id="P1", action="read", path="x", acceptance="d")],
+        handoff_to_builder=handoff,
+        metadata={
+            "input_hash": "abc123",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    inp = PlannerInput(goal="x", body="y", labels=[])
+    with tempfile.TemporaryDirectory() as d:
+        os.environ["PLANNER_STATE_DIR"] = d
+        try:
+            save_ad_hoc_plan(plan, inp)
+            assert find_cached_ad_hoc_plan("wrong_hash", 24.0) is None
+        finally:
+            os.environ.pop("PLANNER_STATE_DIR", None)
+
+
+def test_find_cached_ad_hoc_plan_miss_expired() -> None:
+    """find_cached_ad_hoc_plan returns None when plan is expired."""
+    handoff = HandoffToBuilder(
+        branch_name_hint="b", commit_message_hint="c", pr_title="t", pr_body_outline="o"
+    )
+    old_ts = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+    plan = Plan(
+        goal="g",
+        steps=[Step(id="P1", action="read", path="x", acceptance="d")],
+        handoff_to_builder=handoff,
+        metadata={"input_hash": "abc123", "created_at": old_ts},
+    )
+    inp = PlannerInput(goal="x", body="y", labels=[])
+    with tempfile.TemporaryDirectory() as d:
+        os.environ["PLANNER_STATE_DIR"] = d
+        try:
+            save_ad_hoc_plan(plan, inp)
+            assert find_cached_ad_hoc_plan(input_hash(inp), 24.0) is None
+        finally:
+            os.environ.pop("PLANNER_STATE_DIR", None)
+
+
+def test_ad_hoc_preserves_history() -> None:
+    """Two saves with same input produce two files; index points to latest."""
+    handoff = HandoffToBuilder(
+        branch_name_hint="b", commit_message_hint="c", pr_title="t", pr_body_outline="o"
+    )
+    inp = PlannerInput(goal="x", body="y", labels=[])
+    plan1 = Plan(
+        goal="g1",
+        steps=[Step(id="P1", action="read", path="x", acceptance="d")],
+        handoff_to_builder=handoff,
+        metadata={"created_at": datetime.now(timezone.utc).isoformat()},
+    )
+    plan2 = Plan(
+        goal="g2",
+        steps=[Step(id="P1", action="edit", path="x", acceptance="d")],
+        handoff_to_builder=handoff,
+        metadata={"created_at": datetime.now(timezone.utc).isoformat()},
+    )
+    with tempfile.TemporaryDirectory() as d:
+        os.environ["PLANNER_STATE_DIR"] = d
+        try:
+            path1 = save_ad_hoc_plan(plan1, inp)
+            path2 = save_ad_hoc_plan(plan2, inp)
+            assert path1 != path2
+            assert path1.exists()
+            assert path2.exists()
+            cached = find_cached_ad_hoc_plan(input_hash(inp), 24.0)
+            assert cached is not None
+            assert cached.goal == "g2"
+        finally:
+            os.environ.pop("PLANNER_STATE_DIR", None)

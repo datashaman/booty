@@ -41,6 +41,20 @@ def plan_path_for_ad_hoc(text: str, state_dir: Path | None = None) -> Path:
     return sd / "plans" / f"ad-hoc-{ts}-{short_hash}.json"
 
 
+def plan_path_for_ad_hoc_from_input(
+    input_hash_val: str, state_dir: Path | None = None
+) -> Path:
+    """Return path for ad-hoc plan: state_dir/plans/ad-hoc/ad-hoc-{timestamp}-{input_hash[:8]}.json."""
+    from datetime import datetime, timezone
+
+    sd = state_dir or get_planner_state_dir()
+    ad_hoc_dir = sd / "plans" / "ad-hoc"
+    now = datetime.now(timezone.utc)
+    ts = now.strftime("%Y%m%d%H%M%S") + f"{now.microsecond:06d}"
+    short_hash = input_hash_val[:8]
+    return ad_hoc_dir / f"ad-hoc-{ts}-{short_hash}.json"
+
+
 def save_plan(plan: Plan | dict, path: Path) -> None:
     """Write plan to path atomically. Creates parent dirs."""
     if isinstance(plan, Plan):

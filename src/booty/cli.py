@@ -498,6 +498,13 @@ def plan() -> None:
 @click.argument("issue_number", type=int)
 def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: str | None) -> None:
     """Generate plan from GitHub issue. Requires GITHUB_TOKEN."""
+    import os
+
+    from booty.planner.cache import (
+        find_cached_issue_plan,
+        input_hash,
+        plan_hash,
+    )
     from booty.planner.generation import generate_plan
     from booty.planner.input import get_repo_context, normalize_github_issue
     from booty.planner.risk import classify_risk_from_paths
@@ -539,9 +546,21 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
             traceback.print_exc(file=__import__("sys").stderr)
         raise SystemExit(1)
 
-    plan_obj = generate_plan(inp)
-    risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
-    plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
+    h = input_hash(inp)
+    ttl = float(os.environ.get("PLANNER_CACHE_TTL_HOURS", "24"))
+    cached = find_cached_issue_plan(owner, repo_slug, issue_number, h, ttl)
+    if cached:
+        plan_obj = cached
+    else:
+        plan_obj = generate_plan(inp)
+        risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
+        plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
+    new_metadata = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "input_hash": h,
+        "plan_hash": plan_hash(plan_obj),
+    }
+    plan_obj = plan_obj.model_copy(update={"metadata": plan_obj.metadata | new_metadata})
     path = plan_path_for_issue(owner, repo_slug, issue_number)
     save_plan(plan_obj, path)
 
@@ -577,10 +596,17 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
 @click.argument("text", required=True)
 def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | None) -> None:
     """Generate plan from free text prompt."""
+    import os
+
+    from booty.planner.cache import (
+        find_cached_ad_hoc_plan,
+        input_hash,
+        plan_hash,
+        save_ad_hoc_plan,
+    )
     from booty.planner.generation import generate_plan
     from booty.planner.input import get_repo_context, normalize_cli_text
     from booty.planner.risk import classify_risk_from_paths
-    from booty.planner.store import plan_path_for_ad_hoc, save_plan
 
     ws = Path.cwd()
     repo_info = None
@@ -600,18 +626,32 @@ def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | Non
         else None
     )
     inp = normalize_cli_text(text, repo_info=repo_info, repo_context=repo_context)
-    plan_obj = generate_plan(inp)
-    risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
-    plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
-    path = plan_path_for_ad_hoc(text)
-    save_plan(plan_obj, path)
+    h = input_hash(inp)
+    ttl = float(os.environ.get("PLANNER_CACHE_TTL_HOURS", "24"))
+    cached = find_cached_ad_hoc_plan(h, ttl)
+    if cached:
+        plan_obj = cached
+        created_at = cached.metadata.get("created_at", "")
+        cache_hint = f" (cached, created at {created_at})" if created_at else " (cached)"
+    else:
+        plan_obj = generate_plan(inp)
+        risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
+        plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
+        cache_hint = ""
+    new_metadata = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "input_hash": h,
+        "plan_hash": plan_hash(plan_obj),
+    }
+    plan_obj = plan_obj.model_copy(update={"metadata": plan_obj.metadata | new_metadata})
+    path = save_ad_hoc_plan(plan_obj, inp)
 
     if output_path:
         import shutil
         shutil.copy(path, output_path)
 
     goal_snippet = f"{plan_obj.goal[:50]}{'...' if len(plan_obj.goal) > 50 else ''}"
-    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {risk_level}")
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {plan_obj.risk_level}{cache_hint}")
 
 
 @cli.group()

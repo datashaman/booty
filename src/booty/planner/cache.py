@@ -3,12 +3,19 @@
 import hashlib
 import json
 import os
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from booty.planner.input import PlannerInput
 from booty.planner.schema import Plan
-from booty.planner.store import get_planner_state_dir, load_plan, plan_path_for_issue
+from booty.planner.store import (
+    get_planner_state_dir,
+    load_plan,
+    plan_path_for_ad_hoc_from_input,
+    plan_path_for_issue,
+    save_plan,
+)
 
 
 def _canonical_input(inp: PlannerInput) -> dict:
@@ -80,3 +87,84 @@ def find_cached_issue_plan(
     if not is_plan_fresh(created, ttl):
         return None
     return plan
+
+
+def _ad_hoc_index_path(state_dir: Path | None = None) -> Path:
+    """Path to ad-hoc index: state_dir/plans/ad-hoc/index.json."""
+    sd = state_dir or get_planner_state_dir()
+    return sd / "plans" / "ad-hoc" / "index.json"
+
+
+def find_cached_ad_hoc_plan(
+    input_hash_val: str,
+    ttl_hours: float | None = None,
+    state_dir: Path | None = None,
+) -> Plan | None:
+    """Return cached ad-hoc plan when input_hash matches and within TTL, else None."""
+    ttl = ttl_hours if ttl_hours is not None else float(
+        os.environ.get("PLANNER_CACHE_TTL_HOURS", "24")
+    )
+    index_path = _ad_hoc_index_path(state_dir)
+    if not index_path.exists():
+        return None
+    try:
+        data = json.loads(index_path.read_text())
+        filename = data.get(input_hash_val)
+        if not filename:
+            return None
+        plan_path = index_path.parent / filename
+        plan = load_plan(plan_path)
+        if not plan:
+            return None
+        created_str = plan.metadata.get("created_at")
+        if not created_str:
+            return None
+        created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+        if not is_plan_fresh(created, ttl):
+            return None
+        return plan
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def save_ad_hoc_plan(
+    plan: Plan,
+    inp: PlannerInput,
+    state_dir: Path | None = None,
+) -> Path:
+    """Save ad-hoc plan to timestamped path and update hash index. Returns path."""
+    h = input_hash(inp)
+    path = plan_path_for_ad_hoc_from_input(h, state_dir)
+    if not plan.metadata.get("created_at"):
+        merged = plan.metadata | {
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        plan = plan.model_copy(update={"metadata": merged})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    save_plan(plan, path)
+    index_path = _ad_hoc_index_path(state_dir)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_data: dict = {}
+    if index_path.exists():
+        try:
+            index_data = json.loads(index_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    index_data[h] = path.name
+    fd = tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=index_path.parent,
+        delete=False,
+        suffix=".tmp",
+    )
+    try:
+        json.dump(index_data, fd, indent=0, separators=(",", ":"))
+        fd.flush()
+        os.fsync(fd.fileno())
+        fd.close()
+        os.replace(fd.name, index_path)
+    except Exception:
+        if os.path.exists(fd.name):
+            os.unlink(fd.name)
+        raise
+    return path
