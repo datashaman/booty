@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:  # Manual deploy when paths-filter would skip
 
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to production

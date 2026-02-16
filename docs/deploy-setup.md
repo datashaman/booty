@@ -47,6 +47,20 @@ sudo chmod 440 /etc/sudoers.d/deploy
 
 Paths may differ (e.g. `nginx` in `/usr/sbin/` or `/usr/bin/`); verify with `which`.
 
+## Sentry (required in production)
+
+Production refuses to start without a Sentry DSN. Create `/etc/booty/secrets.env` on the server:
+
+```bash
+sudo tee /etc/booty/secrets.env << 'EOF'
+SENTRY_DSN=https://your-key@your-org.ingest.sentry.io/project-id
+EOF
+sudo chmod 600 /etc/booty/secrets.env
+sudo chown booty:www-data /etc/booty/secrets.env
+```
+
+Get the DSN from [Sentry](https://sentry.io) → Project → Settings → Client Keys (DSN).
+
 ## Firewall (required for SSH)
 
 GitHub Actions runners use dynamic IPs. Your server must allow SSH from GitHub's IP ranges:
