@@ -195,6 +195,7 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 run_secret_scan,
                 workspace.path,
                 scan_base,
+                job.head_sha,
                 security_config,
             )
 
