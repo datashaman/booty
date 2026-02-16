@@ -8,6 +8,7 @@ from booty.planner.input import (
     _looks_like_sentry_body,
     _looks_like_sentry_title,
     derive_source_type,
+    get_repo_context,
     normalize_cli_text,
     normalize_from_job,
     normalize_github_issue,
@@ -160,3 +161,9 @@ def test_looks_like_sentry_title_pattern() -> None:
     assert _looks_like_sentry_title("[error] foo") is True
     assert _looks_like_sentry_title("[warning] bar") is True
     assert _looks_like_sentry_title("plain title") is False
+
+
+def test_get_repo_context_returns_none_on_invalid_token() -> None:
+    """get_repo_context returns None when token invalid or repo unreachable."""
+    ctx = get_repo_context("nonexistent", "norepo", "invalid-token")
+    assert ctx is None
