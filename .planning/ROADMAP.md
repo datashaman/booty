@@ -37,6 +37,13 @@ The Security Agent is a merge veto authority. It runs on pull_request events, pu
 
 **Depends on:** Phase 18
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — SecurityConfig: secret_scanner, secret_scan_exclude
+- [ ] 19-02-PLAN.md — Scanner module: run_secret_scan, build_annotations
+- [ ] 19-03-PLAN.md — Runner integration: clone, scan, FAIL with annotations
+
 **Success criteria:**
 1. Changed files only scanned (diff-based)
 2. Secret detected → check FAIL, file+line annotations, cap 50
