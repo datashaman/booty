@@ -30,6 +30,8 @@ from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
+from booty.planner.jobs import planner_queue
+from booty.planner.worker import process_planner_job
 
 
 # Module-level job queue and app start time
@@ -290,6 +292,28 @@ async def lifespan(app: FastAPI):
         security_queue = None
         app.state.security_queue = None
 
+    # Planner worker (single worker for Phase 27)
+    async def _planner_worker_loop() -> None:
+        while True:
+            try:
+                job = await planner_queue.get()
+                try:
+                    process_planner_job(job)
+                except Exception as e:
+                    get_logger().error(
+                        "planner_job_failed",
+                        job_id=job.job_id,
+                        error=str(e),
+                        exc_info=True,
+                    )
+                finally:
+                    planner_queue.task_done()
+            except asyncio.CancelledError:
+                break
+
+    planner_worker_task = asyncio.create_task(_planner_worker_loop())
+    app.state.planner_worker_task = planner_worker_task
+
     logger.info("app_started")
 
     yield
@@ -302,6 +326,13 @@ async def lifespan(app: FastAPI):
         await verifier_queue.shutdown()
     if security_queue:
         await security_queue.shutdown()
+    planner_worker_task = getattr(app.state, "planner_worker_task", None)
+    if planner_worker_task:
+        planner_worker_task.cancel()
+        try:
+            await planner_worker_task
+        except asyncio.CancelledError:
+            pass
     logger.info("app_stopped")
 
 
