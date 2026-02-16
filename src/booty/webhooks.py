@@ -33,6 +33,7 @@ from booty.test_runner.config import (
 )
 from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.comments import post_self_modification_disabled_comment
+from booty.memory.surfacing import surface_pr_comment
 from booty.memory import add_record, get_memory_config
 from booty.memory.adapters import (
     build_deploy_failure_record,
@@ -187,6 +188,58 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
 
     # Parse payload
     payload = await request.json()
+
+    # Handle check_run events (Memory PR comment on Verifier completion)
+    if event_type == "check_run":
+        action = payload.get("action")
+        if action != "completed":
+            return {"status": "ignored", "reason": "check_not_completed"}
+        check_run = payload.get("check_run", {})
+        if check_run.get("name") != "booty/verifier":
+            return {"status": "ignored"}
+        pull_requests = check_run.get("pull_requests", [])
+        if not pull_requests:
+            return {"status": "ignored", "reason": "no_pr"}
+        pr_ref = pull_requests[0]
+        pr_number = pr_ref.get("number") if isinstance(pr_ref, dict) else getattr(pr_ref, "number", None)
+        if not pr_number:
+            return {"status": "ignored", "reason": "no_pr_number"}
+        repo = payload.get("repository", {})
+        repo_full_name = repo.get("full_name", "")
+        repo_url = repo.get("html_url", "") or f"https://github.com/{repo_full_name}"
+        try:
+            booty_config = _load_booty_config_for_repo(repo_url, settings.GITHUB_TOKEN)
+            mem_config = get_memory_config(booty_config) if booty_config else None
+            if mem_config:
+                mem_config = apply_memory_env_overrides(mem_config)
+            if not mem_config or not mem_config.enabled or not mem_config.comment_on_pr:
+                return {"status": "ignored", "reason": "memory_disabled"}
+            g = Github(settings.GITHUB_TOKEN)
+            gh_repo = g.get_repo(repo_full_name)
+            pr = gh_repo.get_pull(pr_number)
+            paths = [f.filename for f in pr.get_files()]
+            surface_pr_comment(
+                settings.GITHUB_TOKEN,
+                repo_url,
+                pr_number,
+                paths,
+                repo_full_name,
+                mem_config,
+            )
+            return JSONResponse(
+                status_code=202,
+                content={"status": "accepted", "event": "check_run", "memory_surfaced": True},
+            )
+        except Exception as e:
+            logger.warning(
+                "memory_surfacing_failed",
+                pr_number=pr_number,
+                error=str(e),
+            )
+            return JSONResponse(
+                status_code=202,
+                content={"status": "accepted", "event": "check_run", "memory_surfaced": False, "error": str(e)},
+            )
 
     # Handle pull_request events (Verifier + Security)
     if event_type == "pull_request":
