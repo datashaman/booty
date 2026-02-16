@@ -14,6 +14,7 @@ class SecurityJob:
     head_sha: str
     head_ref: str
     base_sha: str
+    base_ref: str  # e.g. main — used to fetch base for git diff
     repo_url: str
     installation_id: int
     payload: dict

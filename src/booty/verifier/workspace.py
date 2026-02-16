@@ -29,6 +29,7 @@ async def prepare_verification_workspace(
     github_token: str = "",
     head_ref: str = "",
     base_sha: str = "",
+    base_ref: str = "",
 ) -> AsyncIterator[Workspace]:
     """Clone repo at head_sha in clean temp dir for verification.
 
@@ -40,7 +41,8 @@ async def prepare_verification_workspace(
         head_sha: Commit SHA to checkout (PR head)
         github_token: Optional GitHub token for private repos
         head_ref: Optional branch to clone (PR head branch)
-        base_sha: Optional base commit SHA to fetch (e.g. PR base) for git diff
+        base_sha: Optional base commit SHA for git diff (must exist in repo)
+        base_ref: Optional base branch to fetch (e.g. main) — more reliable than SHA
 
     Yields:
         Workspace containing path, repo, and branch (head_sha)
@@ -72,12 +74,18 @@ async def prepare_verification_workspace(
                 repo.git.fetch("origin", head_ref)
             else:
                 repo.git.fetch("origin")
-            # Fetch base_sha so git diff base..head works (e.g. security scan)
-            if base_sha:
+            # Fetch base so git diff base..head works (e.g. security scan).
+            # Prefer base_ref (branch name) — more reliable in shallow clones.
+            if base_ref:
+                try:
+                    repo.git.fetch("origin", base_ref)
+                except git.GitCommandError:
+                    pass
+            elif base_sha:
                 try:
                     repo.git.fetch("origin", base_sha)
                 except git.GitCommandError:
-                    pass  # base may already be in shallow history
+                    pass
             repo.git.checkout(head_sha)
 
         await asyncio.get_running_loop().run_in_executor(None, _fetch_checkout)
