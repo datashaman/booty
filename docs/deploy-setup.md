@@ -23,6 +23,7 @@ Configure the deploy workflow and server for automated deployments from GitHub A
 |----------|---------|-------------|
 | `DEPLOY_PORT` | 22 | SSH port |
 | `DEPLOY_USER` | *(from runner)* | SSH user |
+| `DEPLOY_BRANCH` | main | Branch to deploy |
 | `HEALTH_SCHEME` | https | `http` or `https` — use https with Cloudflare/Certbot |
 
 ## GitHub deploy key (required for private repos)

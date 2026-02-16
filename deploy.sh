@@ -7,6 +7,7 @@ DEPLOY_PORT="${DEPLOY_PORT:-}"
 SERVER_NAME="${SERVER_NAME:-${2:-booty.datashaman.com}}"
 DEPLOY_USER="${DEPLOY_USER:-$(whoami)}"
 REPO_URL="${REPO_URL:-${3:-git@github.com:datashaman/booty.git}}"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 INSTALL_DIR="/opt/booty"
 SERVICE_NAME="booty"
 
@@ -14,7 +15,7 @@ SSH_OPTS=(-A -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountM
 [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
 SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
 
-ssh "${SSH_OPTS[@]}" "$SSH_TARGET" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" <<'REMOTE'
+ssh "${SSH_OPTS[@]}" "$SSH_TARGET" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" "$DEPLOY_BRANCH" <<'REMOTE'
 set -e
 
 DEPLOY_USER="$1"
@@ -22,6 +23,7 @@ REPO_URL="$2"
 INSTALL_DIR="$3"
 SERVICE_NAME="$4"
 SERVER_NAME="$5"
+DEPLOY_BRANCH="${6:-main}"
 
 # Ensure GitHub host key is trusted (for git clone/pull)
 mkdir -p ~/.ssh
@@ -35,12 +37,13 @@ if [ ! -d "$INSTALL_DIR" ]; then
     sudo mkdir -p "$INSTALL_DIR"
     sudo chown "$DEPLOY_USER:www-data" "$INSTALL_DIR"
     sudo chmod g+w "$INSTALL_DIR"
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    git clone -b "$DEPLOY_BRANCH" "$REPO_URL" "$INSTALL_DIR"
 fi
 
-# Go into the booty folder and pull the latest changes
+# Ensure deploy branch is checked out and up to date
 cd "$INSTALL_DIR"
-git pull
+git checkout "$DEPLOY_BRANCH"
+git pull origin "$DEPLOY_BRANCH"
 
 # Create venv only if it doesn't exist
 if [ ! -d ".venv" ]; then
