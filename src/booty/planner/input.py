@@ -3,6 +3,7 @@
 import re
 from typing import Literal
 
+from github import Auth, Github, GithubException
 from pydantic import BaseModel, Field
 
 from booty.planner.jobs import PlannerJob
@@ -59,6 +60,35 @@ def _extract_incident_fields(body: str) -> dict:
         elif line.startswith("**Sentry:**"):
             result["sentry_url"] = line.replace("**Sentry:**", "").strip()
     return result
+
+
+def get_repo_context(
+    owner: str, repo: str, token: str, max_depth: int = 2
+) -> dict | None:
+    """Fetch optional repo context: default branch and shallow file tree.
+
+    Returns None on auth/404 errors.
+    """
+    try:
+        g = Github(auth=Auth.Token(token))
+        gh_repo = g.get_repo(f"{owner}/{repo}")
+        default_branch = gh_repo.default_branch or "main"
+
+        def _walk(path: str, depth: int) -> list[dict]:
+            if depth > max_depth:
+                return []
+            contents = gh_repo.get_contents(path or "", ref=default_branch)
+            result: list[dict] = []
+            for c in contents:
+                result.append({"path": c.path, "type": c.type})
+                if c.type == "dir" and depth < max_depth:
+                    result.extend(_walk(c.path, depth + 1))
+            return result
+
+        tree = _walk("", 0)
+        return {"default_branch": default_branch, "tree": tree}
+    except GithubException:
+        return None
 
 
 def normalize_github_issue(
