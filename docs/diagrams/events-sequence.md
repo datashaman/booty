@@ -59,3 +59,17 @@ end
 - **Observability** receives telemetry spans at each stage (traces, metrics, or logs).
 - Dashed arrows (`-->`) indicate async, non-blocking emission.
 - GitHub event names follow webhook conventions: `issues` (action: opened/labeled), `create` (ref_type: branch), `pull_request` (action: opened), `check_run` (action: completed).
+
+## Suggested flow changes (reduce coupling)
+
+Based on coupling analysis, these changes would loosen tight dependencies:
+
+1. **Planner–Architect–Builder chain** — Route via Router (or internal event bus) instead of direct calls:
+   - `Router->Planner`, `Planner->Router:plan.created`, `Router->Architect:plan`, `Architect->Router:architecture.defined`, `Router->Builder:plan+architecture`
+   - Agents emit to Router; Router routes. No agent knows the next in the chain.
+
+2. **Subscription-based routing** — Agents register for event types instead of Router hard-coding routes. Router forwards events to subscribers; adding agents does not require Router changes.
+
+3. **Normalize check-failure semantics** — A dedicated component (or Verifier) emits `agent_pr_check_failed` when retry is appropriate. Router routes on that event only; it does not need to interpret `check_run` conclusion or agent-PR logic.
+
+4. **Success-path event** — Have Verifier (or GitHub) emit an event when PR is promoted, so other agents can subscribe (e.g. notifications, metrics) without special handling.
