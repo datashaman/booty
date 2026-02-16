@@ -4,12 +4,15 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from booty.planner import Plan, Step, HandoffToBuilder
 from booty.planner.store import (
     get_planner_state_dir,
+    get_plan_for_issue,
+    load_plan_from_issue_comments,
     plan_path_for_ad_hoc,
     plan_path_for_issue,
     save_plan,
@@ -125,3 +128,119 @@ def test_save_plan_writes_valid_json() -> None:
         loaded = json.loads(path.read_text())
         assert loaded["goal"] == "Test"
         assert loaded["plan_version"] == "1"
+
+
+def test_load_plan_from_issue_comments_extracts_valid_plan() -> None:
+    """load_plan_from_issue_comments parses plan from comment with booty-plan marker."""
+    plan_dict = {
+        "plan_version": "1",
+        "goal": "Add foo",
+        "steps": [
+            {"id": "P1", "action": "add", "path": "src/foo.py", "command": None, "acceptance": "Done"}
+        ],
+        "risk_level": "LOW",
+        "touch_paths": ["src/foo.py"],
+        "handoff_to_builder": {
+            "branch_name_hint": "feat/foo",
+            "commit_message_hint": "Add foo",
+            "pr_title": "Add foo",
+            "pr_body_outline": "",
+        },
+    }
+    body = (
+        "## Goal\n\nAdd foo\n\n## Risk\n\nLOW\n\n"
+        "<details><summary>Full plan (JSON)</summary>\n\n```json\n"
+        f"{json.dumps(plan_dict, indent=2)}\n```\n\n</details>\n\n<!-- booty-plan -->"
+    )
+    mock_comment = MagicMock()
+    mock_comment.body = body
+    mock_issue = MagicMock()
+    mock_issue.get_comments.return_value = [mock_comment]
+    mock_repo = MagicMock()
+    mock_repo.get_issue.return_value = mock_issue
+    mock_g = MagicMock()
+    mock_g.get_repo.return_value = mock_repo
+
+    with patch("booty.planner.store.Github", return_value=mock_g):
+        plan = load_plan_from_issue_comments("token", "owner", "repo", 1)
+    assert plan is not None
+    assert plan.goal == "Add foo"
+    assert plan.steps[0].id == "P1"
+
+
+def test_load_plan_from_issue_comments_ignores_comments_without_marker() -> None:
+    """Comments without booty-plan marker are ignored."""
+    mock_comment = MagicMock()
+    mock_comment.body = "Some other comment"
+    mock_issue = MagicMock()
+    mock_issue.get_comments.return_value = [mock_comment]
+    mock_repo = MagicMock()
+    mock_repo.get_issue.return_value = mock_issue
+    mock_g = MagicMock()
+    mock_g.get_repo.return_value = mock_repo
+
+    with patch("booty.planner.store.Github", return_value=mock_g):
+        plan = load_plan_from_issue_comments("token", "owner", "repo", 1)
+    assert plan is None
+
+
+def test_get_plan_for_issue_prefers_local_file() -> None:
+    """get_plan_for_issue returns local plan when it exists."""
+    handoff = HandoffToBuilder(
+        branch_name_hint="feat",
+        commit_message_hint="Add",
+        pr_title="Add",
+        pr_body_outline="",
+    )
+    plan = Plan(goal="Local", steps=[], risk_level="LOW", touch_paths=[], handoff_to_builder=handoff)
+    with tempfile.TemporaryDirectory() as d:
+        sd = Path(d)
+        path = plan_path_for_issue("o", "r", 1, sd)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        save_plan(plan, path)
+        loaded = get_plan_for_issue("o", "r", 1, github_token="x", state_dir=sd)
+    assert loaded is not None
+    assert loaded.goal == "Local"
+
+
+def test_get_plan_for_issue_fallback_to_github_when_no_local() -> None:
+    """get_plan_for_issue falls back to GitHub when local file missing."""
+    plan_dict = {
+        "plan_version": "1",
+        "goal": "From GitHub",
+        "steps": [],
+        "risk_level": "LOW",
+        "touch_paths": [],
+        "handoff_to_builder": {
+            "branch_name_hint": "feat",
+            "commit_message_hint": "Add",
+            "pr_title": "Add",
+            "pr_body_outline": "",
+        },
+    }
+    body = (
+        "## Goal\n\nFrom GitHub\n\n"
+        "<details><summary>Full plan (JSON)</summary>\n\n```json\n"
+        f"{json.dumps(plan_dict, indent=2)}\n```\n\n</details>\n\n<!-- booty-plan -->"
+    )
+    mock_comment = MagicMock()
+    mock_comment.body = body
+    mock_issue = MagicMock()
+    mock_issue.get_comments.return_value = [mock_comment]
+    mock_repo = MagicMock()
+    mock_repo.get_issue.return_value = mock_issue
+    mock_g = MagicMock()
+    mock_g.get_repo.return_value = mock_repo
+
+    with tempfile.TemporaryDirectory() as d:
+        sd = Path(d)
+        with patch("booty.planner.store.Github", return_value=mock_g):
+            loaded = get_plan_for_issue("o", "r", 1, github_token="token", state_dir=sd)
+        assert loaded is not None
+        assert loaded.goal == "From GitHub"
+        # Best-effort persist to local; verify when it succeeds
+        persisted = sd / "plans" / "o" / "r" / "1.json"
+        if persisted.exists():
+            from booty.planner.store import load_plan
+            reread = load_plan(persisted)
+            assert reread is not None and reread.goal == "From GitHub"

@@ -1,11 +1,13 @@
-"""Planner storage — plan paths and atomic JSON write."""
+"""Planner storage — plan paths, atomic JSON write, and GitHub fallback."""
 
 import hashlib
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 
+from github import Auth, Github
 from pydantic import ValidationError
 
 from booty.planner.schema import Plan
@@ -92,3 +94,68 @@ def load_plan(path: Path) -> Plan | None:
         return Plan.model_validate(data)
     except (json.JSONDecodeError, ValidationError):
         return None
+
+
+def load_plan_from_issue_comments(
+    github_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+) -> Plan | None:
+    """Load plan from the most recent Planner comment on the GitHub issue.
+
+    Planner posts plans with <!-- booty-plan --> and a ```json block.
+    Returns None if no valid plan comment found or token invalid.
+    """
+    if not (github_token or "").strip():
+        return None
+    try:
+        auth = Auth.Token(github_token)
+        g = Github(auth=auth)
+        gh_repo = g.get_repo(f"{owner}/{repo}")
+        issue = gh_repo.get_issue(issue_number)
+        comments = list(issue.get_comments())
+        # Iterate newest last (GitHub returns oldest first); take last valid plan
+        plan = None
+        for c in comments:
+            body = c.body or ""
+            if "<!-- booty-plan -->" not in body:
+                continue
+            match = re.search(r"```json\s*\n(.*?)\n```", body, re.DOTALL)
+            if not match:
+                continue
+            try:
+                data = json.loads(match.group(1))
+                plan = Plan.model_validate(data)
+            except (json.JSONDecodeError, ValidationError):
+                continue
+        return plan
+    except Exception:
+        return None
+
+
+def get_plan_for_issue(
+    owner: str,
+    repo: str,
+    issue_number: int,
+    github_token: str | None = None,
+    state_dir: Path | None = None,
+) -> Plan | None:
+    """Load plan for issue: try local file first, then GitHub issue comments.
+
+    Use when Builder or webhook need a plan — local disk may be ephemeral
+    (different worker, different container); GitHub comments are durable.
+    """
+    path = plan_path_for_issue(owner, repo, issue_number, state_dir)
+    plan = load_plan(path)
+    if plan is not None:
+        return plan
+    if github_token:
+        plan = load_plan_from_issue_comments(github_token, owner, repo, issue_number)
+        if plan is not None:
+            # Persist to local for next time (same worker)
+            try:
+                save_plan(plan, path)
+            except Exception:
+                pass  # Best-effort; plan is still usable
+    return plan

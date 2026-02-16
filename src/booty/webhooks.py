@@ -49,7 +49,7 @@ from booty.memory.adapters import (
 from booty.memory.config import apply_memory_env_overrides
 from booty.jobs import Job
 from booty.planner.jobs import PlannerJob, planner_enqueue, planner_is_duplicate, planner_mark_processed
-from booty.planner.store import load_plan, plan_path_for_issue
+from booty.planner.store import get_plan_for_issue
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
 from booty.security import SecurityJob
@@ -712,8 +712,8 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         return {"status": "ignored"}
 
     # Check plan existence — Builder is pure executor, no plan = block or run Planner first
-    plan_path = plan_path_for_issue(owner, repo_name, issue_number)
-    plan = load_plan(plan_path)
+    # Try local file first, then GitHub issue comments (durable across workers)
+    plan = get_plan_for_issue(owner, repo_name, issue_number, github_token=settings.GITHUB_TOKEN)
     if plan is None:
         # Safety net: enqueue Planner; it will enqueue Builder when done (autonomous)
         if planner_enabled(settings):
