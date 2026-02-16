@@ -1,0 +1,23 @@
+stateDiagram-v2
+    [*] --> IssueCreated: Human/Sentry creates
+    IssueCreated --> IssueLabeled: Label agent:builder applied
+    IssueLabeled --> BuilderEnqueued: Webhook received
+    BuilderEnqueued --> BuilderProcessing: Job dequeued
+    BuilderProcessing --> PRDraft: create_pull_request, add_agent_builder_label
+    BuilderProcessing --> FailureCommented: post_failure_comment on issue
+    FailureCommented --> [*]
+
+    PRDraft --> VerifierEnqueued: PR webhook (opened/synchronize/reopened)
+    VerifierEnqueued --> VerifierProcessing: Job dequeued
+    VerifierProcessing --> CheckQueued: create_check_run
+    CheckQueued --> CheckInProgress: edit_check_run
+    CheckInProgress --> CheckSuccess: tests passed
+    CheckInProgress --> CheckFailure: tests/config/setup failed
+
+    CheckSuccess --> PRReadyForReview: promote_to_ready_for_review
+    PRReadyForReview --> [*]: Human merges
+
+    CheckFailure --> VerifierCommentPosted: post_verifier_failure_comment on PR
+    VerifierCommentPosted --> BuilderRetryEnqueued: enqueue_builder_retry (if under limit)
+    BuilderRetryEnqueued --> BuilderProcessing: Job dequeued
+    VerifierCommentPosted --> [*]: retry limit reached

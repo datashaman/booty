@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> Queued: create_check_run
+    Queued --> InProgress: edit_check_run
+    InProgress --> CompletedSuccess: tests passed
+    InProgress --> CompletedFailure: schema/limits/setup/install/compile/tests failed
+    CompletedSuccess --> [*]
+    CompletedFailure --> [*]
