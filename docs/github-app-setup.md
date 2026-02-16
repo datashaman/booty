@@ -19,21 +19,26 @@ Subscribe to these events in the GitHub App settings:
 |---|---|
 | **Pull requests** | Triggers Verifier on `opened`, `synchronize`, `reopened` actions |
 | **Issues** | Triggers Builder when issue is labeled with trigger label |
+| **Workflow runs** | Triggers Release Governor when verification workflow completes on main |
 
 ## Required `GITHUB_TOKEN` Scopes (PAT)
 
-The Builder uses a personal access token (`GITHUB_TOKEN`) for operations the GitHub App doesn't cover:
+The Builder and Release Governor use a personal access token (`GITHUB_TOKEN`) for operations the GitHub App doesn't cover:
 
 | Scope | Used for |
 |---|---|
-| **repo** | Clone repositories, push branches |
+| **repo** | Clone repositories, push branches; commit statuses |
+| **workflow** | Trigger workflow_dispatch (Release Governor deploy) |
 | **pull_requests:write** | Create draft PRs, mark ready for review, request reviewers |
-| **issues:write** | Comment on issues/PRs, manage labels |
+| **issues:write** | Comment on issues/PRs, manage labels; deploy failure issues (Governor) |
+
+The Release Governor additionally needs: `repo` (commit statuses, Contents read for compare/.booty.yml), `workflow` (workflow_dispatch), and `issues:write` (deploy failure issues).
 
 For fine-grained PATs, enable:
-- **Contents:** Read and write (clone + push)
+- **Contents:** Read and write (clone + push; Governor: read .booty.yml, compare)
 - **Pull requests:** Read and write (create PRs, promote drafts)
-- **Issues:** Read and write (comments, labels)
+- **Issues:** Read and write (comments, labels; Governor: deploy failure issues)
+- **Actions:** Read and write (Governor: workflow_dispatch deploy)
 
 ## Create a New App
 
@@ -51,6 +56,7 @@ For fine-grained PATs, enable:
    - **Subscribe to events:**
      - Pull requests
      - Issues
+     - Workflow runs
 3. Create the App
 4. Note the **App ID** (visible on the App settings page)
 5. Under **Private keys**, click **Generate a private key** — download the `.pem` file
