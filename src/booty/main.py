@@ -1,5 +1,11 @@
 """FastAPI application entrypoint."""
 
+# Load .env into os.environ so RELEASE_GOVERNOR_*, SECURITY_*, etc. are available
+# to code that uses os.environ.get() (pydantic-settings only reads .env for Settings).
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import sys
 from collections import defaultdict
 from contextlib import asynccontextmanager
