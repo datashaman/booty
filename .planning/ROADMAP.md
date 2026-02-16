@@ -53,6 +53,13 @@ Plans:
 
 **Depends on:** Phase 14
 
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 15-01-PLAN.md — Risk scoring (config medium_risk_paths, risk.py, pathspec)
+- [ ] 15-02-PLAN.md — Decision engine (store deploy_history, decision.py, cooldown/rate limit)
+- [ ] 15-03-PLAN.md — workflow_run webhook + handler (full pipeline)
+
 ---
 
 ### Phase 16: Deploy Integration & Operator UX
