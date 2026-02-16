@@ -50,8 +50,8 @@ Requirements for milestone v1.6. Each maps to roadmap phases.
 
 ### CLI
 
-- [ ] **MEM-27**: `booty memory status` — prints enabled, record count, retention
-- [ ] **MEM-28**: `booty memory query --pr <n>` or `--sha <sha>` — prints matches; supports `--json`
+- [x] **MEM-27**: `booty memory status` — prints enabled, record count, retention
+- [x] **MEM-28**: `booty memory query --pr <n>` or `--sha <sha>` — prints matches; supports `--json`
 
 ## Future Requirements
 
@@ -103,8 +103,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-24 | 22 | Complete |
 | MEM-25 | 22 | Complete |
 | MEM-26 | 22 | Complete |
-| MEM-27 | 26 | Pending |
-| MEM-28 | 26 | Pending |
+| MEM-27 | 26 | Complete |
+| MEM-28 | 26 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total
