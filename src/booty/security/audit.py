@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -155,15 +156,21 @@ def _run_python_audit(
     """Run pip-audit for Python. Returns (findings, errors, summary)."""
     findings: list[dict] = []
     errors: list[str] = []
-    bin_name = "pip-audit"
-    if shutil.which(bin_name) is None:
-        errors.append(
-            "pip-audit not found — install to enable Python dependency audit"
-        )
-        return findings, errors, "pip-audit not installed"
+    # Prefer binary in PATH; fallback to python -m pip_audit (uses Booty's env)
+    if shutil.which("pip-audit") is not None:
+        args_base = ["pip-audit"]
+    else:
+        try:
+            import pip_audit  # noqa: F401
+        except ImportError:
+            errors.append(
+                "pip-audit not found — install to enable Python dependency audit"
+            )
+            return findings, errors, "pip-audit not installed"
+        args_base = [sys.executable, "-m", "pip_audit"]
 
     cwd = path.parent
-    args = [bin_name, "-f", "json"]
+    args = args_base + ["-f", "json"]
     if path.name in PYTHON_LOCKFILES:
         args.extend(["--locked"])
     elif path.name.startswith("requirements") and path.name.endswith(".txt"):
