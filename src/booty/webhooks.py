@@ -9,7 +9,15 @@ import time
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from github import Github
+
 from booty.config import get_settings, verifier_enabled
+from booty.release_governor.handler import handle_workflow_run
+from booty.release_governor.store import get_state_dir, has_delivery_id, record_delivery_id
+from booty.test_runner.config import (
+    apply_release_governor_env_overrides,
+    load_booty_config_from_content,
+)
 from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.comments import post_self_modification_disabled_comment
 from booty.jobs import Job
@@ -204,6 +212,93 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         return JSONResponse(
             status_code=202,
             content={"status": "accepted", "job_id": job_id},
+        )
+
+    # Handle workflow_run events (Release Governor)
+    if event_type == "workflow_run":
+        action = payload.get("action")
+        wr = payload.get("workflow_run", {})
+        conclusion = wr.get("conclusion")
+        workflow_name = wr.get("name", "")
+        head_sha = wr.get("head_sha", "")
+        head_branch = wr.get("head_branch", "")
+        repo = payload.get("repository", {})
+        repo_full_name = repo.get("full_name", "")
+
+        if action != "completed" or conclusion != "success":
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                reason="workflow_not_success",
+                action=action,
+                conclusion=conclusion,
+            )
+            return {"status": "ignored", "reason": "workflow_not_success"}
+
+        if head_branch != "main":
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                reason="not_main",
+                head_branch=head_branch,
+            )
+            return {"status": "ignored", "reason": "not_main"}
+
+        # Load config from repo .booty.yml
+        try:
+            gh = Github(settings.GITHUB_TOKEN)
+            gh_repo = gh.get_repo(repo_full_name)
+            default_branch = gh_repo.default_branch or "main"
+            fc = gh_repo.get_contents(".booty.yml", ref=default_branch)
+            yaml_content = fc.decoded_content.decode("utf-8")
+            config = load_booty_config_from_content(yaml_content)
+            governor_config = apply_release_governor_env_overrides(
+                config.release_governor
+            ) if getattr(config, "release_governor", None) else None
+        except Exception:
+            governor_config = None
+
+        if not governor_config or not governor_config.enabled:
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                reason="governor_disabled",
+            )
+            return {"status": "ignored", "reason": "governor_disabled"}
+
+        if workflow_name != governor_config.verification_workflow_name:
+            logger.info(
+                "event_filtered",
+                event_type=event_type,
+                reason="not_verification_workflow",
+                workflow_name=workflow_name,
+            )
+            return {"status": "ignored", "reason": "not_verification_workflow"}
+
+        state_dir = get_state_dir()
+        if has_delivery_id(state_dir, repo_full_name, head_sha):
+            logger.info(
+                "governor_already_processed",
+                repo=repo_full_name,
+                head_sha=head_sha[:7],
+            )
+            return {"status": "already_processed"}
+
+        decision = handle_workflow_run(payload, governor_config)
+
+        if delivery_id:
+            record_delivery_id(state_dir, repo_full_name, head_sha, delivery_id)
+
+        logger.info(
+            "governor_workflow_processed",
+            repo=repo_full_name,
+            head_sha=head_sha[:7],
+            outcome=decision.outcome,
+            reason=decision.reason,
+        )
+        return JSONResponse(
+            status_code=202,
+            content={"status": "accepted", "event": "workflow_run", "outcome": decision.outcome},
         )
 
     # Handle issues events (Builder)
