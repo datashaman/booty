@@ -137,10 +137,20 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Override poll for race handling | Governor may run before Security; poll up to 120s | ✓ Good — v1.5 |
 | Environment approval only for Phase 15 | Label/comment require PR lookup; deferred | ✓ Good — v1.4 |
 
+## Current Milestone: v1.6 Memory Agent
+
+**Goal:** Convert high-value system events into durable, queryable knowledge and surface that knowledge back into the workflow as context, without changing outcomes automatically.
+
+**Target features:**
+- Memory Agent ingests events from Observability, Governor, Security, Verifier, Builder (reverts)
+- Deterministic lookup by fingerprint/paths/ecosystem/keywords (no embeddings in v1)
+- Surface context: Builder PR comment, Governor HOLD details, Observability incident body
+- Append-only storage (.booty/state/memory.jsonl), 90-day retention, configurable
+- .booty.yml memory block + env overrides; booty memory status | query CLI
+
 ## Current State
 
 **Shipped:** v1.5 (2026-02-16)
-**Next Milestone:** v1.6 — run `/gsd:new-milestone` to define
 
 **What shipped in v1.5:**
 - Security Agent: pull_request webhook, booty/security check (queued → in_progress → completed)
@@ -161,4 +171,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 </details>
 
 ---
-*Last updated: 2026-02-16 after v1.5 milestone*
+*Last updated: 2026-02-16 after v1.6 milestone start*
