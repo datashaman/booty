@@ -545,6 +545,23 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
     path = plan_path_for_issue(owner, repo_slug, issue_number)
     save_plan(plan_obj, path)
 
+    repo_url = f"https://github.com/{repo_name}"
+    try:
+        from github import GithubException
+
+        from booty.github.comments import post_plan_comment
+        from booty.logging import get_logger
+        from booty.planner.output import format_plan_comment
+
+        body = format_plan_comment(plan_obj)
+        post_plan_comment(token, repo_url, issue_number, body)
+    except GithubException as e:
+        get_logger().warning(
+            "plan_comment_post_failed",
+            issue_number=issue_number,
+            error=str(e),
+        )
+
     if output_path:
         import shutil
         shutil.copy(path, output_path)
