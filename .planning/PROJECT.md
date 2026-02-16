@@ -44,6 +44,17 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
+### Validated (v1.5)
+
+- ✓ Security agent runs on pull_request opened/synchronize — v1.5
+- ✓ Security publishes required GitHub check `booty/security` — v1.5
+- ✓ Secret detection on changed files (gitleaks/trufflehog), FAIL + annotations — v1.5
+- ✓ Dependency vulnerability gate (pip/npm/composer/cargo audit), FAIL on HIGH+ — v1.5
+- ✓ Permission drift: sensitive paths → ESCALATE, override to Governor — v1.5
+- ✓ Governor consumes Security risk override before deploy decisions — v1.5
+- ✓ Security config block (.booty.yml): enabled, fail_severity, sensitive_paths — v1.5
+- ✓ Security check completes in &lt; 60 seconds — v1.5
+
 ### Validated (v1.4)
 
 - ✓ Governor gates production deployment (allow/hold) — v1.4
@@ -77,8 +88,9 @@ Shipped v1.1 with test generation (convention detection, AST import validation) 
 Shipped v1.2 with Verifier agent (GitHub Checks API, pull_request webhook, diff limits, .booty.yml schema v1, import/compile detection).
 Shipped v1.3 with deploy automation (GitHub Actions → SSH → deploy.sh), Sentry APM (release/env correlation), and Observability agent (Sentry webhook → GitHub issues with agent:builder).
 Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, approval policy, workflow_dispatch deploy, HOLD/ALLOW UX, release state store, booty governor CLI.
+Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0, v1.1, v1.2, v1.3, v1.4 requirements satisfied.
+All v1.0 through v1.5 requirements satisfied.
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -119,29 +131,34 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Retry only on 5xx for issue creation | 4xx (auth, not found) not retried | ✓ Good — v1.3 |
 | workflow_dispatch-only deploy trigger | Governor owns deploy; verify-main runs on push | ✓ Good — v1.4 |
 | Config from repo .booty.yml via GitHub API | Governor is multi-tenant; no local file | ✓ Good — v1.4 |
+| gitleaks for secret scanning | Lightweight, diff-based; trufflehog acceptable | ✓ Good — v1.5 |
+| Security runs on every PR | No is_agent_pr filter; consistent coverage | ✓ Good — v1.5 |
+| ESCALATE does not block merge | Governor handles deploy gating; PR proceeds | ✓ Good — v1.5 |
+| Override poll for race handling | Governor may run before Security; poll up to 120s | ✓ Good — v1.5 |
 | Environment approval only for Phase 15 | Label/comment require PR lookup; deferred | ✓ Good — v1.4 |
-
-## Current Milestone: v1.5 Security Agent
-
-**Goal:** A Security agent that acts as merge veto authority — blocks secrets and high/critical vulnerabilities, escalates permission-surface changes to the Governor.
-
-**Target features:**
-- Secret leakage detection (gitleaks/trufflehog on changed files)
-- Dependency vulnerability gate (pip-audit, npm audit, etc.; fail on HIGH+)
-- Permission drift detection (sensitive paths → ESCALATE to Governor)
-- Independent GitHub check `booty/security`; &lt; 60s completion
 
 ## Current State
 
-**Shipped:** v1.4 (2026-02-16)
-**Next Milestone:** v1.5 Security Agent
+**Shipped:** v1.5 (2026-02-16)
+**Next Milestone:** v1.6 — run `/gsd:new-milestone` to define
 
-**What shipped in v1.4:**
+**What shipped in v1.5:**
+- Security Agent: pull_request webhook, booty/security check (queued → in_progress → completed)
+- Secret leakage detection (gitleaks/trufflehog on changed files, FAIL + annotations)
+- Dependency vulnerability gate (pip/npm/composer/cargo audit, FAIL on severity >= HIGH)
+- Permission drift: sensitive paths → ESCALATE, override persisted, Governor consumes
+- 17/17 v1.5 requirements
+
+<details>
+<summary>v1.4 Release Governor (shipped 2026-02-16)</summary>
+
 - Release Governor: workflow_run trigger, risk scoring (LOW/MEDIUM/HIGH), decision engine, cooldown/rate limit
 - workflow_dispatch deploy with sha input; HOLD/ALLOW commit status (booty/release-governor)
 - Release state store (.booty/state/release.json); deploy failure → GitHub issue
 - booty governor status | simulate | trigger CLI; docs/release-governor.md
 - 32/32 v1.4 requirements; milestone audit passed (tech_debt: label/comment approval stubbed)
 
+</details>
+
 ---
-*Last updated: 2026-02-16 — milestone v1.5 Security Agent started*
+*Last updated: 2026-02-16 after v1.5 milestone*

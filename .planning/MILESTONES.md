@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.5 Security Agent (Shipped: 2026-02-16)
+
+**Delivered:** Security Agent as merge veto authority — pull_request check `booty/security`, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
+
+**Phases completed:** 18-21 (10 plans total)
+
+**Key accomplishments:**
+
+- SecurityConfig schema, booty/security check, pull_request webhook, Security module skeleton (Phase 18)
+- Secret leakage detection: gitleaks/trufflehog on changed files, FAIL + file/line annotations (Phase 19)
+- Dependency vulnerability gate: lockfile auto-detect, per-ecosystem audit, FAIL on severity >= HIGH (Phase 20)
+- Permission drift: sensitive paths → ESCALATE, override persisted to security_overrides.json (Phase 21)
+- Governor override integration: get_security_override with poll, risk_class=HIGH when present (Phase 21)
+- 17/17 v1.5 requirements
+
+**Stats:**
+
+- 70 files modified (v1.4..v1.5)
+- 10,945 lines of Python (total)
+- 4 phases, 10 plans
+- 1 day from v1.4 to ship (2026-02-16)
+
+**Git range:** `7f59bf0` (v1.4) → `666b7dd` (HEAD)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.4 Release Governor (Shipped: 2026-02-16)
 
 **Delivered:** Governor gates production deployment — workflow_run trigger, risk scoring from paths touched, approval policy (env/label/comment; env implemented), workflow_dispatch deploy for allowed SHAs, release state store, HOLD/ALLOW commit status, deploy failure issues.
