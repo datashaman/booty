@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.7 Planner Agent (Shipped: 2026-02-16)
+
+**Delivered:** Planner Agent turns GitHub issues, Observability incidents, and operator CLI prompts into structured Plan JSON with goal, steps, risk_level, touch_paths, handoff_to_builder — ready for Builder consumption. Idempotent within 24h.
+
+**Phases completed:** 27–31 (15 plans total)
+
+**Key accomplishments:**
+
+- Plan schema (Pydantic), storage (plans/owner/repo/n.json), PlannerConfig, webhook agent:plan, booty plan CLI (Phase 27)
+- PlannerInput, normalizers (GitHub issue, CLI text, Observability incident), get_repo_context (Phase 28)
+- Magentic LLM prompt, generate_plan, derive_touch_paths, classify_risk_from_paths (Phase 29)
+- format_plan_comment, post_plan_comment, issue comment with Goal/Risk/Steps/Builder instructions (Phase 30)
+- Cache primitives (input_hash, plan_hash), find_cached_issue_plan, ad-hoc cache; idempotency within 24h (Phase 31)
+- 25/26 v1.7 requirements (PLAN-22 deferred until Builder integrates)
+
+**Stats:**
+
+- 92 files changed (v1.6..v1.7)
+- 15,433 lines of Python (total)
+- 5 phases, 15 plans
+- 1 day from v1.6 to ship (2026-02-16)
+
+**Git range:** `v1.6` → `476c83a` (Merge PR #26)
+
+**What's next:** TBD — run `/gsd:new-milestone` to define
+
+---
+
 ## v1.6 Memory Agent (Shipped: 2026-02-16)
 
 **Delivered:** Memory Agent converts high-value system events into durable, queryable knowledge; deterministic lookup; surfaces context in PR comments, Governor HOLD, and Observability incidents. Informational only.

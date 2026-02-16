@@ -44,6 +44,15 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
+### Validated (v1.7)
+
+- ✓ Planner accepts GitHub issue, Observability incident, CLI text inputs — v1.7
+- ✓ Planner produces Plan JSON (schema, max 12 steps, handoff_to_builder) — v1.7
+- ✓ Risk classification (HIGH/MEDIUM/LOW) from touch_paths — v1.7
+- ✓ Triggers: webhook agent:plan, booty plan --issue, booty plan --text — v1.7
+- ✓ Output: issue comment + artifact plans/<issue_id>.json — v1.7
+- ✓ Idempotency: plan_hash, cache within 24h — v1.7
+
 ### Validated (v1.6)
 
 - ✓ Memory persists to append-only memory.jsonl with atomic writes — v1.6
@@ -103,7 +112,7 @@ Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, appro
 Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
 Shipped v1.6 with Memory Agent — append-only memory.jsonl, ingestion from Observability/Governor/Security/Verifier/Revert, deterministic lookup, PR/Governor/incident surfacing, booty memory status|query.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0 through v1.5 requirements satisfied.
+All v1.0 through v1.7 requirements satisfied (PLAN-22 deferred).
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -152,23 +161,29 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Memory block as raw dict; MemoryConfig validates on use | Unknown keys fail Memory only (MEM-25) | ✓ Good — v1.6 |
 | Trigger Memory surfacing on check_run completed | Memory surfaces only after Verifier runs | ✓ Good — v1.6 |
 | Governor section merges into existing Memory comment | Append or replace; single updatable comment | ✓ Good — v1.6 |
+| Planner triggers on agent:plan label and booty plan CLI | Webhook + CLI; plan schema v1 fixed | ✓ Good — v1.7 |
+| touch_paths overwritten from derive_touch_paths | LLM output not trusted for paths | ✓ Good — v1.7 |
+| 2+ incident markers for Observability heuristics | Severity + Sentry; avoids false positives | ✓ Good — v1.7 |
 | Stdlib-only lookup; derive paths_hash from candidate paths | No new deps; verifier_cluster matches when caller has paths | ✓ Good — v1.6 |
-
-## Current Milestone: v1.7 Planner Agent
-
-**Goal:** Planner Agent turns input requests (issue, incident, operator prompt) into structured execution plans that Builder can consume without interpretation.
-
-**Target features:**
-- Accept inputs: GitHub issue (label `agent:plan`), Observability incident, operator CLI (`booty plan`)
-- Produce Plan JSON (max 12 steps, schema with goal, risk_level, touch_paths, handoff_to_builder)
-- Risk classification (LOW/MEDIUM/HIGH from touch_paths)
-- Output: issue comment + stored artifact `$HOME/.booty/state/plans/<issue_id>.json`
-- Idempotency: same plan for unchanged inputs within 24h (plan_hash for dedup)
-- Builder contract: executable without interpretation
 
 ## Current State
 
-**Shipped:** v1.6 (2026-02-16)
+**Shipped:** v1.7 (2026-02-16)
+
+**What shipped in v1.7:**
+- Planner Agent: Plan schema (Pydantic), storage, PlannerConfig, webhook agent:plan, booty plan CLI
+- Input normalization: GitHub issue, Observability incident, CLI text; get_repo_context
+- Plan generation: Magentic prompt, derive_touch_paths, classify_risk_from_paths
+- Output: format_plan_comment, post_plan_comment, issue comment + artifact
+- Idempotency: input_hash, plan_hash, cache within 24h (issue + ad-hoc)
+- 25/26 v1.7 requirements; PLAN-22 deferred until Builder integrates
+
+## Next Milestone Goals
+
+TBD — run `/gsd:new-milestone` to define v1.8+ (questioning → research → requirements → roadmap). Candidate: Builder integration consuming Planner output.
+
+<details>
+<summary>v1.6 Memory Agent (shipped 2026-02-16)</summary>
 
 **What shipped in v1.6:**
 - Memory Agent: append-only memory.jsonl, MemoryConfig, add_record API with dedup
@@ -176,7 +191,12 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 - Deterministic lookup (path/fingerprint match, severity/recency sort)
 - Surfacing: PR comment on Verifier check, Governor HOLD links, Observability incident "Related history"
 - booty memory status | query CLI
-- 28/28 v1.6 requirements; milestone audit passed
+- 28/28 v1.6 requirements
+
+</details>
+
+<details>
+<summary>v1.5 Security Agent (shipped 2026-02-16)</summary>
 
 **What shipped in v1.5:**
 - Security Agent: pull_request webhook, booty/security check (queued → in_progress → completed)
@@ -184,6 +204,8 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 - Dependency vulnerability gate (pip/npm/composer/cargo audit, FAIL on severity >= HIGH)
 - Permission drift: sensitive paths → ESCALATE, override persisted, Governor consumes
 - 17/17 v1.5 requirements
+
+</details>
 
 <details>
 <summary>v1.4 Release Governor (shipped 2026-02-16)</summary>
@@ -197,4 +219,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 </details>
 
 ---
-*Last updated: 2026-02-16 — Milestone v1.7 Planner Agent started*
+*Last updated: 2026-02-16 — v1.7 milestone complete*
