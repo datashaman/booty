@@ -43,6 +43,7 @@ jobs:
               - 'src/**'
               - 'deploy/**'
               - 'deploy.sh'
+              - 'docs/**'
               - 'pyproject.toml'
               - '.booty.yml'
               - 'requirements*.txt'
