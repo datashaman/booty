@@ -36,9 +36,9 @@ Requirements for Planner Agent milestone. Each maps to roadmap phases.
 
 ### Output Delivery
 
-- [ ] **PLAN-16**: Planner posts plan as issue comment (JSON in code block)
+- [x] **PLAN-16**: Planner posts plan as issue comment (JSON in code block)
 - [ ] **PLAN-17**: Planner stores artifact in `$HOME/.booty/state/plans/<issue_id>.json`
-- [ ] **PLAN-18**: Issue comment includes Goal, Risk level, Step list (P1..Pn), "Builder instructions" section — avoid long prose
+- [x] **PLAN-18**: Issue comment includes Goal, Risk level, Step list (P1..Pn), "Builder instructions" section — avoid long prose
 
 ### Builder Contract
 
@@ -93,9 +93,9 @@ Deferred to later milestones.
 | PLAN-13 | 27 | Complete |
 | PLAN-14 | 27 | Complete |
 | PLAN-15 | 27 | Complete |
-| PLAN-16 | 30 | Pending |
+| PLAN-16 | 30 | Complete |
 | PLAN-17 | 27, 30 | Complete |
-| PLAN-18 | 30 | Pending |
+| PLAN-18 | 30 | Complete |
 | PLAN-19 | 29 | Complete |
 | PLAN-20 | 29 | Complete |
 | PLAN-21 | 29 | Complete |
