@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from github import UnknownObjectException
@@ -13,13 +14,14 @@ from booty.github.checks import (
     get_verifier_repo,
 )
 from booty.logging import get_logger
+from booty.security.job import SecurityJob
+from booty.security.scanner import build_annotations, run_secret_scan
 from booty.test_runner.config import (
     BootyConfigV1,
     apply_security_env_overrides,
     load_booty_config_from_content,
 )
-
-from booty.security.job import SecurityJob
+from booty.verifier.workspace import prepare_verification_workspace
 
 if TYPE_CHECKING:
     pass
@@ -94,7 +96,7 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 error=str(e),
             )
 
-    # Phase 18: if security disabled or not configured, complete success
+    # Phase 18: if security disabled in config, complete success
     if security_config is not None and not security_config.enabled:
         edit_check_run(
             check_run,
@@ -108,14 +110,72 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
         logger.info("security_check_completed", job_id=job.job_id, conclusion="success")
         return
 
-    # Security enabled (or default): Phase 18 baseline — no scanners yet
-    edit_check_run(
-        check_run,
-        status="completed",
-        conclusion="success",
-        output={
-            "title": "Security check complete",
-            "summary": "Security check complete — no scanners configured",
-        },
-    )
-    logger.info("security_check_completed", job_id=job.job_id, conclusion="success")
+    # Phase 19: run secret scan
+    base_sha = job.base_sha or (job.payload.get("pull_request", {}).get("base", {}).get("sha", ""))
+    try:
+        async with prepare_verification_workspace(
+            job.repo_url,
+            job.head_sha,
+            settings.GITHUB_TOKEN,
+            job.head_ref,
+        ) as workspace:
+            result = await asyncio.to_thread(
+                run_secret_scan,
+                workspace.path,
+                base_sha or job.head_sha,
+                security_config,
+            )
+
+            if not result.scan_ok:
+                edit_check_run(
+                    check_run,
+                    status="completed",
+                    conclusion="failure",
+                    output={
+                        "title": "Security failed — secret detected",
+                        "summary": result.error_message or "Scan incomplete",
+                    },
+                )
+                logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
+                return
+
+            if result.findings:
+                annotations, suffix = build_annotations(result.findings, 50)
+                num_files = len({f.get("path", "") for f in result.findings})
+                summary = f"{len(result.findings)} secret(s) in {num_files} file(s){suffix}"
+                edit_check_run(
+                    check_run,
+                    status="completed",
+                    conclusion="failure",
+                    output={
+                        "title": "Security failed — secret detected",
+                        "summary": summary,
+                        "annotations": annotations,
+                    },
+                )
+                logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
+                return
+
+            edit_check_run(
+                check_run,
+                status="completed",
+                conclusion="success",
+                output={
+                    "title": "Security check complete",
+                    "summary": "No secrets detected",
+                },
+            )
+            logger.info("security_check_completed", job_id=job.job_id, conclusion="success")
+
+    except Exception as e:
+        logger.exception("security_scan_failed", job_id=job.job_id, error=str(e))
+        edit_check_run(
+            check_run,
+            status="completed",
+            conclusion="failure",
+            output={
+                "title": "Security failed — secret detected",
+                "summary": f"Scan incomplete: {e!s}",
+            },
+        )
+        logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
