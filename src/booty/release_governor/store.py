@@ -4,7 +4,8 @@ import fcntl
 import json
 import os
 import tempfile
-from dataclasses import dataclass
+from datetime import datetime, timezone
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -18,6 +19,7 @@ class ReleaseState:
     last_deploy_time: str | None = None  # ISO8601
     last_deploy_result: str = "pending"  # success|failure|pending
     last_health_check: str | None = None  # ISO8601
+    deploy_history: list[dict] = field(default_factory=list)  # [{sha, time_iso8601, result}]; max 24
 
 
 def get_state_dir() -> Path:
@@ -60,6 +62,7 @@ def _state_to_dict(s: ReleaseState) -> dict:
         "last_deploy_time": s.last_deploy_time,
         "last_deploy_result": s.last_deploy_result,
         "last_health_check": s.last_health_check,
+        "deploy_history": s.deploy_history,
     }
 
 
@@ -71,6 +74,7 @@ def _dict_to_state(d: dict) -> ReleaseState:
         last_deploy_time=d.get("last_deploy_time"),
         last_deploy_result=d.get("last_deploy_result", "pending"),
         last_health_check=d.get("last_health_check"),
+        deploy_history=d.get("deploy_history") or [],
     )
 
 
@@ -115,6 +119,37 @@ def has_delivery_id(state_dir: Path, repo: str, head_sha: str) -> bool:
             return False
         finally:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+DEPLOY_HISTORY_MAX = 24
+
+
+def append_deploy_to_history(
+    state_dir: Path, sha: str, time_iso8601: str, result: str
+) -> None:
+    """Append deploy to history. Evict oldest if over DEPLOY_HISTORY_MAX."""
+    state = load_release_state(state_dir)
+    state.deploy_history.append({"sha": sha, "time_iso8601": time_iso8601, "result": result})
+    while len(state.deploy_history) > DEPLOY_HISTORY_MAX:
+        state.deploy_history.pop(0)
+    save_release_state(state_dir, state)
+
+
+def get_deploys_in_last_hour(state_dir: Path) -> int:
+    """Return count of deploys in the last 60 minutes."""
+    state = load_release_state(state_dir)
+    now = datetime.now(timezone.utc)
+    cutoff = now.timestamp() - 3600
+    count = 0
+    for entry in state.deploy_history:
+        ts_str = entry.get("time_iso8601", "")
+        try:
+            dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            if dt.timestamp() >= cutoff:
+                count += 1
+        except (ValueError, TypeError):
+            pass
+    return count
 
 
 def record_delivery_id(
