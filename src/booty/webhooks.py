@@ -521,7 +521,13 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             decision = handle_workflow_run(payload, governor_config)
 
             html_url = repo.get("html_url", "") or ""
-            target_url = f"{html_url.rstrip('/')}/actions" if html_url else ""
+            actions_url = f"{html_url.rstrip('/')}/actions" if html_url else ""
+            default_branch = gh_repo.default_branch or "main"
+            hold_docs_url = (
+                f"{html_url.rstrip('/')}/blob/{default_branch}/docs/release-governor.md"
+                if html_url
+                else ""
+            )
 
             if decision.outcome == "ALLOW":
                 dispatch_deploy(gh_repo, governor_config, head_sha)
@@ -532,7 +538,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 state.last_deploy_result = "pending"
                 save_release_state(state_dir, state)
                 append_deploy_to_history(state_dir, head_sha, now_iso, "pending")
-                post_allow_status(gh_repo, head_sha, target_url)
+                post_allow_status(gh_repo, head_sha, actions_url)
             else:
                 approval_hint = None
                 if decision.reason == "high_risk_no_approval":
@@ -543,7 +549,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                         approval_hint = f"Approval via comment: {governor_config.approval_command}"
                     elif mode == "environment":
                         approval_hint = "Approval via env: RELEASE_GOVERNOR_APPROVED=true"
-                post_hold_status(gh_repo, head_sha, decision, target_url, approval_hint)
+                post_hold_status(gh_repo, head_sha, decision, hold_docs_url, approval_hint)
                 # Memory surfacing for Governor HOLD (1-2 hold-reason matches in PR comment)
                 mem_config = get_memory_config(config) if config else None
                 if mem_config:
