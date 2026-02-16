@@ -498,9 +498,9 @@ def plan() -> None:
 @click.argument("issue_number", type=int)
 def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: str | None) -> None:
     """Generate plan from GitHub issue. Requires GITHUB_TOKEN."""
+    from booty.planner.generation import generate_plan
     from booty.planner.input import get_repo_context, normalize_github_issue
-    from booty.planner import Plan
-    from booty.planner.schema import HandoffToBuilder
+    from booty.planner.risk import classify_risk_from_paths
     from booty.planner.store import plan_path_for_issue, save_plan
 
     settings = get_settings()
@@ -532,7 +532,6 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
         repo_info = {"owner": owner, "repo": repo_slug}
         repo_context = get_repo_context(owner, repo_slug, token) if token else None
         inp = normalize_github_issue(issue_dict, repo_info, repo_context)
-        goal = inp.goal
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         if verbose:
@@ -540,20 +539,9 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
             traceback.print_exc(file=__import__("sys").stderr)
         raise SystemExit(1)
 
-    handoff = HandoffToBuilder(
-        branch_name_hint="plan",
-        commit_message_hint=goal,
-        pr_title=goal,
-        pr_body_outline="",
-    )
-    plan_obj = Plan(
-        plan_version="1",
-        goal=goal,
-        steps=[],
-        risk_level="LOW",
-        touch_paths=[],
-        handoff_to_builder=handoff,
-    )
+    plan_obj = generate_plan(inp)
+    risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
+    plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
     path = plan_path_for_issue(owner, repo_slug, issue_number)
     save_plan(plan_obj, path)
 
@@ -561,8 +549,8 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
         import shutil
         shutil.copy(path, output_path)
 
-    goal_snippet = f"{goal[:50]}{'...' if len(goal) > 50 else ''}"
-    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps")
+    goal_snippet = f"{plan_obj.goal[:50]}{'...' if len(plan_obj.goal) > 50 else ''}"
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {risk_level}")
 
 
 @plan.command("text")
@@ -572,9 +560,9 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
 @click.argument("text", required=True)
 def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | None) -> None:
     """Generate plan from free text prompt."""
+    from booty.planner.generation import generate_plan
     from booty.planner.input import get_repo_context, normalize_cli_text
-    from booty.planner import Plan
-    from booty.planner.schema import HandoffToBuilder
+    from booty.planner.risk import classify_risk_from_paths
     from booty.planner.store import plan_path_for_ad_hoc, save_plan
 
     ws = Path.cwd()
@@ -595,22 +583,9 @@ def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | Non
         else None
     )
     inp = normalize_cli_text(text, repo_info=repo_info, repo_context=repo_context)
-    goal = inp.goal
-
-    handoff = HandoffToBuilder(
-        branch_name_hint="plan",
-        commit_message_hint=goal,
-        pr_title=goal,
-        pr_body_outline="",
-    )
-    plan_obj = Plan(
-        plan_version="1",
-        goal=goal,
-        steps=[],
-        risk_level="LOW",
-        touch_paths=[],
-        handoff_to_builder=handoff,
-    )
+    plan_obj = generate_plan(inp)
+    risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
+    plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
     path = plan_path_for_ad_hoc(text)
     save_plan(plan_obj, path)
 
@@ -618,8 +593,8 @@ def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | Non
         import shutil
         shutil.copy(path, output_path)
 
-    goal_snippet = f"{goal[:50]}{'...' if len(goal) > 50 else ''}"
-    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps")
+    goal_snippet = f"{plan_obj.goal[:50]}{'...' if len(plan_obj.goal) > 50 else ''}"
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {risk_level}")
 
 
 @cli.group()
