@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     VERIFIER_WORKER_COUNT: int = 2  # Number of verifier workers
     MAX_VERIFIER_RETRIES: int = 1  # Max verifier-triggered builder retries (prevents infinite loops)
 
+    # Security (GitHub App) configuration — uses same App as Verifier
+    SECURITY_WORKER_COUNT: int = 2  # Number of security workers
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -68,6 +71,11 @@ class Settings(BaseSettings):
 
 def verifier_enabled(settings: Settings) -> bool:
     """Return True if GitHub App credentials are configured for Verifier."""
+    return bool(settings.GITHUB_APP_ID and settings.GITHUB_APP_PRIVATE_KEY)
+
+
+def security_enabled(settings: Settings) -> bool:
+    """Return True if GitHub App credentials are configured for Security (same App as Verifier)."""
     return bool(settings.GITHUB_APP_ID and settings.GITHUB_APP_PRIVATE_KEY)
 
 

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from github import Auth, GithubException, GithubIntegration
 
-from booty.config import Settings, verifier_enabled
+from booty.config import Settings, security_enabled, verifier_enabled
 from booty.logging import get_logger
 
 if TYPE_CHECKING:
@@ -77,6 +77,40 @@ def create_check_run(
     output = output or {"title": "Booty Verifier", "summary": "Queued"}
     kwargs: dict[str, Any] = {
         "name": "booty/verifier",
+        "head_sha": head_sha,
+        "status": status,
+        "output": output,
+    }
+    if details_url is not None:
+        kwargs["details_url"] = details_url
+
+    return repo.create_check_run(**kwargs)
+
+
+def create_security_check_run(
+    owner: str,
+    repo_name: str,
+    head_sha: str,
+    installation_id: int,
+    settings: Settings,
+    *,
+    status: str = "queued",
+    output: dict[str, Any] | None = None,
+    details_url: str | None = None,
+) -> "CheckRun | None":
+    """Create a booty/security check run on a commit.
+
+    Returns None if Security is disabled. Uses GitHub App auth (same as Verifier).
+    """
+    repo = get_verifier_repo(owner, repo_name, installation_id, settings)
+    if repo is None:
+        return None
+    if not security_enabled(settings):
+        return None
+
+    output = output or {"title": "Booty Security", "summary": "Queued"}
+    kwargs: dict[str, Any] = {
+        "name": "booty/security",
         "head_sha": head_sha,
         "status": status,
         "output": output,
