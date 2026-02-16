@@ -54,13 +54,21 @@ Plans:
 
 ---
 
-### Phase 20: Dependency Vulnerability Gate
+### Phase 20: Dependency Vulnerability Gate ✓
 
 **Goal:** Auto-detect ecosystem from lockfiles; run audit; FAIL on severity >= HIGH.
 
 **Requirements:** SEC-05, SEC-06, SEC-07
 
 **Depends on:** Phase 18
+
+**Completed:** 2026-02-16
+
+**Plans:** 2 plans (all complete)
+
+Plans:
+- [x] 20-01-PLAN.md — Audit module: discover_lockfiles, run_dependency_audit
+- [x] 20-02-PLAN.md — Runner integration: audit after secret scan
 
 **Success criteria:**
 1. Lockfile detection: pip (requirements*.txt, pyproject.toml), npm (package-lock.json), composer (composer.lock), cargo (Cargo.lock)

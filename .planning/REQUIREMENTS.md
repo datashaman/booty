@@ -16,9 +16,9 @@ Security Agent: merge veto authority. Verifier answers "Does it work?" — Secur
 
 ### Dependency Vulnerability
 
-- [ ] **SEC-05**: Security auto-detects ecosystem via lockfiles (pip, npm, composer, cargo)
-- [ ] **SEC-06**: Security runs appropriate audit tool (pip-audit, npm audit, composer audit, cargo audit)
-- [ ] **SEC-07**: Security FAILs check only when severity >= HIGH; ignore low/medium
+- [x] **SEC-05**: Security auto-detects ecosystem via lockfiles (pip, npm, composer, cargo)
+- [x] **SEC-06**: Security runs appropriate audit tool (pip-audit, npm audit, composer audit, cargo audit)
+- [x] **SEC-07**: Security FAILs check only when severity >= HIGH; ignore low/medium
 
 ### Permission Drift
 
@@ -73,9 +73,9 @@ Deferred to later milestones.
 | SEC-03 | 19 | Complete |
 | SEC-04 | 19 | Complete |
 | SEC-17 | 19 | Complete |
-| SEC-05 | 20 | Pending |
-| SEC-06 | 20 | Pending |
-| SEC-07 | 20 | Pending |
+| SEC-05 | 20 | Complete |
+| SEC-06 | 20 | Complete |
+| SEC-07 | 20 | Complete |
 | SEC-08 | 21 | Pending |
 | SEC-09 | 21 | Pending |
 | SEC-10 | 21 | Pending |
