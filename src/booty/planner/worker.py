@@ -1,6 +1,8 @@
 """Planner worker — consumes planner queue, produces minimal plan."""
 
+from booty.config import get_settings
 from booty.logging import get_logger
+from booty.planner.input import get_repo_context, normalize_from_job
 from booty.planner.jobs import PlannerJob, planner_queue
 from booty.planner.schema import HandoffToBuilder, Plan
 from booty.planner.store import plan_path_for_issue, save_plan
@@ -9,7 +11,13 @@ from booty.planner.store import plan_path_for_issue, save_plan
 def process_planner_job(job: PlannerJob) -> None:
     """Process planner job: build minimal plan, store to plans/owner/repo/issue.json."""
     logger = get_logger().bind(job_id=job.job_id, issue_number=job.issue_number)
-    goal = job.payload.get("issue", {}).get("title", "Untitled") or "Untitled"
+    repo_context = None
+    if job.owner and job.repo:
+        token = get_settings().GITHUB_TOKEN or ""
+        if token.strip():
+            repo_context = get_repo_context(job.owner, job.repo, token)
+    inp = normalize_from_job(job, repo_context=repo_context)
+    goal = inp.goal
     handoff = HandoffToBuilder(
         branch_name_hint="plan",
         commit_message_hint=goal,
