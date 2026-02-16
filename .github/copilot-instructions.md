@@ -6,6 +6,60 @@ Booty is a self-managing software builder powered by AI. It receives GitHub issu
 
 **Core Value**: A Builder agent that can take a GitHub issue and produce a working PR with tested code.
 
+## Agents and Components
+
+Booty is a multi-agent system with the following components:
+
+### Builder Agent (code_gen/)
+- **Trigger**: GitHub issues with `agent:builder` label
+- **Function**: Analyzes issue → generates code → runs tests → iterative refinement → opens PR
+- **Key modules**: generator.py, refiner.py, validator.py
+- **Safety**: Self-modification gates, path restrictions, token budget management
+- **Output**: Pull request with tested code changes
+
+### Verifier Agent (verifier/)
+- **Trigger**: `pull_request` webhook (opened, synchronize, reopened)
+- **Function**: Posts `booty/verifier` check run with limits validation, import/compile detection
+- **Key modules**: runner.py, limits.py, imports.py
+- **Validation**: Max files changed, max diff LOC, .booty.yml schema, import errors
+- **Output**: GitHub check run (success/failure with annotations)
+
+### Security Agent (security/)
+- **Trigger**: `pull_request` webhook (parallel with Verifier)
+- **Function**: Posts `booty/security` check run with secret scan, dependency audit, permission drift
+- **Key modules**: runner.py, scanner.py, audit.py, permission_drift.py
+- **Decision model**: PASS, FAIL (secrets/vulns), ESCALATE (sensitive paths)
+- **Integration**: ESCALATE persists override for Release Governor to use HIGH risk
+- **Output**: GitHub check run with annotations or escalation notice
+
+### Release Governor (release_governor/)
+- **Trigger**: `workflow_run` completion on main (verification success)
+- **Function**: Computes risk from diff vs production → applies decision rules → ALLOW/HOLD deploy
+- **Key modules**: handler.py, decision.py, risk.py, deploy.py
+- **Risk classes**: LOW (auto-allow), MEDIUM (allow unless degraded), HIGH (hold unless approved)
+- **Output**: workflow_dispatch trigger (ALLOW) or commit status with hold reason
+
+### Memory System (memory/)
+- **Trigger**: Events from Observability, Governor, Security, Verifier, revert detection
+- **Function**: Stores incidents, governor holds, failures, reverts → surfaces related history in PR comments
+- **Key modules**: api.py, store.py, lookup.py, surfacing.py
+- **Storage**: JSONL in state dir (~/.booty/state/memory.jsonl)
+- **Retention**: 90 days default, surfaces up to 3 matches
+- **Output**: "Related history" comments on PRs and incident issues
+
+### Observability (github/issues.py)
+- **Trigger**: Sentry webhook with filtered alerts
+- **Function**: Auto-creates GitHub issues with `agent:builder` label
+- **Integration**: Sentry → filtered alerts → GitHub issue → Builder enqueues
+- **Output**: GitHub issue ready for Builder agent
+
+### Test Generation (test_generation/)
+- **Trigger**: Called by Builder during code generation
+- **Function**: Detects test conventions (language, framework, patterns) and validates test imports
+- **Key modules**: detector.py, validator.py
+- **Support**: Python, JavaScript, TypeScript, Go, Rust, PHP, Ruby, Java
+- **Output**: DetectedConventions model for Builder to use
+
 ## Tech Stack
 
 ### Core Framework
@@ -31,16 +85,44 @@ Booty is a self-managing software builder powered by AI. It receives GitHub issu
 src/booty/
 ├── __init__.py
 ├── main.py              # FastAPI app entrypoint, webhook receiver
+├── cli.py               # CLI commands (status, verifier, governor, memory)
 ├── config.py            # Pydantic Settings for environment config
 ├── jobs.py              # Job queue and worker management
 ├── logging.py           # Structured logging configuration
 ├── repositories.py      # Workspace preparation and Git cloning
 ├── webhooks.py          # GitHub webhook signature verification
-├── code_gen/            # Code generation and refinement
+├── code_gen/            # Code generation and refinement (Builder agent)
 │   ├── generator.py     # Main issue-to-PR pipeline orchestrator
 │   ├── refiner.py       # Test-driven code refinement loop
 │   ├── security.py      # Path restrictions and safety checks
 │   └── validator.py     # Generated code validation
+├── verifier/            # Verifier agent (PR checks)
+│   ├── job.py           # Verifier job definition
+│   ├── runner.py        # Verification pipeline
+│   ├── limits.py        # Diff/file limits validation
+│   ├── imports.py       # Import/compile detection
+│   └── workspace.py     # Workspace setup for verification
+├── security/            # Security agent (secrets, dependencies, permissions)
+│   ├── job.py           # Security job definition
+│   ├── runner.py        # Security scan pipeline
+│   ├── scanner.py       # Secret scanning (gitleaks)
+│   ├── audit.py         # Dependency vulnerability audit
+│   └── permission_drift.py  # Sensitive path detection
+├── release_governor/    # Release Governor (deployment gating)
+│   ├── handler.py       # workflow_run pipeline
+│   ├── decision.py      # Decision computation (ALLOW/HOLD)
+│   ├── risk.py          # Risk classification (LOW/MEDIUM/HIGH)
+│   ├── deploy.py        # Deploy trigger via workflow_dispatch
+│   └── store.py         # Release state persistence
+├── memory/              # Memory system (incident tracking)
+│   ├── api.py           # add_record for agents
+│   ├── store.py         # JSONL storage
+│   ├── lookup.py        # Query by PR/SHA
+│   └── surfacing.py     # Comment generation
+├── test_generation/     # Test generation support
+│   ├── detector.py      # Convention detection (language, framework)
+│   ├── models.py        # DetectedConventions model
+│   └── validator.py     # Test import validation
 ├── llm/                 # LLM interaction layer
 │   ├── prompts.py       # Magentic prompt functions
 │   ├── models.py        # Pydantic models for LLM responses
@@ -49,12 +131,16 @@ src/booty/
 │   └── operations.py    # Commit, push, branch operations
 ├── github/              # GitHub API operations
 │   ├── comments.py      # Issue/PR comment posting
-│   └── pulls.py         # PR creation and management
+│   ├── pulls.py         # PR creation and management
+│   ├── checks.py        # Check runs (Verifier, Security)
+│   └── issues.py        # Issue creation (Observability)
 ├── self_modification/   # Self-modification safety
 │   ├── detector.py      # Detect if target is self
 │   └── safety.py        # Self-modification gates
 └── test_runner/         # Test execution
-    └── runner.py        # Pytest test runner with output capture
+    ├── executor.py      # Test execution with output capture
+    ├── parser.py        # Test output parsing
+    └── config.py        # Test runner configuration
 ```
 
 ## Coding Standards
@@ -99,10 +185,73 @@ src/booty/
 
 ### Environment Variables
 All configuration is loaded through `config.py` using Pydantic Settings:
-- **Required**: WEBHOOK_SECRET, TARGET_REPO_URL
-- **Optional but important**: GITHUB_TOKEN (for private repos)
-- **LLM Settings**: Configured via magentic environment variables (MAGENTIC_BACKEND, MAGENTIC_ANTHROPIC_API_KEY, etc.)
-- **Self-modification**: BOOTY_SELF_MODIFY_ENABLED must be explicitly true
+
+**Core:**
+- **WEBHOOK_SECRET**: Required for webhook verification
+- **TARGET_REPO_URL**: Required - repository to target for Builder
+- **GITHUB_TOKEN**: Optional but important for private repos and API operations
+- **BOOTY_OWN_REPO_URL**: For self-modification detection
+- **BOOTY_SELF_MODIFY_ENABLED**: Must be explicitly true for self-modification
+
+**GitHub App (Verifier & Security):**
+- **GITHUB_APP_ID**: GitHub App ID for check runs
+- **GITHUB_APP_PRIVATE_KEY**: Private key for GitHub App authentication
+- **GITHUB_APP_INSTALLATION_ID**: Installation ID for the app
+
+**LLM Settings:**
+- Configured via magentic environment variables
+- **MAGENTIC_BACKEND**: LLM backend (e.g., anthropic)
+- **MAGENTIC_ANTHROPIC_API_KEY**: Anthropic API key
+
+**Memory System:**
+- **MEMORY_ENABLED**: Enable memory ingestion and surfacing
+- **MEMORY_RETENTION_DAYS**: Keep records within this window (default: 90)
+- **MEMORY_MAX_MATCHES**: Max matches per PR comment (default: 3)
+- **MEMORY_STATE_DIR**: State directory for memory.jsonl
+
+**Security Agent:**
+- **SECURITY_ENABLED**: Master switch for security checks
+- **SECURITY_FAIL_SEVERITY**: Severity threshold (low, medium, high, critical)
+
+**Release Governor:**
+- **RELEASE_GOVERNOR_ENABLED**: Enable deployment gating
+- **RELEASE_GOVERNOR_APPROVED**: Override for manual approval
+
+**Observability:**
+- **SENTRY_DSN**: Sentry DSN for error tracking
+- **SENTRY_WEBHOOK_SECRET**: Webhook secret for Sentry integration
+
+### .booty.yml Configuration
+Repository-level configuration in `.booty.yml` (schema_version: 1):
+
+```yaml
+schema_version: 1
+setup_command: python3 -m venv .venv
+install_command: .venv/bin/pip install -e '.[dev]'
+test_command: .venv/bin/pytest
+max_files_changed: 30      # Verifier limit
+max_diff_loc: 1500         # Verifier limit
+
+security:
+  enabled: true
+  fail_severity: high
+  secret_scanner: gitleaks
+  sensitive_paths:
+    - ".github/workflows/**"
+    - "infra/**"
+
+release_governor:
+  enabled: true
+  verification_workflow_name: "Verify main"
+  deploy_workflow_name: deploy.yml
+
+memory:
+  enabled: true
+  retention_days: 90
+  max_matches: 3
+  comment_on_pr: true
+  comment_on_incident_issue: true
+```
 
 ### Path Restrictions
 Protected paths (configured in RESTRICTED_PATHS):
@@ -133,6 +282,29 @@ pytest                    # Run all tests
 pytest tests/test_*.py    # Run specific test file
 pytest -v                 # Verbose output
 pytest -k "test_name"     # Run specific test by name
+```
+
+### CLI Commands
+```bash
+# System status
+booty status              # Show agent status (Builder, Verifier, Governor, Memory)
+
+# Verifier
+booty verifier check-test --repo owner/repo --sha <sha> --installation-id <id>
+booty verifier status
+
+# Release Governor
+booty governor status                      # Show release state
+booty governor simulate <sha>              # Dry-run decision
+booty governor simulate --sha <sha> --show-paths
+booty governor trigger <sha>               # Manual deploy trigger
+
+# Memory
+booty memory status                        # Show memory state
+booty memory query --pr <num> --repo owner/repo
+booty memory query --sha <sha> --repo owner/repo
+
+# Output options: add --json for machine-readable output
 ```
 
 ## Key Patterns and Conventions
@@ -179,6 +351,41 @@ pytest -k "test_name"     # Run specific test by name
 - Create feature branches from target branch
 - Commit messages format: verb + description
 - Push to remote immediately after commit
+
+### GitHub Check Runs (Verifier & Security)
+- Use GitHub Checks API for status reporting
+- Create check run at start (queued → in_progress)
+- Update with conclusion (success, failure, neutral) and output
+- Add annotations for specific file/line issues
+- Verifier uses `booty/verifier` check name
+- Security uses `booty/security` check name
+
+### Memory Integration
+- Use `memory.api.add_record()` to store events
+- Include type, repo, sha, fingerprint for deduplication
+- Records are JSONL append-only (no updates)
+- Query with `memory.lookup` for PR/SHA matches
+- Surface matches using `memory.surfacing.format_comment()`
+
+### Release Governor Decision Flow
+1. Load release state from state_dir
+2. Get production_sha (current or previous)
+3. Compute risk from diff pathspecs
+4. Apply decision rules (hard holds, cooldown, rate limit, approval)
+5. ALLOW → trigger workflow_dispatch with SHA
+6. HOLD → post commit status with reason and unblock instructions
+
+### Security Agent Pattern
+- Three-stage pipeline: secret scan → dependency audit → permission drift
+- PASS: All clean, post success check
+- FAIL: Secrets or vulnerabilities found, post failure check with annotations
+- ESCALATE: Sensitive paths touched, post success check but persist override for Governor
+
+### Verifier Agent Pattern
+- Load .booty.yml from PR head via GitHub API
+- Validate schema, limits (files/LOC), imports/compile
+- Post check run with validation results
+- On failure: surface error + trigger Memory record + optionally re-enqueue Builder
 
 ## Constraints
 
@@ -231,3 +438,41 @@ pytest -k "test_name"     # Run specific test by name
 2. Self-modification gates in `self_modification/safety.py`
 3. Validation logic in `code_gen/validator.py`
 4. Security checks in `code_gen/security.py`
+
+### Working with Verifier
+1. Job definition in `verifier/job.py`
+2. Main pipeline in `verifier/runner.py`
+3. Add limit checks in `verifier/limits.py`
+4. Import detection in `verifier/imports.py`
+5. Post check runs via `github/checks.py`
+
+### Working with Security Agent
+1. Job definition in `security/job.py`
+2. Main pipeline in `security/runner.py`
+3. Secret scanning in `security/scanner.py` (gitleaks/trufflehog)
+4. Dependency audit in `security/audit.py`
+5. Permission drift in `security/permission_drift.py`
+6. Persist overrides for Governor in state_dir
+
+### Working with Release Governor
+1. Handler in `release_governor/handler.py`
+2. Decision logic in `release_governor/decision.py`
+3. Risk computation in `release_governor/risk.py`
+4. Deploy trigger in `release_governor/deploy.py`
+5. State persistence in `release_governor/store.py`
+6. CLI commands: `booty governor status|simulate|trigger`
+
+### Working with Memory
+1. Add records via `memory/api.py` `add_record()`
+2. Storage in `memory/store.py` (JSONL append-only)
+3. Query via `memory/lookup.py`
+4. Surfacing via `memory/surfacing.py`
+5. Configure retention and matching in `.booty.yml`
+6. CLI commands: `booty memory status|query`
+
+### Adding Test Generation Support
+1. Language detection in `test_generation/detector.py`
+2. Framework detection from config files and patterns
+3. Convention model in `test_generation/models.py`
+4. Import validation in `test_generation/validator.py`
+5. Called by Builder during code generation
