@@ -91,10 +91,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-12 | 23 | Complete |
 | MEM-13 | 22 | Complete |
 | MEM-14 | 22 | Complete |
-| MEM-15 | 24 | Pending |
-| MEM-16 | 24 | Pending |
-| MEM-17 | 24 | Pending |
-| MEM-18 | 24 | Pending |
+| MEM-15 | 24 | Complete |
+| MEM-16 | 24 | Complete |
+| MEM-17 | 24 | Complete |
+| MEM-18 | 24 | Complete |
 | MEM-19 | 25 | Pending |
 | MEM-20 | 25 | Pending |
 | MEM-21 | 25 | Pending |

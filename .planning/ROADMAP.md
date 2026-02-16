@@ -14,7 +14,7 @@ Convert high-value system events into durable, queryable knowledge; surface cont
 |---|-------|------|--------------|
 | 22 | Memory Foundation | Storage, config, add_record API | MEM-01 to MEM-05, MEM-13, MEM-14, MEM-24 to MEM-26 | ✓ |
 | 23 | Ingestion | Wire Observability, Governor, Security, Verifier, Revert | MEM-06 to MEM-12 | ✓ |
-| 24 | Lookup | Deterministic query engine | MEM-15 to MEM-18 |
+| 24 | Lookup | Deterministic query engine | MEM-15 to MEM-18 | ✓ |
 | 25 | Surfacing | PR comment, Governor, Observability | MEM-19 to MEM-23 |
 | 26 | CLI | booty memory status, query | MEM-27, MEM-28 |
 
