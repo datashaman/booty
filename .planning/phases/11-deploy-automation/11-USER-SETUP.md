@@ -32,6 +32,22 @@ Complete these items for the deploy workflow to function. Claude automated the w
   - Optional: `DEPLOY_PORT` (SSH port; omit for default 22)
   - Optional: `DEPLOY_USER` (deploy.sh defaults to current user if unset)
 
+## Firewall (required for SSH from GitHub Actions)
+
+GitHub Actions runners use dynamic IPs. Your server must allow SSH (port 22 or `DEPLOY_PORT`) from GitHub's IP ranges:
+
+```bash
+# Fetch Actions IP ranges (CIDR)
+curl -s https://api.github.com/meta | jq -r '.actions[]'
+```
+
+Add these CIDR blocks to your:
+- **DigitalOcean** firewall: Networking → Firewalls → Inbound rules
+- **ufw**: `ufw allow from <cidr> to any port 22`
+- Or your cloud provider's security group / firewall
+
+Without this, the deploy will fail with "SSH connection failed" or timeout.
+
 ## Verification
 
 After completing setup:

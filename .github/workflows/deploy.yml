@@ -60,18 +60,37 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Test SSH connectivity
+        if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
+        run: |
+          SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
+          SSH_OPTS=(-o ConnectTimeout=30 -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
+          [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
+          echo "Testing SSH to $SSH_TARGET..."
+          if ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "echo OK"; then
+            echo "SSH connectivity OK"
+          else
+            echo "::error::SSH connection failed. See docs/deploy-setup.md"
+            echo "::error::  • Firewall: Server must allow GitHub Actions IPs on port ${DEPLOY_PORT:-22}"
+            echo "::error::  • Fetch IP ranges: curl -s https://api.github.com/meta | jq '.actions'"
+            exit 1
+          fi
+
       - name: Deploy
         if: (github.event_name == 'workflow_dispatch') || (steps.deploy_filter.outputs.deploy == 'true')
         id: deploy
         run: |
-          echo "Deploy params:"
-          echo "  DEPLOY_HOST: $DEPLOY_HOST"
-          echo "  DEPLOY_PORT: ${DEPLOY_PORT:-22}"
-          echo "  DEPLOY_USER: ${DEPLOY_USER:-$(whoami)}"
-          echo "  SERVER_NAME: $SERVER_NAME"
-          echo "  REPO_URL: $REPO_URL"
-          echo "  HEALTH_SCHEME: ${HEALTH_SCHEME:-https}"
-          echo ""
+          {
+            echo "## Deploy params"
+            echo "| Param | Value |"
+            echo "|-------|-------|"
+            echo "| DEPLOY_HOST | \`$DEPLOY_HOST\` |"
+            echo "| DEPLOY_PORT | \`${DEPLOY_PORT:-22}\` |"
+            echo "| DEPLOY_USER | \`${DEPLOY_USER:-runner}\` |"
+            echo "| SERVER_NAME | \`$SERVER_NAME\` |"
+            echo "| REPO_URL | \`$REPO_URL\` |"
+            echo "| HEALTH_SCHEME | \`${HEALTH_SCHEME:-https}\` |"
+          } >> $GITHUB_STEP_SUMMARY
           export DEPLOY_HOST SERVER_NAME REPO_URL
           [ -n "$DEPLOY_USER" ] && export DEPLOY_USER
           [ -n "$DEPLOY_PORT" ] && export DEPLOY_PORT
