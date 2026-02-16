@@ -62,7 +62,7 @@ Plans:
 
 ---
 
-### Phase 16: Deploy Integration & Operator UX
+### Phase 16: Deploy Integration & Operator UX ✓
 
 **Goal:** workflow_dispatch deploy, HOLD/ALLOW UX, post-deploy observation, failure issues.
 
@@ -81,9 +81,9 @@ Plans:
 **Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] 16-01-PLAN.md — Deploy trigger & HOLD/ALLOW operator UX
-- [ ] 16-02-PLAN.md — Deploy failure issue module
-- [ ] 16-03-PLAN.md — Deploy outcome observation (workflow_run)
+- [x] 16-01-PLAN.md — Deploy trigger & HOLD/ALLOW operator UX
+- [x] 16-02-PLAN.md — Deploy failure issue module
+- [x] 16-03-PLAN.md — Deploy outcome observation (workflow_run)
 
 ---
 

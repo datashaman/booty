@@ -28,11 +28,11 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 
 ### Deploy Trigger & Post-Deploy
 
-- [ ] **GOV-14**: On ALLOW: dispatch deploy workflow via workflow_dispatch with sha=input
-- [ ] **GOV-15**: On HOLD: emit explanation (status or issue) with reason code and unblock instructions
-- [ ] **GOV-16**: Governor observes deploy outcome (workflow_run or deployment_status)
-- [ ] **GOV-17**: On deploy failure: create/append GitHub issue with deploy-failure, severity:high, link to Actions run
-- [ ] **GOV-18**: Governor never deploys a SHA that wasn't the verifier head_sha
+- [x] **GOV-14**: On ALLOW: dispatch deploy workflow via workflow_dispatch with sha=input
+- [x] **GOV-15**: On HOLD: emit explanation (status or issue) with reason code and unblock instructions
+- [x] **GOV-16**: Governor observes deploy outcome (workflow_run or deployment_status)
+- [x] **GOV-17**: On deploy failure: create/append GitHub issue with deploy-failure, severity:high, link to Actions run
+- [x] **GOV-18**: Governor never deploys a SHA that wasn't the verifier head_sha
 
 ### Persistence & Idempotency
 
@@ -43,9 +43,9 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 
 ### Operator UX
 
-- [ ] **GOV-23**: HOLD message: Decision, SHA, Risk, Reason code, "How to unblock"
-- [ ] **GOV-24**: ALLOW message: Decision, SHA, "Triggered: deploy workflow run &lt;link&gt;"
-- [ ] **GOV-25**: Single consistent UX pattern (commit status `booty/release-governor` OR issue comment — pick one)
+- [x] **GOV-23**: HOLD message: Decision, SHA, Risk, Reason code, "How to unblock"
+- [x] **GOV-24**: ALLOW message: Decision, SHA, "Triggered: deploy workflow run &lt;link&gt;"
+- [x] **GOV-25**: Single consistent UX pattern (commit status `booty/release-governor` OR issue comment — pick one)
 
 ### Config Schema
 
@@ -98,18 +98,18 @@ Deferred to later milestones.
 | GOV-11 | 15 | Complete |
 | GOV-12 | 15 | Complete |
 | GOV-13 | 15 | Complete |
-| GOV-14 | 16 | Pending |
-| GOV-15 | 16 | Pending |
-| GOV-16 | 16 | Pending |
-| GOV-17 | 16 | Pending |
-| GOV-18 | 16 | Pending |
+| GOV-14 | 16 | Complete |
+| GOV-15 | 16 | Complete |
+| GOV-16 | 16 | Complete |
+| GOV-17 | 16 | Complete |
+| GOV-18 | 16 | Complete |
 | GOV-19 | 14 | Complete |
 | GOV-20 | 14 | Complete |
 | GOV-21 | 14 | Complete |
 | GOV-22 | 14 | Complete |
-| GOV-23 | 16 | Pending |
-| GOV-24 | 16 | Pending |
-| GOV-25 | 16 | Pending |
+| GOV-23 | 16 | Complete |
+| GOV-24 | 16 | Complete |
+| GOV-25 | 16 | Complete |
 | GOV-26 | 14 | Complete |
 | GOV-27 | 14 | Complete |
 | GOV-28 | 14 | Complete |
