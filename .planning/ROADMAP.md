@@ -26,6 +26,15 @@ Release Governor gates production deployment. It runs when a verification workfl
 
 **Depends on:** Nothing
 
+**Plans:** 5 plans in 2 waves
+
+Plans:
+- [ ] 14-01-PLAN.md — Config schema (ReleaseGovernorConfig, env overrides)
+- [ ] 14-02-PLAN.md — State store + delivery ID cache
+- [ ] 14-03-PLAN.md — Governor module skeleton + booty governor status
+- [ ] 14-04-PLAN.md — Deploy workflow sha input + deploy.sh DEPLOY_SHA
+- [ ] 14-05-PLAN.md — Verify-main workflow
+
 ---
 
 ### Phase 15: Trigger, Risk & Decision Logic
