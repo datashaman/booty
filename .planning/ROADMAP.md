@@ -1,6 +1,6 @@
 # Milestone v1.4: Release Governor
 
-**Status:** Planning
+**Status:** Complete
 **Phases:** 14-17
 **Requirements:** 32
 
@@ -87,19 +87,25 @@ Plans:
 
 ---
 
-### Phase 17: CLI & Documentation
+### Phase 17: CLI & Documentation ✓
 
 **Goal:** booty governor CLI and docs/release-governor.md.
 
 **Requirements:** GOV-31, GOV-32
 
 **Success criteria:**
-1. `booty governor status` — show release state
-2. `booty governor simulate --sha <sha>` — dry-run decision (no deploy)
-3. `booty governor trigger --sha <sha>` — manual trigger (respects approval if HIGH risk)
-4. docs/release-governor.md: configuration, approval mechanism, troubleshooting, manual test steps
+1. `booty governor status` — show release state ✓
+2. `booty governor simulate --sha <sha>` — dry-run decision (no deploy) ✓
+3. `booty governor trigger --sha <sha>` — manual trigger (respects approval if HIGH risk) ✓
+4. docs/release-governor.md: configuration, approval mechanism, troubleshooting, manual test steps ✓
 
 **Depends on:** Phase 16
+
+**Plans:** 2 plans in 1 wave
+
+Plans:
+- [x] 17-01-PLAN.md — CLI simulate, trigger, status --json
+- [x] 17-02-PLAN.md — docs/release-governor.md
 
 ---
 

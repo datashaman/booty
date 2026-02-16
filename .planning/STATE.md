@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 16 (Deploy Integration & Operator UX) ✓ Complete
-Plan: Phase 17 next
-Status: All 3 plans executed, goal verified
-Last activity: 2026-02-16 — Phase 16 Deploy Integration complete
+Phase: 17 (CLI & Documentation) ✓ Complete
+Plan: Milestone v1.4 complete
+Status: All 2 plans executed, goal verified
+Last activity: 2026-02-16 — Phase 17 CLI & Documentation complete
 
-Progress: [######    ] 75%
+Progress: [########] 100%
 
 ## Accumulated Context
 
@@ -34,4 +34,4 @@ None.
 
 Last session: 2026-02-16
 Stopped at: Completed Phase 15 Trigger/Risk/Decision
-Next step: `/gsd:discuss-phase 17` or `/gsd:plan-phase 17`
+Next step: `/gsd:audit-milestone` or `/gsd:complete-milestone`

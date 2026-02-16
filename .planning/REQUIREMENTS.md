@@ -57,8 +57,8 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 ### Deliverables
 
 - [x] **GOV-30**: New agent module `release_governor`
-- [ ] **GOV-31**: docs/release-governor.md (config, approval, troubleshooting, manual test steps)
-- [ ] **GOV-32**: CLI: `booty governor status`, `booty governor simulate --sha <sha>`, `booty governor trigger --sha <sha>`
+- [x] **GOV-31**: docs/release-governor.md (config, approval, troubleshooting, manual test steps)
+- [x] **GOV-32**: CLI: `booty governor status`, `booty governor simulate --sha <sha>`, `booty governor trigger --sha <sha>`
 
 ## Future Requirements
 
@@ -115,8 +115,8 @@ Deferred to later milestones.
 | GOV-28 | 14 | Complete |
 | GOV-29 | 14 | Complete |
 | GOV-30 | 14 | Complete |
-| GOV-31 | 17 | Pending |
-| GOV-32 | 17 | Pending |
+| GOV-31 | 17 | Complete |
+| GOV-32 | 17 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 32 total
