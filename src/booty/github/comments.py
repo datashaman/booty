@@ -177,6 +177,51 @@ def post_verifier_failure_comment(
         raise
 
 
+def post_memory_comment(
+    github_token: str,
+    repo_url: str,
+    pr_number: int,
+    body: str,
+) -> None:
+    """Post or update Memory comment on a PR.
+
+    Finds existing comment with '<!-- booty-memory -->' and edits it;
+    otherwise creates new. Keeps a single Memory comment per PR.
+    Caller is responsible for not calling when body would be empty (zero matches).
+
+    Args:
+        github_token: GitHub authentication token
+        repo_url: Repository URL
+        pr_number: PR number
+        body: Comment body (must include marker; caller provides formatted content)
+    """
+    try:
+        repo = _get_repo(github_token, repo_url)
+        issue = repo.get_issue(pr_number)
+        full_body = f"""## Memory: related history
+
+{body}
+
+<!-- booty-memory -->"""
+
+        for comment in issue.get_comments():
+            if "<!-- booty-memory -->" in (comment.body or ""):
+                comment.edit(full_body)
+                logger.info("memory_comment_updated", pr_number=pr_number)
+                return
+
+        issue.create_comment(full_body)
+        logger.info("memory_comment_posted", pr_number=pr_number)
+    except GithubException as e:
+        logger.error(
+            "memory_comment_post_failed",
+            pr_number=pr_number,
+            error=str(e),
+            status=e.status,
+        )
+        raise
+
+
 def post_self_modification_disabled_comment(
     github_token: str,
     repo_url: str,
