@@ -236,6 +236,20 @@ class BootyConfigV1(BaseModel):
         default=None,
         description="Optional security config; invalid block sets security=None",
     )
+    memory: dict | None = Field(
+        default=None,
+        description="Optional memory config; raw dict, validated lazily by Memory module",
+    )
+
+    @field_validator("memory", mode="before")
+    @classmethod
+    def validate_memory_block(cls, v: object) -> dict | None:
+        """Parse memory block; keep as raw dict for lazy validation by Memory module."""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return v
+        return None
 
     @field_validator("security", mode="before")
     @classmethod
