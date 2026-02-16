@@ -36,11 +36,13 @@ def build_sentry_issue_title(event: dict) -> str:
     return f"[{level}] {ex_type} — {filename}"
 
 
-def build_sentry_issue_body(event: dict, web_url: str) -> str:
+def build_sentry_issue_body(
+    event: dict, web_url: str, related_history: str | None = None
+) -> str:
     """Build issue body from Sentry event.
 
     Order: severity/env/release, first/last seen, Sentry link,
-    location, top 7 frames, breadcrumb excerpt.
+    [related_history if provided], location, top 7 frames, breadcrumb excerpt.
     """
     parts = []
 
@@ -67,6 +69,10 @@ def build_sentry_issue_body(event: dict, web_url: str) -> str:
 
     if web_url:
         parts.append(f"**Sentry:** {web_url}")
+        parts.append("")
+
+    if related_history and related_history.strip():
+        parts.append(related_history.strip())
         parts.append("")
 
     culprit = event.get("culprit", "")
@@ -105,6 +111,7 @@ def create_issue_from_sentry_event(
     github_token: str,
     repo_url: str,
     label: str = "agent:builder",
+    related_history: str | None = None,
 ) -> int | None:
     """Create GitHub issue from Sentry event.
 
@@ -124,7 +131,7 @@ def create_issue_from_sentry_event(
 
     title = build_sentry_issue_title(event)
     web_url = event.get("web_url", "")
-    body = build_sentry_issue_body(event, web_url)
+    body = build_sentry_issue_body(event, web_url, related_history)
 
     issue = repo.create_issue(title=title, body=body)
     try:
@@ -183,10 +190,11 @@ def _create_with_retry(
     github_token: str,
     repo_url: str,
     label: str,
+    related_history: str | None = None,
 ) -> int:
     """Create issue with tenacity retry. Raises after 3 failures."""
     return create_issue_from_sentry_event(
-        event, github_token, repo_url, label
+        event, github_token, repo_url, label, related_history
     )
 
 
@@ -195,12 +203,15 @@ def create_sentry_issue_with_retry(
     github_token: str,
     repo_url: str,
     label: str = "agent:builder",
+    related_history: str | None = None,
 ) -> int | None:
     """Create GitHub issue with retry. Spools to disk on persistent failure."""
     from tenacity import RetryError
 
     try:
-        return _create_with_retry(event, github_token, repo_url, label)
+        return _create_with_retry(
+            event, github_token, repo_url, label, related_history
+        )
     except RetryError as e:
         _spool_failed_sentry_event(event, str(e.last_attempt.exception()))
         return None
