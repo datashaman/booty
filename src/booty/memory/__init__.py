@@ -3,6 +3,7 @@
 from booty.memory.api import add_record
 from booty.memory.config import MemoryConfig, MemoryConfigError, get_memory_config
 from booty.memory.lookup import query
+from booty.memory.surfacing import surface_pr_comment
 
 __all__ = [
     "add_record",
@@ -10,4 +11,5 @@ __all__ = [
     "MemoryConfig",
     "MemoryConfigError",
     "query",
+    "surface_pr_comment",
 ]
