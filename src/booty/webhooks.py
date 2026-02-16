@@ -654,7 +654,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         if planner_enabled_env not in ("1", "true", "yes"):
             logger.info("planner_disabled", delivery_id=delivery_id)
             return {"status": "ignored", "reason": "planner_disabled"}
-        
+
         if delivery_id and planner_is_duplicate(delivery_id):
             logger.info("planner_already_processed", delivery_id=delivery_id)
             return {"status": "already_processed"}
