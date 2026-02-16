@@ -18,7 +18,7 @@ Subscribe to these events in the GitHub App settings:
 | Event | Purpose |
 |---|---|
 | **Pull requests** | Triggers Verifier and Security on `opened`, `synchronize`, `reopened` actions |
-| **Issues** | Triggers Builder when issue is labeled with trigger label |
+| **Issues** | Triggers Planner when labeled `agent:plan` (or opened with it); triggers Builder when labeled trigger label (e.g. `agent:builder`) |
 | **Workflow runs** | Triggers Release Governor when verification workflow completes on main |
 | **Check runs** | Memory PR comment when Verifier check completes; Builder retry on check failure |
 | **Push** | Memory revert detection when reverts are pushed to main |
