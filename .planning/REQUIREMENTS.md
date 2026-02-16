@@ -16,17 +16,17 @@ Requirements for Planner Agent milestone. Each maps to roadmap phases.
 
 ### Plan Output
 
-- [ ] **PLAN-05**: Planner produces structured Plan JSON conforming to schema (plan_version, goal, assumptions, constraints, risk_level, touch_paths, steps, tests, rollback, handoff_to_builder)
-- [ ] **PLAN-06**: Plan has max 12 steps; each step has id (P1..Pn), action (read|edit|add|run|verify), path, command, acceptance
-- [ ] **PLAN-07**: No step may require "research" without specifying the artifact to produce
-- [ ] **PLAN-08**: handoff_to_builder includes branch_name_hint, commit_message_hint, pr_title, pr_body_outline
+- [x] **PLAN-05**: Planner produces structured Plan JSON conforming to schema (plan_version, goal, assumptions, constraints, risk_level, touch_paths, steps, tests, rollback, handoff_to_builder)
+- [x] **PLAN-06**: Plan has max 12 steps; each step has id (P1..Pn), action (read|edit|add|run|verify), path, command, acceptance
+- [x] **PLAN-07**: No step may require "research" without specifying the artifact to produce
+- [x] **PLAN-08**: handoff_to_builder includes branch_name_hint, commit_message_hint, pr_title, pr_body_outline
 
 ### Risk Classification
 
-- [ ] **PLAN-09**: Planner sets risk_level HIGH when touch_paths include: .github/workflows/**, infra/**, terraform/**, iam/**, deploy scripts, lockfiles, migrations
-- [ ] **PLAN-10**: Planner sets risk_level MEDIUM when touch_paths include dependency manifests (pyproject.toml, requirements*.txt, package.json, etc.)
-- [ ] **PLAN-11**: Planner sets risk_level LOW otherwise
-- [ ] **PLAN-12**: risk_level and touch_paths align with file-change intent (advisory; Governor/Security enforce their own rules)
+- [x] **PLAN-09**: Planner sets risk_level HIGH when touch_paths include: .github/workflows/**, infra/**, terraform/**, iam/**, deploy scripts, lockfiles, migrations
+- [x] **PLAN-10**: Planner sets risk_level MEDIUM when touch_paths include dependency manifests (pyproject.toml, requirements*.txt, package.json, etc.)
+- [x] **PLAN-11**: Planner sets risk_level LOW otherwise
+- [x] **PLAN-12**: risk_level and touch_paths align with file-change intent (advisory; Governor/Security enforce their own rules)
 
 ### Triggering
 
@@ -42,9 +42,9 @@ Requirements for Planner Agent milestone. Each maps to roadmap phases.
 
 ### Builder Contract
 
-- [ ] **PLAN-19**: Plan specifies file paths/globs Builder must touch
-- [ ] **PLAN-20**: Plan specifies exact commands to run (tests/lint) where possible
-- [ ] **PLAN-21**: Plan specifies acceptance criteria per step ("done" definition)
+- [x] **PLAN-19**: Plan specifies file paths/globs Builder must touch
+- [x] **PLAN-20**: Plan specifies exact commands to run (tests/lint) where possible
+- [x] **PLAN-21**: Plan specifies acceptance criteria per step ("done" definition)
 - [ ] **PLAN-22**: Builder can execute the plan without needing clarifications
 
 ### Idempotency
@@ -54,7 +54,7 @@ Requirements for Planner Agent milestone. Each maps to roadmap phases.
 
 ### Acceptance
 
-- [ ] **PLAN-25**: Given a real issue, Planner emits valid Plan JSON within the schema
+- [x] **PLAN-25**: Given a real issue, Planner emits valid Plan JSON within the schema
 - [ ] **PLAN-26**: Output is reproducible for unchanged inputs
 
 ## Future Requirements (v1.x+)
@@ -84,25 +84,25 @@ Deferred to later milestones.
 | PLAN-04 | 28 | Complete |
 | PLAN-05 | 27, 29 | Complete |
 | PLAN-06 | 27, 29 | Complete |
-| PLAN-07 | 27, 29 | Pending |
+| PLAN-07 | 27, 29 | Complete |
 | PLAN-08 | 27, 29 | Complete |
-| PLAN-09 | 29 | Pending |
-| PLAN-10 | 29 | Pending |
-| PLAN-11 | 29 | Pending |
-| PLAN-12 | 29 | Pending |
+| PLAN-09 | 29 | Complete |
+| PLAN-10 | 29 | Complete |
+| PLAN-11 | 29 | Complete |
+| PLAN-12 | 29 | Complete |
 | PLAN-13 | 27 | Complete |
 | PLAN-14 | 27 | Complete |
 | PLAN-15 | 27 | Complete |
 | PLAN-16 | 30 | Pending |
 | PLAN-17 | 27, 30 | Complete |
 | PLAN-18 | 30 | Pending |
-| PLAN-19 | 29 | Pending |
-| PLAN-20 | 29 | Pending |
-| PLAN-21 | 29 | Pending |
+| PLAN-19 | 29 | Complete |
+| PLAN-20 | 29 | Complete |
+| PLAN-21 | 29 | Complete |
 | PLAN-22 | 29 | Pending |
 | PLAN-23 | 31 | Pending |
 | PLAN-24 | 31 | Pending |
-| PLAN-25 | 29 | Pending |
+| PLAN-25 | 29 | Complete |
 | PLAN-26 | 31 | Pending |
 
 **Coverage:**
