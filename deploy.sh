@@ -15,7 +15,7 @@ SSH_OPTS=(-A -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountM
 [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
 SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
 
-ssh "${SSH_OPTS[@]}" "$SSH_TARGET" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" "$DEPLOY_BRANCH" <<'REMOTE'
+ssh "${SSH_OPTS[@]}" "$SSH_TARGET" bash -s "$DEPLOY_USER" "$REPO_URL" "$INSTALL_DIR" "$SERVICE_NAME" "$SERVER_NAME" "$DEPLOY_BRANCH" "${DEPLOY_SHA:-}" <<'REMOTE'
 set -e
 
 DEPLOY_USER="$1"
@@ -24,6 +24,7 @@ INSTALL_DIR="$3"
 SERVICE_NAME="$4"
 SERVER_NAME="$5"
 DEPLOY_BRANCH="${6:-main}"
+DEPLOY_SHA="${7:-}"
 
 # Ensure GitHub host key is trusted (for git clone/pull)
 mkdir -p ~/.ssh
@@ -40,10 +41,15 @@ if [ ! -d "$INSTALL_DIR" ]; then
     git clone -b "$DEPLOY_BRANCH" "$REPO_URL" "$INSTALL_DIR"
 fi
 
-# Ensure deploy branch is checked out and up to date
+# Ensure deploy branch or specific SHA is checked out
 cd "$INSTALL_DIR"
-git checkout "$DEPLOY_BRANCH"
-git pull origin "$DEPLOY_BRANCH"
+if [ -n "$DEPLOY_SHA" ]; then
+    git fetch origin
+    git checkout "$DEPLOY_SHA"
+else
+    git checkout "$DEPLOY_BRANCH"
+    git pull origin "$DEPLOY_BRANCH"
+fi
 
 # Create venv only if it doesn't exist
 if [ ! -d ".venv" ]; then
