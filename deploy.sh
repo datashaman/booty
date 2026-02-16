@@ -10,7 +10,7 @@ REPO_URL="${REPO_URL:-${3:-git@github.com:datashaman/booty.git}}"
 INSTALL_DIR="/opt/booty"
 SERVICE_NAME="booty"
 
-SSH_OPTS=(-o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+SSH_OPTS=(-o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o StrictHostKeyChecking=accept-new)
 [ -n "$DEPLOY_PORT" ] && SSH_OPTS+=(-p "$DEPLOY_PORT")
 SSH_TARGET="${DEPLOY_USER:+${DEPLOY_USER}@}${DEPLOY_HOST}"
 
@@ -22,6 +22,10 @@ REPO_URL="$2"
 INSTALL_DIR="$3"
 SERVICE_NAME="$4"
 SERVER_NAME="$5"
+
+# Ensure GitHub host key is trusted (for git clone/pull)
+mkdir -p ~/.ssh
+ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null || true
 
 # Go into opt folder
 cd /opt
