@@ -14,6 +14,7 @@ from booty.github.checks import (
     get_verifier_repo,
 )
 from booty.logging import get_logger
+from booty.security.audit import AuditResult, run_dependency_audit
 from booty.security.job import SecurityJob
 from booty.security.scanner import build_annotations, run_secret_scan
 from booty.test_runner.config import (
@@ -27,6 +28,37 @@ if TYPE_CHECKING:
     pass
 
 logger = get_logger()
+
+
+def build_audit_summary(audit_result: AuditResult) -> str:
+    """Build summary text for dependency audit results.
+
+    Group by ecosystem; failed ecosystems first. Cap findings at 100.
+    """
+    lines: list[str] = []
+
+    # Group findings by ecosystem
+    by_eco: dict[str, list[dict]] = {}
+    for f in audit_result.findings[:100]:
+        eco = f.get("ecosystem", "unknown")
+        by_eco.setdefault(eco, []).append(f)
+
+    # Failed ecosystems first (have high/critical findings)
+    for eco, findings in sorted(by_eco.items()):
+        high = sum(1 for x in findings if x.get("severity") == "high")
+        critical = sum(1 for x in findings if x.get("severity") == "critical")
+        paths = sorted({str(f.get("path", "")) for f in findings if f.get("path")})
+        path_str = ", ".join(paths[:5])
+        if len(paths) > 5:
+            path_str += f", ... ({len(paths)} total)"
+        lines.append(f"{eco}: {critical} critical, {high} high. Affected: {path_str}")
+
+    if audit_result.errors:
+        lines.append("Errors: " + "; ".join(audit_result.errors[:3]))
+        if len(audit_result.errors) > 3:
+            lines[-1] += f" ({len(audit_result.errors)} total)"
+
+    return "\n".join(lines) if lines else "Dependency audit failed"
 
 
 async def process_security_job(job: SecurityJob, settings: Settings) -> None:
@@ -156,13 +188,60 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
                 logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
                 return
 
+            # Phase 20: run dependency audit after secret scan
+            try:
+                audit_result = await asyncio.to_thread(
+                    run_dependency_audit,
+                    workspace.path,
+                    security_config,
+                )
+            except Exception as e:
+                logger.exception("dependency_audit_failed", job_id=job.job_id, error=str(e))
+                edit_check_run(
+                    check_run,
+                    status="completed",
+                    conclusion="failure",
+                    output={
+                        "title": "Security failed — high vulnerability",
+                        "summary": f"Audit timed out or failed: {e!s}",
+                    },
+                )
+                logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
+                return
+
+            if not audit_result.ok:
+                title = (
+                    "Security failed — critical vulnerability"
+                    if audit_result.worst_severity == "critical"
+                    else "Security failed — high vulnerability"
+                )
+                summary = build_audit_summary(audit_result)
+                edit_check_run(
+                    check_run,
+                    status="completed",
+                    conclusion="failure",
+                    output={"title": title, "summary": summary},
+                )
+                logger.info("security_check_completed", job_id=job.job_id, conclusion="failure")
+                return
+
+            # Both secret scan and dependency audit passed
+            eco_count = len(
+                {k.split(":")[0] for k in audit_result.summary_by_ecosystem}
+            )
+            summary = "No secrets detected."
+            if eco_count > 0:
+                summary += f" All dependency audits passed ({eco_count} ecosystem(s))."
+            else:
+                summary += " No dependency lockfiles found."
+
             edit_check_run(
                 check_run,
                 status="completed",
                 conclusion="success",
                 output={
                     "title": "Security check complete",
-                    "summary": "No secrets detected",
+                    "summary": summary,
                 },
             )
             logger.info("security_check_completed", job_id=job.job_id, conclusion="success")
