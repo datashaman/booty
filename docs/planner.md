@@ -6,7 +6,7 @@ Produces structured execution plans from GitHub issues, Observability incidents,
 
 The Planner Agent:
 
-- **Accepts** GitHub issues (label `agent:plan`), Observability incident format, or free text via `booty plan --text "..."`
+- **Accepts** GitHub issues (label `agent:plan`), Observability incident format, or free text via `booty plan text "..."`
 - **Produces** Plan JSON conforming to schema (goal, steps, risk_level, touch_paths, handoff_to_builder)
 - **Posts** plan as issue comment and stores to `~/.booty/state/plans/`
 - **Caches** same input within 24h returns cached plan (no LLM call)
@@ -16,8 +16,8 @@ The Planner Agent:
 | Trigger | How |
 |---------|-----|
 | GitHub issue | Label `agent:plan` on opened or labeled |
-| CLI issue | `booty plan --issue <n> --repo owner/repo` |
-| CLI text | `booty plan --text "fix login validation"` |
+| CLI issue | `booty plan issue <n> --repo owner/repo` |
+| CLI text | `booty plan text "fix login validation"` |
 
 ## Configuration
 
@@ -32,20 +32,20 @@ planner:
 
 ## CLI reference
 
-### booty plan --issue
+### booty plan issue
 
 Generate plan from a GitHub issue. Requires `GITHUB_TOKEN`.
 
 ```bash
-booty plan --issue 42 --repo owner/repo
+booty plan issue 42 --repo owner/repo
 ```
 
-### booty plan --text
+### booty plan text
 
 Generate plan from free text. Same text within 24h returns cached plan; output shows `(cached, created at …)`.
 
 ```bash
-booty plan --text "add auth validation to login endpoint"
+booty plan text "add auth validation to login endpoint"
 ```
 
 ## Output format

@@ -294,11 +294,13 @@ async def lifespan(app: FastAPI):
 
     # Planner worker (single worker for Phase 27)
     async def _planner_worker_loop() -> None:
+        import asyncio
+        
         while True:
             try:
                 job = await planner_queue.get()
                 try:
-                    process_planner_job(job)
+                    await asyncio.to_thread(process_planner_job, job)
                 except Exception as e:
                     get_logger().error(
                         "planner_job_failed",

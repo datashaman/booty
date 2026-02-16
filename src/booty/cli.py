@@ -586,7 +586,7 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
         shutil.copy(path, output_path)
 
     goal_snippet = f"{plan_obj.goal[:50]}{'...' if len(plan_obj.goal) > 50 else ''}"
-    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {risk_level}")
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {plan_obj.risk_level}")
 
 
 @plan.command("text")
