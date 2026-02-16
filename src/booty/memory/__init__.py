@@ -2,5 +2,12 @@
 
 from booty.memory.api import add_record
 from booty.memory.config import MemoryConfig, MemoryConfigError, get_memory_config
+from booty.memory.lookup import query
 
-__all__ = ["add_record", "get_memory_config", "MemoryConfig", "MemoryConfigError"]
+__all__ = [
+    "add_record",
+    "get_memory_config",
+    "MemoryConfig",
+    "MemoryConfigError",
+    "query",
+]
