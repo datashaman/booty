@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Security (GitHub App) configuration — uses same App as Verifier
     SECURITY_WORKER_COUNT: int = 2  # Number of security workers
 
+    # Planner agent — set to false to disable agent:plan handling
+    PLANNER_ENABLED: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -77,6 +80,11 @@ def verifier_enabled(settings: Settings) -> bool:
 def security_enabled(settings: Settings) -> bool:
     """Return True if GitHub App credentials are configured for Security (same App as Verifier)."""
     return bool(settings.GITHUB_APP_ID and settings.GITHUB_APP_PRIVATE_KEY)
+
+
+def planner_enabled(settings: Settings) -> bool:
+    """Return True if Planner agent is enabled (PLANNER_ENABLED env / Settings)."""
+    return bool(settings.PLANNER_ENABLED)
 
 
 @lru_cache

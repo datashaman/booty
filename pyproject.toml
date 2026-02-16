@@ -23,6 +23,7 @@ dependencies = [
     "tenacity",
     "giturlparse",
     "sentry-sdk",
+    "pip-audit",
 ]
 
 [project.optional-dependencies]

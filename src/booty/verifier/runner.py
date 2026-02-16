@@ -510,8 +510,11 @@ async def process_verifier_job(
                             error=str(e),
                         )
                 else:
-                    stderr_lines = (result.stderr or "").splitlines()
-                    truncated = "\n".join(stderr_lines[-50:])
+                    # Use combined output — pytest and most runners put failures in stdout
+                    combined_lines = (
+                        (result.stdout or "") + "\n" + (result.stderr or "")
+                    ).splitlines()
+                    truncated = "\n".join(combined_lines[-50:])
                     post_verifier_failure_comment(
                         settings.GITHUB_TOKEN,
                         job.repo_url,

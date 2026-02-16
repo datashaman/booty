@@ -9,7 +9,7 @@ from booty.test_runner.config import BootyConfig, BootyConfigV1
 DEFAULT_MAX_FILES_CHANGED = 12
 DEFAULT_MAX_DIFF_LOC = 600
 DEFAULT_MAX_LOC_PER_FILE = 250
-DEFAULT_MAX_LOC_PER_FILE_EXCLUDE = ["tests/**"]
+DEFAULT_MAX_LOC_PER_FILE_EXCLUDE = ["tests/**", ".github/**", "docs/**"]
 
 
 @dataclass

@@ -187,6 +187,8 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
             job.head_sha,
             settings.GITHUB_TOKEN,
             job.head_ref,
+            base_sha=base_sha or "",
+            base_ref=job.base_ref or "",
         ) as workspace:
             # If base_sha is None/empty, use head_sha as base to produce empty diff
             # (no changed files to scan). This gracefully handles initial commits.

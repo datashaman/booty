@@ -37,25 +37,31 @@ def run_secret_scan(
     if config is not None:
         scanner_bin = config.secret_scanner
 
-    # Resolve binary: try chosen first, then fallback
+    # Resolve binary: try PATH first, then common install locations. Use full path
+    # so subprocess works when PATH doesn't include /usr/local/bin (e.g. systemd).
+    def _find_scanner(*names: str) -> str | None:
+        for name in names:
+            p = shutil.which(name)
+            if p:
+                return str(Path(p).resolve())
+        # Fallback: common locations when PATH lacks /usr/local/bin
+        for name in names:
+            for prefix in ("/usr/local/bin", "/usr/bin"):
+                cand = Path(prefix) / name
+                if cand.is_file():
+                    return str(cand.resolve())
+        return None
+
     if scanner_bin == "gitleaks":
-        which = shutil.which("gitleaks") or shutil.which("trufflehog")
-        if which is None:
-            return ScanResult(
-                findings=[],
-                scan_ok=False,
-                error_message="Secret scanner not found (gitleaks or trufflehog)",
-            )
-        scanner_bin = Path(which).name
-    else:  # trufflehog
-        which = shutil.which("trufflehog") or shutil.which("gitleaks")
-        if which is None:
-            return ScanResult(
-                findings=[],
-                scan_ok=False,
-                error_message="Secret scanner not found (trufflehog or gitleaks)",
-            )
-        scanner_bin = Path(which).name
+        scanner_path = _find_scanner("gitleaks", "trufflehog")
+    else:
+        scanner_path = _find_scanner("trufflehog", "gitleaks")
+    if scanner_path is None:
+        return ScanResult(
+            findings=[],
+            scan_ok=False,
+            error_message="Secret scanner not found (gitleaks or trufflehog)",
+        )
 
     workspace = Path(workspace_path)
     if not workspace.exists():
@@ -97,7 +103,7 @@ def run_secret_scan(
         # gitleaks stdin --report-format=json --report-path=-
         gitleaks_proc = subprocess.run(
             [
-                "gitleaks",
+                scanner_path,
                 "stdin",
                 "--no-banner",
                 "--report-format=json",

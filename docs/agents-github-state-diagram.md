@@ -62,7 +62,7 @@ stateDiagram-v2
 | Agent | Trigger | GitHub API Actions |
 |-------|---------|--------------------|
 | **Observability** | Sentry webhook (`event_alert`) | `create_issue` with `agent:builder` label |
-| **Planner** | `issues` webhook (action=`labeled`, label=`agent:builder`) | Produce plan (future) |
+| **Planner** | `issues` webhook (action=`opened`/`labeled`, label=`agent:plan`) | Produce plan, post comment, store JSON |
 | **Architect** | Plan from Planner | Define architecture (future) |
 | **Builder** | Plan + architecture from Architect | `clone`, `create_pull_request`, `add_to_labels`, `post_failure_comment` (on pipeline crash) |
 | **Verifier** | `pull_request` webhook (opened/synchronize/reopened) | `create_check_run`, `edit_check_run`, `promote_to_ready_for_review`, `post_verifier_failure_comment`, enqueue Builder retry |

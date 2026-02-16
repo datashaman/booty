@@ -487,6 +487,174 @@ def governor_trigger(
 
 
 @cli.group()
+def plan() -> None:
+    """Plan generation subcommands."""
+
+
+@plan.command("issue")
+@click.option("--repo", help="Repository owner/repo (default: infer from git)")
+@click.option("--verbose", is_flag=True, help="Show progress and details")
+@click.option("--output", "output_path", help="Also write plan to this path")
+@click.argument("issue_number", type=int)
+def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: str | None) -> None:
+    """Generate plan from GitHub issue. Requires GITHUB_TOKEN."""
+    import os
+
+    from booty.planner.cache import (
+        find_cached_issue_plan,
+        input_hash,
+        plan_hash,
+    )
+    from booty.planner.generation import generate_plan
+    from booty.planner.input import get_repo_context, normalize_github_issue
+    from booty.planner.risk import classify_risk_from_paths
+    from booty.planner.store import plan_path_for_issue, save_plan
+
+    settings = get_settings()
+    token = settings.GITHUB_TOKEN or ""
+    if not token or not token.strip():
+        click.echo("Error: GITHUB_TOKEN required", err=True)
+        raise SystemExit(1)
+
+    ws = Path.cwd()
+    repo_name = repo or _infer_repo_from_git(ws)
+    if not repo_name or "/" not in repo_name:
+        click.echo("Error: Cannot infer repo. Use --repo owner/repo", err=True)
+        raise SystemExit(1)
+
+    try:
+        from github import Github
+
+        g = Github(token)
+        gh_repo = g.get_repo(repo_name)
+        issue = gh_repo.get_issue(issue_number)
+        issue_dict = {
+            "title": issue.title,
+            "body": issue.body or "",
+            "labels": [{"name": l.name} for l in issue.get_labels()],
+            "html_url": issue.html_url,
+            "number": issue.number,
+        }
+        owner, repo_slug = repo_name.split("/", 1)
+        repo_info = {"owner": owner, "repo": repo_slug}
+        repo_context = get_repo_context(owner, repo_slug, token) if token else None
+        inp = normalize_github_issue(issue_dict, repo_info, repo_context)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc(file=__import__("sys").stderr)
+        raise SystemExit(1)
+
+    h = input_hash(inp)
+    ttl = float(os.environ.get("PLANNER_CACHE_TTL_HOURS", "24"))
+    cached = find_cached_issue_plan(owner, repo_slug, issue_number, h, ttl)
+    if cached:
+        plan_obj = cached
+    else:
+        plan_obj = generate_plan(inp)
+        risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
+        plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
+    new_metadata = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "input_hash": h,
+        "plan_hash": plan_hash(plan_obj),
+    }
+    plan_obj = plan_obj.model_copy(update={"metadata": plan_obj.metadata | new_metadata})
+    path = plan_path_for_issue(owner, repo_slug, issue_number)
+    save_plan(plan_obj, path)
+
+    repo_url = f"https://github.com/{repo_name}"
+    try:
+        from github import GithubException
+
+        from booty.github.comments import post_plan_comment
+        from booty.logging import get_logger
+        from booty.planner.output import format_plan_comment
+
+        body = format_plan_comment(plan_obj)
+        post_plan_comment(token, repo_url, issue_number, body)
+    except GithubException as e:
+        get_logger().warning(
+            "plan_comment_post_failed",
+            issue_number=issue_number,
+            error=str(e),
+        )
+
+    if output_path:
+        import shutil
+        shutil.copy(path, output_path)
+
+    goal_snippet = f"{plan_obj.goal[:50]}{'...' if len(plan_obj.goal) > 50 else ''}"
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {plan_obj.risk_level}")
+
+
+@plan.command("text")
+@click.option("--repo", help="Repository owner/repo (default: infer from git when in repo)")
+@click.option("--verbose", is_flag=True, help="Show progress and details")
+@click.option("--output", "output_path", help="Also write plan to this path")
+@click.argument("text", required=True)
+def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | None) -> None:
+    """Generate plan from free text prompt."""
+    import os
+
+    from booty.planner.cache import (
+        find_cached_ad_hoc_plan,
+        input_hash,
+        plan_hash,
+        save_ad_hoc_plan,
+    )
+    from booty.planner.generation import generate_plan
+    from booty.planner.input import get_repo_context, normalize_cli_text
+    from booty.planner.risk import classify_risk_from_paths
+
+    ws = Path.cwd()
+    repo_info = None
+    if repo and "/" in repo:
+        owner, repo_slug = repo.split("/", 1)
+        repo_info = {"owner": owner, "repo": repo_slug}
+    else:
+        inferred = _infer_repo_from_git(ws)
+        if inferred and "/" in inferred:
+            owner, repo_slug = inferred.split("/", 1)
+            repo_info = {"owner": owner, "repo": repo_slug}
+
+    token = get_settings().GITHUB_TOKEN or ""
+    repo_context = (
+        get_repo_context(repo_info["owner"], repo_info["repo"], token)
+        if repo_info and token.strip()
+        else None
+    )
+    inp = normalize_cli_text(text, repo_info=repo_info, repo_context=repo_context)
+    h = input_hash(inp)
+    ttl = float(os.environ.get("PLANNER_CACHE_TTL_HOURS", "24"))
+    cached = find_cached_ad_hoc_plan(h, ttl)
+    if cached:
+        plan_obj = cached
+        created_at = cached.metadata.get("created_at", "")
+        cache_hint = f" (cached, created at {created_at})" if created_at else " (cached)"
+    else:
+        plan_obj = generate_plan(inp)
+        risk_level, _ = classify_risk_from_paths(plan_obj.touch_paths)
+        plan_obj = plan_obj.model_copy(update={"risk_level": risk_level})
+        cache_hint = ""
+    new_metadata = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "input_hash": h,
+        "plan_hash": plan_hash(plan_obj),
+    }
+    plan_obj = plan_obj.model_copy(update={"metadata": plan_obj.metadata | new_metadata})
+    path = save_ad_hoc_plan(plan_obj, inp)
+
+    if output_path:
+        import shutil
+        shutil.copy(path, output_path)
+
+    goal_snippet = f"{plan_obj.goal[:50]}{'...' if len(plan_obj.goal) > 50 else ''}"
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps | {plan_obj.risk_level}{cache_hint}")
+
+
+@cli.group()
 def verifier() -> None:
     """Verifier (GitHub Checks) commands."""
 
