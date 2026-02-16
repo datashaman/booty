@@ -34,4 +34,4 @@ None.
 
 Last session: 2026-02-16
 Stopped at: v1.5 milestone complete
-Next step: Requirements → Roadmap (research decision pending)
+Next step: `/gsd:discuss-phase 22` or `/gsd:plan-phase 22` — Memory Foundation
