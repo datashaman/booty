@@ -9,22 +9,22 @@ Requirements for Release Governor agent. Each maps to roadmap phases.
 
 ### Trigger & Inputs
 
-- [ ] **GOV-01**: Governor runs when a verification workflow completes successfully on main (workflow_run event, conclusion=success, head_sha)
-- [ ] **GOV-02**: Governor uses head_sha from event payload (never "latest main")
-- [ ] **GOV-03**: Governor receives optional Observability signal "is production degraded" (in-process state or Sentry; default unknown)
+- [x] **GOV-01**: Governor runs when a verification workflow completes successfully on main (workflow_run event, conclusion=success, head_sha)
+- [x] **GOV-02**: Governor uses head_sha from event payload (never "latest main")
+- [x] **GOV-03**: Governor receives optional Observability signal "is production degraded" (in-process state or Sentry; default unknown)
 - [x] **GOV-04**: Governor loads config from env + optional .booty.yml; env overrides .booty.yml; strict schema (unknown keys fail)
 
 ### Decision & Risk
 
-- [ ] **GOV-05**: Governor computes risk_class (LOW | MEDIUM | HIGH) from paths touched vs production_sha
-- [ ] **GOV-06**: HIGH risk: workflow dirs, infra, auth-sensitive, lockfiles, migrations (configurable pathspecs)
-- [ ] **GOV-07**: MEDIUM risk: dependency manifests without lockfiles
-- [ ] **GOV-08**: Hard holds: deploy not configured; first deploy without approval (when required); degraded + high-risk
-- [ ] **GOV-09**: LOW risk: auto-ALLOW if Verifier passed and no active incident
-- [ ] **GOV-10**: MEDIUM risk: ALLOW if no incident; else HOLD
-- [ ] **GOV-11**: HIGH risk: HOLD unless operator approval exists (environment | label | comment)
-- [ ] **GOV-12**: Cooldown: no re-deploy of same SHA within N minutes after failure (default 30)
-- [ ] **GOV-13**: Rate limit: max M deploys per hour (default 6)
+- [x] **GOV-05**: Governor computes risk_class (LOW | MEDIUM | HIGH) from paths touched vs production_sha
+- [x] **GOV-06**: HIGH risk: workflow dirs, infra, auth-sensitive, lockfiles, migrations (configurable pathspecs)
+- [x] **GOV-07**: MEDIUM risk: dependency manifests without lockfiles
+- [x] **GOV-08**: Hard holds: deploy not configured; first deploy without approval (when required); degraded + high-risk
+- [x] **GOV-09**: LOW risk: auto-ALLOW if Verifier passed and no active incident
+- [x] **GOV-10**: MEDIUM risk: ALLOW if no incident; else HOLD
+- [x] **GOV-11**: HIGH risk: HOLD unless operator approval exists (environment | label | comment)
+- [x] **GOV-12**: Cooldown: no re-deploy of same SHA within N minutes after failure (default 30)
+- [x] **GOV-13**: Rate limit: max M deploys per hour (default 6)
 
 ### Deploy Trigger & Post-Deploy
 
@@ -85,19 +85,19 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GOV-01 | 15 | Pending |
-| GOV-02 | 15 | Pending |
-| GOV-03 | 15 | Pending |
+| GOV-01 | 15 | Complete |
+| GOV-02 | 15 | Complete |
+| GOV-03 | 15 | Complete |
 | GOV-04 | 14 | Complete |
-| GOV-05 | 15 | Pending |
-| GOV-06 | 15 | Pending |
-| GOV-07 | 15 | Pending |
-| GOV-08 | 15 | Pending |
-| GOV-09 | 15 | Pending |
-| GOV-10 | 15 | Pending |
-| GOV-11 | 15 | Pending |
-| GOV-12 | 15 | Pending |
-| GOV-13 | 15 | Pending |
+| GOV-05 | 15 | Complete |
+| GOV-06 | 15 | Complete |
+| GOV-07 | 15 | Complete |
+| GOV-08 | 15 | Complete |
+| GOV-09 | 15 | Complete |
+| GOV-10 | 15 | Complete |
+| GOV-11 | 15 | Complete |
+| GOV-12 | 15 | Complete |
+| GOV-13 | 15 | Complete |
 | GOV-14 | 16 | Pending |
 | GOV-15 | 16 | Pending |
 | GOV-16 | 16 | Pending |
