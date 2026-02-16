@@ -29,53 +29,52 @@ def get_security_override(
     key = f"{repo_full_name}:{sha}"
     cutoff = datetime.now(timezone.utc) - timedelta(days=OVERRIDE_TTL_DAYS)
 
-    with open(path) as f:
-        fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+    # Acquire exclusive lock first, then read, prune, and write atomically
+    with open(path, "r+") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         try:
-            data = json.load(f)
-        except json.JSONDecodeError:
-            return None
-        finally:
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-
-    # Prune expired
-    pruned = False
-    for k, v in list(data.items()):
-        created = v.get("created_at", "")
-        try:
-            dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            if dt < cutoff:
-                del data[k]
-                pruned = True
-        except (ValueError, TypeError):
-            pass
-
-    if pruned:
-        path.touch(exist_ok=True)
-        with open(path, "r") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            f.seek(0)
             try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                return None
+
+            # Prune expired entries
+            pruned = False
+            for k, v in list(data.items()):
+                created = v.get("created_at", "")
+                try:
+                    dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    if dt < cutoff:
+                        del data[k]
+                        pruned = True
+                except (ValueError, TypeError):
+                    pass
+
+            # Write pruned data back atomically if changes were made
+            if pruned:
                 fd = tempfile.NamedTemporaryFile(
                     mode="w",
                     dir=path.parent,
                     delete=False,
                     suffix=".tmp",
                 )
-                json.dump(data, fd, indent=2)
-                fd.flush()
-                os.fsync(fd.fileno())
-                fd.close()
-                os.replace(fd.name, path)
-            except Exception:
-                if os.path.exists(fd.name):
-                    os.unlink(fd.name)
-                raise
-            finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                try:
+                    json.dump(data, fd, indent=2)
+                    fd.flush()
+                    os.fsync(fd.fileno())
+                    fd.close()
+                    os.replace(fd.name, path)
+                except Exception:
+                    if os.path.exists(fd.name):
+                        os.unlink(fd.name)
+                    raise
 
-    return data.get(key)
+            return data.get(key)
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 def get_security_override_with_poll(

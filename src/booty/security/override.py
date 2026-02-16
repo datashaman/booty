@@ -50,24 +50,20 @@ def persist_override(repo_full_name: str, sha: str, paths: list[str]) -> None:
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    data: dict = {}
-    if path.exists():
-        with open(path) as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch(exist_ok=True)
+
+    # Acquire exclusive lock first, then read, modify, and write atomically
+    with open(path, "r+") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            f.seek(0)
             try:
                 data = json.load(f)
             except json.JSONDecodeError:
                 data = {}
-            finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-
-    data[key] = entry
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch(exist_ok=True)
-
-    with open(path, "r") as f:
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        try:
+            
+            data[key] = entry
             _atomic_write_json(path, data)
         finally:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)

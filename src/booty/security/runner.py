@@ -158,10 +158,13 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
             settings.GITHUB_TOKEN,
             job.head_ref,
         ) as workspace:
+            # If base_sha is None/empty, use head_sha as base to produce empty diff
+            # (no changed files to scan). This gracefully handles initial commits.
+            scan_base = base_sha if base_sha else job.head_sha
             result = await asyncio.to_thread(
                 run_secret_scan,
                 workspace.path,
-                base_sha or job.head_sha,
+                scan_base,
                 security_config,
             )
 
@@ -294,7 +297,7 @@ async def process_security_job(job: SecurityJob, settings: Settings) -> None:
             status="completed",
             conclusion="failure",
             output={
-                "title": "Security failed — secret detected",
+                "title": "Security check failed",
                 "summary": f"Scan incomplete: {e!s}",
             },
         )

@@ -255,6 +255,8 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                     job_id=security_job_id,
                     pr_number=pr_number,
                 )
+            else:
+                logger.error("security_enqueue_failed", job_id=security_job_id)
 
         if verifier_enqueued or security_enqueued:
             job_id = verifier_job_id if verifier_enqueued else security_job_id

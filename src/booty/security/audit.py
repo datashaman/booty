@@ -127,9 +127,16 @@ def _dedupe_python_targets(
             if base in PYTHON_LOCKFILES and existing_base not in PYTHON_LOCKFILES:
                 by_dir[parent] = path
             elif base in PYTHON_LOCKFILES and existing_base in PYTHON_LOCKFILES:
+                # Both are lockfiles, prefer in order: poetry.lock, Pipfile.lock, uv.lock
                 order = ("poetry.lock", "Pipfile.lock", "uv.lock")
-                if order.index(base) < order.index(existing_base):
-                    by_dir[parent] = path
+                try:
+                    base_idx = order.index(base)
+                    existing_idx = order.index(existing_base)
+                    if base_idx < existing_idx:
+                        by_dir[parent] = path
+                except ValueError:
+                    # If either lockfile not in order tuple, keep existing
+                    pass
 
     # Rebuild: Python uses by_dir (one per dir), others pass through
     out: list[tuple[str, Path]] = []
