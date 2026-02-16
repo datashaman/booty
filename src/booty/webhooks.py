@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import time
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -12,8 +13,18 @@ from fastapi.responses import JSONResponse
 from github import Github
 
 from booty.config import get_settings, verifier_enabled
+from booty.release_governor.deploy import dispatch_deploy
+from booty.release_governor.failure_issues import create_or_append_deploy_failure_issue
 from booty.release_governor.handler import handle_workflow_run
-from booty.release_governor.store import get_state_dir, has_delivery_id, record_delivery_id
+from booty.release_governor.store import (
+    append_deploy_to_history,
+    get_state_dir,
+    has_delivery_id,
+    load_release_state,
+    record_delivery_id,
+    save_release_state,
+)
+from booty.release_governor.ux import post_allow_status, post_hold_status
 from booty.test_runner.config import (
     apply_release_governor_env_overrides,
     load_booty_config_from_content,
@@ -220,29 +231,20 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         wr = payload.get("workflow_run", {})
         conclusion = wr.get("conclusion")
         workflow_name = wr.get("name", "")
+        workflow_path = wr.get("path") or wr.get("workflow", {}).get("path", "")
         head_sha = wr.get("head_sha", "")
         head_branch = wr.get("head_branch", "")
         repo = payload.get("repository", {})
         repo_full_name = repo.get("full_name", "")
 
-        if action != "completed" or conclusion != "success":
+        if action != "completed":
             logger.info(
                 "event_filtered",
                 event_type=event_type,
-                reason="workflow_not_success",
+                reason="workflow_not_completed",
                 action=action,
-                conclusion=conclusion,
             )
-            return {"status": "ignored", "reason": "workflow_not_success"}
-
-        if head_branch != "main":
-            logger.info(
-                "event_filtered",
-                event_type=event_type,
-                reason="not_main",
-                head_branch=head_branch,
-            )
-            return {"status": "ignored", "reason": "not_main"}
+            return {"status": "ignored", "reason": "workflow_not_completed"}
 
         # Load config from repo .booty.yml
         try:
@@ -266,40 +268,137 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             )
             return {"status": "ignored", "reason": "governor_disabled"}
 
-        if workflow_name != governor_config.verification_workflow_name:
-            logger.info(
-                "event_filtered",
-                event_type=event_type,
-                reason="not_verification_workflow",
-                workflow_name=workflow_name,
-            )
-            return {"status": "ignored", "reason": "not_verification_workflow"}
+        # Branch by workflow identity: deploy outcome first, then verification
+        is_deploy = (
+            (workflow_path or "").endswith(governor_config.deploy_workflow_name)
+            or workflow_name == governor_config.deploy_workflow_name
+        )
+        is_verification = workflow_name == governor_config.verification_workflow_name
 
-        state_dir = get_state_dir()
-        if has_delivery_id(state_dir, repo_full_name, head_sha):
+        if is_deploy:
+            # Deploy outcome observation (GOV-16, GOV-17)
+            state_dir = get_state_dir()
+            wr_id = wr.get("id") or wr.get("run_id") or ""
+            deploy_run_key = f"deploy_run_{wr_id}" if wr_id else f"deploy_run_{head_sha}"
+            if has_delivery_id(state_dir, repo_full_name, deploy_run_key):
+                logger.info(
+                    "governor_deploy_outcome_already_processed",
+                    repo=repo_full_name,
+                    head_sha=head_sha[:7] if head_sha else "?",
+                )
+                return {"status": "already_processed"}
+
+            now_iso = datetime.now(timezone.utc).isoformat()
+            state = load_release_state(state_dir)
+            if conclusion == "success":
+                state.production_sha_previous = state.production_sha_current
+                state.production_sha_current = head_sha
+                state.last_deploy_attempt_sha = head_sha
+                state.last_deploy_time = now_iso
+                state.last_deploy_result = "success"
+                save_release_state(state_dir, state)
+                append_deploy_to_history(state_dir, head_sha, now_iso, "success")
+            elif conclusion in ("failure", "cancelled"):
+                failure_type = (
+                    "deploy:cancelled" if conclusion == "cancelled"
+                    else "deploy:health-check-failed"
+                )
+                run_url = wr.get("html_url", "") or wr.get("url", "") or ""
+                create_or_append_deploy_failure_issue(
+                    gh_repo, head_sha, run_url, conclusion, failure_type
+                )
+                state.last_deploy_attempt_sha = head_sha
+                state.last_deploy_time = now_iso
+                state.last_deploy_result = "failure"
+                save_release_state(state_dir, state)
+                append_deploy_to_history(state_dir, head_sha, now_iso, "failure")
+            else:
+                # skipped, etc. — update state only
+                state.last_deploy_attempt_sha = head_sha
+                state.last_deploy_time = now_iso
+                state.last_deploy_result = conclusion or "skipped"
+                save_release_state(state_dir, state)
+                append_deploy_to_history(state_dir, head_sha, now_iso, conclusion or "skipped")
+
+            if delivery_id:
+                record_delivery_id(state_dir, repo_full_name, deploy_run_key, delivery_id)
+
             logger.info(
-                "governor_already_processed",
+                "governor_deploy_outcome_processed",
+                repo=repo_full_name,
+                head_sha=head_sha[:7] if head_sha else "?",
+                conclusion=conclusion,
+            )
+            return JSONResponse(
+                status_code=202,
+                content={
+                    "status": "accepted",
+                    "event": "workflow_run",
+                    "type": "deploy_outcome",
+                    "conclusion": conclusion,
+                },
+            )
+
+        if is_verification and conclusion == "success" and head_branch == "main":
+            # Verification workflow success -> decision pipeline (GOV-01, GOV-14, GOV-15)
+            state_dir = get_state_dir()
+            if has_delivery_id(state_dir, repo_full_name, head_sha):
+                logger.info(
+                    "governor_already_processed",
+                    repo=repo_full_name,
+                    head_sha=head_sha[:7],
+                )
+                return {"status": "already_processed"}
+
+            decision = handle_workflow_run(payload, governor_config)
+
+            html_url = repo.get("html_url", "") or ""
+            target_url = f"{html_url.rstrip('/')}/actions" if html_url else ""
+
+            if decision.outcome == "ALLOW":
+                dispatch_deploy(gh_repo, governor_config, head_sha)
+                now_iso = datetime.now(timezone.utc).isoformat()
+                state = load_release_state(state_dir)
+                state.last_deploy_attempt_sha = head_sha
+                state.last_deploy_time = now_iso
+                state.last_deploy_result = "pending"
+                save_release_state(state_dir, state)
+                append_deploy_to_history(state_dir, head_sha, now_iso, "pending")
+                post_allow_status(gh_repo, head_sha, target_url)
+            else:
+                approval_hint = None
+                if decision.reason == "high_risk_no_approval":
+                    mode = governor_config.approval_mode
+                    if mode == "label" and governor_config.approval_label:
+                        approval_hint = f"Approval via label: {governor_config.approval_label}"
+                    elif mode == "comment" and governor_config.approval_command:
+                        approval_hint = f"Approval via comment: {governor_config.approval_command}"
+                    elif mode == "environment":
+                        approval_hint = "Approval via env: RELEASE_GOVERNOR_APPROVED=true"
+                post_hold_status(gh_repo, head_sha, decision, target_url, approval_hint)
+
+            if delivery_id:
+                record_delivery_id(state_dir, repo_full_name, head_sha, delivery_id)
+
+            logger.info(
+                "governor_workflow_processed",
                 repo=repo_full_name,
                 head_sha=head_sha[:7],
+                outcome=decision.outcome,
+                reason=decision.reason,
             )
-            return {"status": "already_processed"}
-
-        decision = handle_workflow_run(payload, governor_config)
-
-        if delivery_id:
-            record_delivery_id(state_dir, repo_full_name, head_sha, delivery_id)
+            return JSONResponse(
+                status_code=202,
+                content={"status": "accepted", "event": "workflow_run", "outcome": decision.outcome},
+            )
 
         logger.info(
-            "governor_workflow_processed",
-            repo=repo_full_name,
-            head_sha=head_sha[:7],
-            outcome=decision.outcome,
-            reason=decision.reason,
+            "event_filtered",
+            event_type=event_type,
+            reason="workflow_not_matched",
+            workflow_name=workflow_name,
         )
-        return JSONResponse(
-            status_code=202,
-            content={"status": "accepted", "event": "workflow_run", "outcome": decision.outcome},
-        )
+        return {"status": "ignored", "reason": "workflow_not_matched"}
 
     # Handle issues events (Builder)
     if event_type != "issues":
