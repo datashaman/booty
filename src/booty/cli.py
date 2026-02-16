@@ -498,6 +498,7 @@ def plan() -> None:
 @click.argument("issue_number", type=int)
 def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: str | None) -> None:
     """Generate plan from GitHub issue. Requires GITHUB_TOKEN."""
+    from booty.planner.input import get_repo_context, normalize_github_issue
     from booty.planner import Plan
     from booty.planner.schema import HandoffToBuilder
     from booty.planner.store import plan_path_for_issue, save_plan
@@ -520,8 +521,18 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
         g = Github(token)
         gh_repo = g.get_repo(repo_name)
         issue = gh_repo.get_issue(issue_number)
-        goal = issue.title or "Untitled"
+        issue_dict = {
+            "title": issue.title,
+            "body": issue.body or "",
+            "labels": [{"name": l.name} for l in issue.get_labels()],
+            "html_url": issue.html_url,
+            "number": issue.number,
+        }
         owner, repo_slug = repo_name.split("/", 1)
+        repo_info = {"owner": owner, "repo": repo_slug}
+        repo_context = get_repo_context(owner, repo_slug, token) if token else None
+        inp = normalize_github_issue(issue_dict, repo_info, repo_context)
+        goal = inp.goal
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         if verbose:
@@ -555,16 +566,37 @@ def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: 
 
 
 @plan.command("text")
+@click.option("--repo", help="Repository owner/repo (default: infer from git when in repo)")
 @click.option("--verbose", is_flag=True, help="Show progress and details")
 @click.option("--output", "output_path", help="Also write plan to this path")
 @click.argument("text", required=True)
-def plan_text(text: str, verbose: bool, output_path: str | None) -> None:
+def plan_text(text: str, repo: str | None, verbose: bool, output_path: str | None) -> None:
     """Generate plan from free text prompt."""
+    from booty.planner.input import get_repo_context, normalize_cli_text
     from booty.planner import Plan
     from booty.planner.schema import HandoffToBuilder
     from booty.planner.store import plan_path_for_ad_hoc, save_plan
 
-    goal = text[:200] if len(text) > 200 else text
+    ws = Path.cwd()
+    repo_info = None
+    if repo and "/" in repo:
+        owner, repo_slug = repo.split("/", 1)
+        repo_info = {"owner": owner, "repo": repo_slug}
+    else:
+        inferred = _infer_repo_from_git(ws)
+        if inferred and "/" in inferred:
+            owner, repo_slug = inferred.split("/", 1)
+            repo_info = {"owner": owner, "repo": repo_slug}
+
+    token = get_settings().GITHUB_TOKEN or ""
+    repo_context = (
+        get_repo_context(repo_info["owner"], repo_info["repo"], token)
+        if repo_info and token.strip()
+        else None
+    )
+    inp = normalize_cli_text(text, repo_info=repo_info, repo_context=repo_context)
+    goal = inp.goal
+
     handoff = HandoffToBuilder(
         branch_name_hint="plan",
         commit_message_hint=goal,
