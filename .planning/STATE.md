@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-16)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Planning next milestone — run `/gsd:new-milestone`
+**Current focus:** Phase 18 — Security Foundation & Check
 
 ## Current Position
 
-Phase: —
+Phase: 18
 Plan: —
-Status: v1.4 complete; ready for next milestone
-Last activity: 2026-02-16 — v1.4 Release Governor milestone complete
+Status: Ready to plan Phase 18
+Last activity: 2026-02-16 — Milestone v1.5 roadmap created
 
-Progress: [########] 100%
+Progress: [        ] 0%
 
 ## Accumulated Context
 
