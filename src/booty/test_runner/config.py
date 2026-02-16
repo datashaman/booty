@@ -90,6 +90,11 @@ class SecurityConfig(BaseModel):
         ],
         description="Pathspecs for permission drift escalation",
     )
+    secret_scanner: Literal["gitleaks", "trufflehog"] = "gitleaks"
+    secret_scan_exclude: list[str] = Field(
+        default_factory=list,
+        description="Path patterns to exclude from secret scan (e.g. test fixtures)",
+    )
 
 
 class ReleaseGovernorConfig(BaseModel):
