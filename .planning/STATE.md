@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 
 ## Current Position
 
-Phase: 30 (Output Delivery)
+Phase: 31 (Idempotency)
 Plan: —
-Status: Phase 29 complete ✓
-Last activity: 2026-02-16 — Phase 29 executed
+Status: Phase 30 complete ✓
+Last activity: 2026-02-16 — Phase 30 executed
 
 ## Accumulated Context
 
@@ -32,4 +32,4 @@ None.
 
 Last session: 2026-02-16
 Stopped at: Phase 29 complete
-Next step: `/gsd:discuss-phase 30` or `/gsd:plan-phase 30`
+Next step: `/gsd:discuss-phase 31` or `/gsd:plan-phase 31`
