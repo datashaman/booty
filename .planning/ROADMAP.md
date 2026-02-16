@@ -78,6 +78,13 @@ Plans:
 
 **Depends on:** Phase 15
 
+**Plans:** 3 plans in 2 waves
+
+Plans:
+- [ ] 16-01-PLAN.md — Deploy trigger & HOLD/ALLOW operator UX
+- [ ] 16-02-PLAN.md — Deploy failure issue module
+- [ ] 16-03-PLAN.md — Deploy outcome observation (workflow_run)
+
 ---
 
 ### Phase 17: CLI & Documentation
