@@ -487,6 +487,110 @@ def governor_trigger(
 
 
 @cli.group()
+def plan() -> None:
+    """Plan generation subcommands."""
+
+
+@plan.command("issue")
+@click.option("--repo", help="Repository owner/repo (default: infer from git)")
+@click.option("--verbose", is_flag=True, help="Show progress and details")
+@click.option("--output", "output_path", help="Also write plan to this path")
+@click.argument("issue_number", type=int)
+def plan_issue(issue_number: int, repo: str | None, verbose: bool, output_path: str | None) -> None:
+    """Generate plan from GitHub issue. Requires GITHUB_TOKEN."""
+    from booty.planner import Plan
+    from booty.planner.schema import HandoffToBuilder
+    from booty.planner.store import plan_path_for_issue, save_plan
+
+    settings = get_settings()
+    token = settings.GITHUB_TOKEN or ""
+    if not token or not token.strip():
+        click.echo("Error: GITHUB_TOKEN required", err=True)
+        raise SystemExit(1)
+
+    ws = Path.cwd()
+    repo_name = repo or _infer_repo_from_git(ws)
+    if not repo_name or "/" not in repo_name:
+        click.echo("Error: Cannot infer repo. Use --repo owner/repo", err=True)
+        raise SystemExit(1)
+
+    try:
+        from github import Github
+
+        g = Github(token)
+        gh_repo = g.get_repo(repo_name)
+        issue = gh_repo.get_issue(issue_number)
+        goal = issue.title or "Untitled"
+        owner, repo_slug = repo_name.split("/", 1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc(file=__import__("sys").stderr)
+        raise SystemExit(1)
+
+    handoff = HandoffToBuilder(
+        branch_name_hint="plan",
+        commit_message_hint=goal,
+        pr_title=goal,
+        pr_body_outline="",
+    )
+    plan_obj = Plan(
+        plan_version="1",
+        goal=goal,
+        steps=[],
+        risk_level="LOW",
+        touch_paths=[],
+        handoff_to_builder=handoff,
+    )
+    path = plan_path_for_issue(owner, repo_slug, issue_number)
+    save_plan(plan_obj, path)
+
+    if output_path:
+        import shutil
+        shutil.copy(path, output_path)
+
+    goal_snippet = f"{goal[:50]}{'...' if len(goal) > 50 else ''}"
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps")
+
+
+@plan.command("text")
+@click.option("--verbose", is_flag=True, help="Show progress and details")
+@click.option("--output", "output_path", help="Also write plan to this path")
+@click.argument("text", required=True)
+def plan_text(text: str, verbose: bool, output_path: str | None) -> None:
+    """Generate plan from free text prompt."""
+    from booty.planner import Plan
+    from booty.planner.schema import HandoffToBuilder
+    from booty.planner.store import plan_path_for_ad_hoc, save_plan
+
+    goal = text[:200] if len(text) > 200 else text
+    handoff = HandoffToBuilder(
+        branch_name_hint="plan",
+        commit_message_hint=goal,
+        pr_title=goal,
+        pr_body_outline="",
+    )
+    plan_obj = Plan(
+        plan_version="1",
+        goal=goal,
+        steps=[],
+        risk_level="LOW",
+        touch_paths=[],
+        handoff_to_builder=handoff,
+    )
+    path = plan_path_for_ad_hoc(text)
+    save_plan(plan_obj, path)
+
+    if output_path:
+        import shutil
+        shutil.copy(path, output_path)
+
+    goal_snippet = f"{goal[:50]}{'...' if len(goal) > 50 else ''}"
+    click.echo(f"{path} | {goal_snippet} | {len(plan_obj.steps)} steps")
+
+
+@cli.group()
 def verifier() -> None:
     """Verifier (GitHub Checks) commands."""
 
