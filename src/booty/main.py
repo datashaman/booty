@@ -21,10 +21,11 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings, security_enabled, verifier_enabled
-from booty.github.comments import post_failure_comment
+from booty.github.comments import post_builder_blocked_comment, post_failure_comment
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
+from booty.self_modification.detector import is_self_modification
 from booty.security import SecurityJob, SecurityQueue
 from booty.security.runner import process_security_job
 from booty.verifier import VerifierJob
@@ -32,6 +33,7 @@ from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
 from booty.planner.jobs import planner_queue
+from booty.planner.store import load_plan, plan_path_for_issue
 from booty.planner.worker import process_planner_job
 
 
@@ -123,8 +125,7 @@ def get_app_version() -> str:
 async def process_job(job: Job) -> None:
     """Process a job by cloning repo and preparing workspace.
 
-    Args:
-        job: Job to process
+    Planner-first: Builder requires a valid plan. No plan = hard stop with comment.
     """
     logger = get_logger().bind(job_id=job.job_id, issue_number=job.issue_number)
     settings = get_settings()
@@ -138,6 +139,16 @@ async def process_job(job: Job) -> None:
     # Use repo_url from the job if set (retries), otherwise from settings
     repo_url = job.repo_url or settings.TARGET_REPO_URL
 
+    # Planner-first: Builder is pure executor — require plan to exist
+    repo_info = job.payload.get("repository", {})
+    owner = repo_info.get("owner", {}).get("login", "")
+    repo_name = repo_info.get("name", "")
+    plan = load_plan(plan_path_for_issue(owner, repo_name, job.issue_number))
+    if plan is None:
+        logger.warning("builder_blocked_no_plan", issue_number=job.issue_number)
+        post_builder_blocked_comment(settings.GITHUB_TOKEN, repo_url, job.issue_number)
+        return
+
     # Prepare workspace
     async with prepare_workspace(
         job, repo_url, settings.TARGET_BRANCH, settings.GITHUB_TOKEN
@@ -145,9 +156,9 @@ async def process_job(job: Job) -> None:
         logger.info("workspace_ready", path=workspace.path, branch=workspace.branch)
 
         try:
-            # Process issue through full pipeline
+            # Process issue through full pipeline — plan-driven execution
             pr_number, tests_passed, error_message = await process_issue_to_pr(
-                job, workspace, settings, is_self_modification=job.is_self_modification
+                job, workspace, settings, is_self_modification=job.is_self_modification, planner_plan=plan
             )
         except Exception as e:
             # Pipeline crashed before PR was created — post on issue as fallback
@@ -293,13 +304,32 @@ async def lifespan(app: FastAPI):
         security_queue = None
         app.state.security_queue = None
 
-    # Planner worker (single worker for Phase 27)
+    # Planner worker — Planner-first: after plan created, enqueue Builder if issue has agent:builder
     async def _planner_worker_loop() -> None:
         while True:
             try:
                 job = await planner_queue.get()
                 try:
                     await asyncio.to_thread(process_planner_job, job)
+                    # Safety net: if issue has agent:builder, enqueue Builder (plan now exists)
+                    labels = [l.get("name", "") for l in job.payload.get("issue", {}).get("labels", [])]
+                    if settings.TRIGGER_LABEL in labels and job_queue:
+                        builder_job_id = f"{job.issue_number}-plan-complete-{id(job)}"
+                        builder_job = Job(
+                            job_id=builder_job_id,
+                            issue_url=job.payload["issue"].get("html_url", ""),
+                            issue_number=job.issue_number,
+                            payload=job.payload,
+                            is_self_modification=is_self_modification(job.repo_url, settings.BOOTY_OWN_REPO_URL),
+                            repo_url=job.repo_url,
+                        )
+                        enqueued = await job_queue.enqueue(builder_job)
+                        if enqueued:
+                            get_logger().info(
+                                "builder_enqueued_after_plan",
+                                issue_number=job.issue_number,
+                                job_id=builder_job_id,
+                            )
                 except Exception as e:
                     get_logger().error(
                         "planner_job_failed",

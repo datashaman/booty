@@ -6,7 +6,7 @@ Booty is a self-managing software builder powered by AI. GitHub is the interface
 
 ## Builder Agent (v1.0, v1.1)
 
-Picks up GitHub issues with a trigger label (e.g. `agent:builder`), uses an LLM (magentic) to generate code and tests, runs tests with iterative refinement, and opens draft PRs. Can work against its own repo. Promotes PRs to ready-for-review when tests and lint pass.
+**Planner-first:** Pure executor — only runs when a valid Plan artifact exists. Triggers on `agent:builder` label; if no plan, Planner runs first (safety net). Uses plan's goal, steps, handoff_to_builder for execution. No fallback to raw issue interpretation.
 
 ## Verifier Agent (v1.2)
 
@@ -30,16 +30,17 @@ Append-only `memory.jsonl` store. Ingests from Observability, Governor, Security
 
 ## Planner Agent (v1.7)
 
-Turns GitHub issues, Observability incidents, or operator CLI prompts (`booty plan --text`) into structured Plan JSON: goal, steps (max 12), risk_level, touch_paths, handoff_to_builder. Triggers on `agent:plan` or CLI. Outputs plan as issue comment + artifact. Idempotent within 24h. Builder integration (consuming plan) deferred to future milestone.
+**Single work originator.** Turns GitHub issues, Observability incidents, or operator CLI prompts (`booty plan --text`) into structured Plan JSON: goal, steps (max 12), risk_level, touch_paths, handoff_to_builder. Triggers on `agent:plan`, `agent:builder` (safety net), issues.opened. Outputs plan as issue comment + artifact. Idempotent within 24h. Builder consumes plan artifacts.
 
 ---
 
-## End-to-end flow
+## End-to-end flow (Planner-first)
 
-1. Issue labeled `agent:builder` → Builder generates PR
+1. Issue/incident → Planner (agent:plan or agent:builder) → Plan stored
+2. Issue labeled `agent:builder` + plan exists → Builder executes (plan-driven)
 2. Verifier runs checks on PR
 3. Merge → Verify main runs on main
 4. Governor decides deploy → HOLD or triggers Deploy workflow
 5. Sentry monitors production
-6. Observability creates issues for incidents → Builder/Planner picks up
+6. Observability creates issues for incidents → Planner picks up → Builder when agent:builder
 7. Security and Memory support each stage

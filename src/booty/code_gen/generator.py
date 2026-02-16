@@ -1,4 +1,9 @@
-"""Main orchestrator for issue-to-PR pipeline."""
+"""Main orchestrator for issue-to-PR pipeline.
+
+Planner-first: Builder consumes Plan artifacts. When plan is provided,
+derives structured analysis from plan (goal, steps, handoff) instead of
+LLM issue interpretation. Builder is a pure execution engine.
+"""
 
 import os
 from pathlib import Path
@@ -17,7 +22,9 @@ from booty.github.pulls import (
     format_self_modification_pr_body,
 )
 from booty.jobs import Job
+from booty.llm.models import IssueAnalysis
 from booty.llm.prompts import analyze_issue, generate_code_changes
+from booty.planner.schema import Plan
 from booty.llm.token_budget import TokenBudget
 from booty.logging import get_logger
 from booty.repositories import Workspace
@@ -28,8 +35,34 @@ from booty.test_runner.quality import run_quality_checks
 logger = get_logger()
 
 
+def _analysis_from_plan(plan: Plan) -> IssueAnalysis:
+    """Derive IssueAnalysis from Planner Plan — Builder uses plan, not raw issue."""
+    files_to_modify = [s.path for s in plan.steps if s.action == "edit" and s.path]
+    files_to_create = [s.path for s in plan.steps if s.action == "add" and s.path]
+    acceptance = [s.acceptance for s in plan.steps if s.acceptance]
+    # Parse commit type from handoff hint (e.g. "fix: add auth" -> "fix")
+    hint = plan.handoff_to_builder.commit_message_hint
+    commit_type = "fix"
+    if hint and ":" in hint:
+        commit_type = hint.split(":")[0].strip().lower() or "fix"
+    return IssueAnalysis(
+        task_description=plan.goal,
+        files_to_modify=files_to_modify,
+        files_to_create=files_to_create,
+        files_to_delete=[],
+        acceptance_criteria=acceptance,
+        commit_type=commit_type,
+        commit_scope=None,
+        summary=plan.handoff_to_builder.pr_title or plan.goal[:80],
+    )
+
+
 async def process_issue_to_pr(
-    job: Job, workspace: Workspace, settings: Settings, is_self_modification: bool = False
+    job: Job,
+    workspace: Workspace,
+    settings: Settings,
+    is_self_modification: bool = False,
+    planner_plan: Plan | None = None,
 ) -> tuple[int, bool, str | None]:
     """Process issue from analysis to PR creation.
 
@@ -100,7 +133,7 @@ async def process_issue_to_pr(
         )
         test_conventions_text = conventions.format_for_prompt()
 
-        # Step 2: Analyze issue
+        # Step 2: Analyze — plan-driven (Builder is execution engine) or fallback to LLM
         logger.info("analyzing_issue", issue_number=job.issue_number)
         issue_title = job.payload["issue"]["title"]
         issue_body = job.payload["issue"]["body"] or ""
@@ -116,7 +149,16 @@ async def process_issue_to_pr(
 
         repo_file_list = "\n".join(repo_files)
 
-        analysis = analyze_issue(issue_title, issue_body, repo_file_list)
+        if planner_plan is not None:
+            # Planner-first: derive analysis from plan — no LLM interpretation of issue
+            analysis = _analysis_from_plan(planner_plan)
+            logger.info(
+                "analysis_from_plan",
+                goal=planner_plan.goal[:50],
+                steps_count=len(planner_plan.steps),
+            )
+        else:
+            analysis = analyze_issue(issue_title, issue_body, repo_file_list)
         logger.info(
             "issue_analyzed",
             files_to_modify=len(analysis.files_to_modify),
@@ -379,15 +421,20 @@ async def process_issue_to_pr(
                 deleted=len(deleted_paths),
             )
 
-        # Step 11: Commit
+        # Step 11: Commit — use handoff hint when plan-driven
         logger.info("committing_changes")
-        commit_message = format_commit_message(
-            analysis.commit_type,
-            analysis.commit_scope,
-            analysis.summary,
-            plan.approach,
-            job.issue_number,
-        )
+        if planner_plan is not None:
+            commit_message = planner_plan.handoff_to_builder.commit_message_hint
+            if job.issue_number and f"#{job.issue_number}" not in commit_message:
+                commit_message = f"{commit_message} [#{job.issue_number}]"
+        else:
+            commit_message = format_commit_message(
+                analysis.commit_type,
+                analysis.commit_scope,
+                analysis.summary,
+                plan.approach,
+                job.issue_number,
+            )
         commit_sha = commit_changes(
             workspace.repo,
             modified_paths,
@@ -415,8 +462,10 @@ async def process_issue_to_pr(
             is_draft = True
             logger.info("creating_pull_request", draft=is_draft, is_self_modification=is_self_modification)
 
-            # Format PR title
-            if analysis.commit_scope:
+            # Format PR title — use handoff when plan-driven
+            if planner_plan is not None:
+                pr_title = planner_plan.handoff_to_builder.pr_title
+            elif analysis.commit_scope:
                 pr_title = f"{analysis.commit_type}({analysis.commit_scope}): {analysis.summary}"
             else:
                 pr_title = f"{analysis.commit_type}: {analysis.summary}"
