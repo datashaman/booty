@@ -74,7 +74,7 @@ def run_secret_scan(
             stderr=subprocess.PIPE,
             text=False,
         )
-        diff_out, diff_err = diff_proc.communicate(timeout=30)
+        diff_out, diff_err = diff_proc.communicate(timeout=20)
         if diff_proc.returncode != 0 and diff_proc.returncode is not None:
             return ScanResult(
                 findings=[],
@@ -105,7 +105,7 @@ def run_secret_scan(
             ],
             input=diff_out,
             capture_output=True,
-            timeout=55,
+            timeout=35,
             cwd=workspace_path,
         )
 
