@@ -27,6 +27,9 @@ def promote_to_ready_for_review(
 ) -> None:
     """Mark a draft PR as ready for review via GitHub GraphQL mutation.
 
+    Re-fetches PR before promote; if not draft (already ready), logs
+    pr_already_ready and returns without promoting — idempotent.
+
     Uses PyGithub's mark_ready_for_review() which wraps the
     markPullRequestReadyForReview GraphQL mutation. Retries on 5xx/network
     errors; does not retry on 4xx (auth, not found). On final failure after
@@ -43,5 +46,8 @@ def promote_to_ready_for_review(
     """
     repo = _get_repo(github_token, repo_url)
     pr = repo.get_pull(pr_number)
+    if not pr.draft:
+        logger.info("pr_already_ready", pr_number=pr_number)
+        return
     pr.mark_ready_for_review()
     logger.info("pr_promoted", pr_number=pr_number)
