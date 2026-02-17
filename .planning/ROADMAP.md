@@ -12,13 +12,13 @@
 
 **v1.9 Reviewer Agent** — Phases 37–41 — [Full details](milestones/v1.9-ROADMAP.md)
 
-| # | Phase | Goal | Requirements |
-|---|-------|------|--------------|
-| 37 | Skeleton + Check Plumbing | Module, config, check run, comment upsert | REV-04, REV-10, REV-12, REV-13 |
-| 38 | Agent PR Detection + Event Wiring | Webhook, dedup, agent filter | REV-01, REV-02, REV-03, REV-05 |
-| 39 | Review Engine | LLM prompt, rubric, block_on mapping | REV-06, REV-07, REV-08, REV-11 |
-| 40 | Promotion Gating | Builder requires reviewer success | REV-14 |
-| 41 | Fail-Open + Metrics | Failure handling, metrics, docs | REV-09, REV-15 |
+| # | Phase | Goal | Requirements | Status |
+|---|-------|------|---------------|--------|
+| 37 | Skeleton + Check Plumbing | Module, config, check run, comment upsert | REV-04, REV-10, REV-12, REV-13 | ✓ |
+| 38 | Agent PR Detection + Event Wiring | Webhook, dedup, agent filter | REV-01, REV-02, REV-03, REV-05 | |
+| 39 | Review Engine | LLM prompt, rubric, block_on mapping | REV-06, REV-07, REV-08, REV-11 | |
+| 40 | Promotion Gating | Builder requires reviewer success | REV-14 | |
+| 41 | Fail-Open + Metrics | Failure handling, metrics, docs | REV-09, REV-15 | |
 
 ---
-*Last updated: 2026-02-17 — v1.9 milestone started*
+*Last updated: 2026-02-17 — Phase 37 complete*

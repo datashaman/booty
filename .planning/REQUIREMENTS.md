@@ -67,10 +67,10 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REV-04 | 37 | Pending |
-| REV-10 | 37 | Pending |
-| REV-12 | 37 | Pending |
-| REV-13 | 37 | Pending |
+| REV-04 | 37 | Complete |
+| REV-10 | 37 | Complete |
+| REV-12 | 37 | Complete |
+| REV-13 | 37 | Complete |
 | REV-01 | 38 | Pending |
 | REV-02 | 38 | Pending |
 | REV-03 | 38 | Pending |
