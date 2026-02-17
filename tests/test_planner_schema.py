@@ -81,7 +81,7 @@ def test_plan_rejects_more_than_12_steps() -> None:
 def test_step_rejects_invalid_action() -> None:
     """Step rejects invalid action."""
     with pytest.raises(ValueError):
-        Step(id="P1", action="research", path=None, command=None, acceptance="Done")
+        Step(id="P1", action="delete", path=None, command=None, acceptance="Done")
 
 
 def test_get_planner_state_dir_uses_env() -> None:
