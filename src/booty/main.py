@@ -43,6 +43,10 @@ from booty.security.runner import process_security_job
 from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
+from booty.release_governor.main_verify import (
+    MainVerificationQueue,
+    process_main_verification_job,
+)
 from booty.webhooks import router as webhook_router
 from booty.architect.artifact import get_plan_for_builder, save_architect_artifact
 from booty.architect.jobs import (
@@ -88,6 +92,7 @@ job_queue: JobQueue | None = None
 verifier_queue: VerifierQueue | None = None
 security_queue: SecurityQueue | None = None
 reviewer_queue: ReviewerQueue | None = None
+main_verification_queue = None
 app_start_time: datetime | None = None
 
 
@@ -335,7 +340,7 @@ async def lifespan(app: FastAPI):
 
     Configures logging, starts workers on startup, shuts down on exit.
     """
-    global job_queue, verifier_queue, security_queue, reviewer_queue, app_start_time
+    global job_queue, verifier_queue, security_queue, reviewer_queue, main_verification_queue, app_start_time
 
     settings = get_settings()
     logger = get_logger()
@@ -397,6 +402,11 @@ async def lifespan(app: FastAPI):
     else:
         reviewer_queue = None
         app.state.reviewer_queue = None
+
+    # Main verification queue (Booty-owned main-branch verification for Governor)
+    main_verification_queue = MainVerificationQueue(maxsize=50)
+    await main_verification_queue.start_workers(1, process_main_verification_job)
+    app.state.main_verification_queue = main_verification_queue
 
     # Planner worker — Planner-first: plan ready → Architect (when enabled) → Builder
     async def _planner_worker_loop() -> None:

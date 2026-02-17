@@ -23,6 +23,7 @@ def post_hold_status(
         "degraded_medium_hold": "Resolve incident; or wait for recovery",
         "cooldown": "Wait for cooldown before retry",
         "rate_limit": "Max deploys/hour reached — wait before retry",
+        "verification_failed": "Tests failed on main — fix and push",
         "high_risk_no_approval": approval_hint or "HIGH risk — approval required (see target URL)",
     }
     unblock = unblock_map.get(reason, f"HOLD: {reason}")
