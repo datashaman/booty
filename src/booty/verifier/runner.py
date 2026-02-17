@@ -554,23 +554,37 @@ async def process_verifier_job(
                     "Add test files (e.g. tests/test_*.py) that verify the changes. "
                     "Do NOT modify .booty.yml — it is a restricted file."
                 )
+                output_text = ""
             else:
                 output_summary = (
                     f"Tests {'passed' if tests_passed else 'failed'} (exit={result.exit_code})"
                 )
-            if not tests_passed and not no_tests_collected and result.stderr:
-                output_summary += f". {result.stderr[:200]}"
+                if not tests_passed and not no_tests_collected and result.stderr:
+                    output_summary += f". {result.stderr[:200]}"
+                # Include full stdout+stderr in text for failure diagnosis (GitHub truncates at 65535)
+                output_text = ""
+                if not tests_passed:
+                    combined = (
+                        f"=== stdout ===\n{result.stdout or ''}\n"
+                        f"=== stderr ===\n{result.stderr or ''}"
+                    )
+                    output_text = combined[:CHECK_OUTPUT_MAX]
+                    if len(combined) > CHECK_OUTPUT_MAX:
+                        output_text += "\n\n...[truncated]"
 
             if not tests_passed and repo is not None:
                 _ingest_verifier_record(
                     job, "test", py_files, output_summary, config, repo
                 )
 
+            output_dict: dict[str, str] = {"title": "Booty Verifier", "summary": output_summary}
+            if output_text:
+                output_dict["text"] = output_text
             edit_check_run(
                 check_run,
                 status="completed",
                 conclusion=conclusion,
-                output={"title": "Booty Verifier", "summary": output_summary},
+                output=output_dict,
             )
             if _check_cancel(job, check_run):
                 return

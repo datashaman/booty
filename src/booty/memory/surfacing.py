@@ -104,10 +104,12 @@ def format_matches_for_pr(matches: list[dict]) -> str:
 
     Each match has type, timestamp, summary, links, id (from lookup.result_subset).
     Format per match: "- **{type}** ({date}) — {summary} {link}"
+    Deduplicates by (type, summary, date) to avoid duplicate entries (e.g. same security_block twice).
     """
     if not matches:
         return ""
 
+    seen: set[tuple[str, str, str]] = set()
     lines = []
     for m in matches:
         rec_type = m.get("type", "unknown")
@@ -120,6 +122,10 @@ def format_matches_for_pr(matches: list[dict]) -> str:
             date_str = dt.strftime("%Y-%m-%d")
         except (ValueError, TypeError):
             date_str = ts[:10] if ts else ""
+        key = (rec_type, summary, date_str)
+        if key in seen:
+            continue
+        seen.add(key)
         line = f"- **{rec_type}** ({date_str}) — {summary}"
         if link:
             line += f" {link}"
