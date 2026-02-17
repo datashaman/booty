@@ -79,7 +79,7 @@ Deferred to later milestones.
 | REV-07 | 39 | Complete |
 | REV-08 | 39 | Complete |
 | REV-11 | 39 | Complete |
-| REV-14 | 40 | Pending |
+| REV-14 | 40 | Complete |
 | REV-09 | 41 | Pending |
 | REV-15 | 41 | Pending |
 

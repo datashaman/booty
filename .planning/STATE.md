@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Phase 40 — Promotion Gating
+**Current focus:** Phase 41 — Fail-Open + Metrics
 
 ## Current Position
 
-Phase: 39 (Complete)
-Plan: 39-01, 39-02
-Status: Phase 39 complete; verified
-Last activity: 2026-02-17 — Phase 39 executed and verified
+Phase: 40 (Complete)
+Plan: 40-01
+Status: Phase 40 complete; verified
+Last activity: 2026-02-17 — Phase 40 executed and verified
 
 ## Accumulated Context
 
@@ -36,5 +36,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 39 complete
-Next step: `/gsd:discuss-phase 40` or `/gsd:plan-phase 40`
+Stopped at: Phase 40 complete
+Next step: `/gsd:discuss-phase 41` or `/gsd:plan-phase 41`
