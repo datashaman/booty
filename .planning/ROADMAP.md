@@ -10,7 +10,7 @@
 
 ## Next Milestone
 
-v1.8 Architect Agent — Phase 32 complete ✓. Phase 33 ready.
+v1.8 Architect Agent — Phases 32–33 complete ✓. Phase 34 ready.
 
 ---
-*Last updated: 2026-02-17 — Phase 32 complete*
+*Last updated: 2026-02-17 — Phase 33 complete*

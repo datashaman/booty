@@ -107,16 +107,16 @@ Deferred to later milestones.
 | ARCH-03 | 32 | Complete |
 | ARCH-04 | 32 | Complete |
 | ARCH-05 | 32 | Complete |
-| ARCH-06 | 33 | Pending |
-| ARCH-07 | 33 | Pending |
-| ARCH-08 | 33 | Pending |
-| ARCH-09 | 33 | Pending |
-| ARCH-10 | 33 | Pending |
-| ARCH-11 | 33 | Pending |
-| ARCH-12 | 33 | Pending |
-| ARCH-13 | 33 | Pending |
-| ARCH-14 | 33 | Pending |
-| ARCH-15 | 33 | Pending |
+| ARCH-06 | 33 | Complete |
+| ARCH-07 | 33 | Complete |
+| ARCH-08 | 33 | Complete |
+| ARCH-09 | 33 | Complete |
+| ARCH-10 | 33 | Complete |
+| ARCH-11 | 33 | Complete |
+| ARCH-12 | 33 | Complete |
+| ARCH-13 | 33 | Complete |
+| ARCH-14 | 33 | Complete |
+| ARCH-15 | 33 | Complete |
 | ARCH-16 | 34 | Pending |
 | ARCH-17 | 34 | Pending |
 | ARCH-18 | 34 | Pending |
@@ -135,7 +135,7 @@ Deferred to later milestones.
 | ARCH-31 | 32 | Complete |
 | ARCH-32 | 32 | Complete |
 | ARCH-33 | 36 | Pending |
-| ARCH-34 | 33 | Pending |
+| ARCH-34 | 33 | Complete |
 
 **Coverage:**
 - v1.8 requirements: 34 total
