@@ -1,5 +1,10 @@
 """CLI entrypoint for Booty."""
 
+# Load .env so RELEASE_GOVERNOR_*, SECURITY_*, etc. are available to governor/other commands
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import asyncio
 import json
 import re
