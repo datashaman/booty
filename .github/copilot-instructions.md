@@ -32,6 +32,14 @@ Booty is a multi-agent system with the following components:
 - **Integration**: ESCALATE persists override for Release Governor to use HIGH risk
 - **Output**: GitHub check run with annotations or escalation notice
 
+### Reviewer Agent (reviewer/)
+- **Trigger**: `pull_request` webhook (parallel with Verifier) for agent PRs only
+- **Function**: Posts `booty/reviewer` check run; AI-driven code quality review (maintainability, overengineering, duplication, test quality, naming, architectural drift)
+- **Key modules**: runner.py, engine.py, metrics.py, prompts.py, config.py
+- **Decision model**: APPROVED, APPROVED_WITH_SUGGESTIONS, BLOCKED; fail-open on infra/LLM failure
+- **Integration**: Builder promotion requires booty/reviewer success for agent PRs; metrics persisted to ~/.booty/state/reviewer/
+- **Output**: GitHub check run, single updatable PR comment with `<!-- booty-reviewer -->`
+
 ### Release Governor (release_governor/)
 - **Trigger**: `workflow_run` completion on main (verification success)
 - **Function**: Computes risk from diff vs production → applies decision rules → ALLOW/HOLD deploy
@@ -108,6 +116,12 @@ src/booty/
 │   ├── scanner.py       # Secret scanning (gitleaks)
 │   ├── audit.py         # Dependency vulnerability audit
 │   └── permission_drift.py  # Sensitive path detection
+├── reviewer/            # Reviewer agent (code quality on agent PRs)
+│   ├── job.py           # Reviewer job definition
+│   ├── runner.py        # Review pipeline, fail-open, metrics
+│   ├── engine.py        # LLM review, block_on mapping
+│   ├── metrics.py       # reviews_total, reviews_blocked, reviewer_fail_open
+│   └── config.py        # ReviewerConfig, env overrides
 ├── release_governor/    # Release Governor (deployment gating)
 │   ├── handler.py       # workflow_run pipeline
 │   ├── decision.py      # Decision computation (ALLOW/HOLD)
@@ -213,6 +227,10 @@ All configuration is loaded through `config.py` using Pydantic Settings:
 - **SECURITY_ENABLED**: Master switch for security checks
 - **SECURITY_FAIL_SEVERITY**: Severity threshold (low, medium, high, critical)
 
+**Reviewer Agent:**
+- **REVIEWER_ENABLED**: 1/true/yes or 0/false/no; wins over .booty.yml reviewer block
+- **REVIEWER_WORKER_COUNT**: Number of reviewer workers (default: 2)
+
 **Release Governor:**
 - **RELEASE_GOVERNOR_ENABLED**: Enable deployment gating
 - **RELEASE_GOVERNOR_APPROVED**: Override for manual approval
@@ -239,6 +257,14 @@ security:
   sensitive_paths:
     - ".github/workflows/**"
     - "infra/**"
+
+reviewer:
+  enabled: true
+  block_on:
+    - overengineering
+    - poor_tests
+    - duplication
+    - architectural_regression
 
 release_governor:
   enabled: true
@@ -292,6 +318,9 @@ booty status              # Show agent status (Builder, Verifier, Governor, Memo
 # Verifier
 booty verifier check-test --repo owner/repo --sha <sha> --installation-id <id>
 booty verifier status
+
+# Reviewer
+booty reviewer status [--repo owner/repo] [--json]   # 24h metrics, enabled state
 
 # Release Governor
 booty governor status                      # Show release state
@@ -359,6 +388,7 @@ booty memory query --sha <sha> --repo owner/repo
 - Add annotations for specific file/line issues
 - Verifier uses `booty/verifier` check name
 - Security uses `booty/security` check name
+- Reviewer uses `booty/reviewer` check name
 
 ### Memory Integration
 - Use `memory.api.add_record()` to store events
@@ -453,6 +483,14 @@ booty memory query --sha <sha> --repo owner/repo
 4. Dependency audit in `security/audit.py`
 5. Permission drift in `security/permission_drift.py`
 6. Persist overrides for Governor in state_dir
+
+### Working with Reviewer Agent
+1. Job definition in `reviewer/job.py`
+2. Main pipeline in `reviewer/runner.py` (fail-open, metrics, structlog)
+3. LLM review in `reviewer/engine.py`, prompts in `reviewer/prompts.py`
+4. Metrics in `reviewer/metrics.py` (reviews_total, reviews_blocked, reviewer_fail_open)
+5. Config in `reviewer/config.py`; check runs via `github/checks.py`
+6. CLI commands: `booty reviewer status [--json]`
 
 ### Working with Release Governor
 1. Handler in `release_governor/handler.py`

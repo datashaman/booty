@@ -1,14 +1,14 @@
-# GitHub App Setup for Booty Verifier & Security
+# GitHub App Setup for Booty Verifier, Security & Reviewer
 
-The Verifier and Security Agent post check runs via the GitHub Checks API. The Checks API requires **GitHub App** authentication — personal access tokens (PATs) cannot create check runs.
+The Verifier, Security, and Reviewer agents post check runs via the GitHub Checks API. The Checks API requires **GitHub App** authentication — personal access tokens (PATs) cannot create check runs.
 
 ## Required GitHub App Permissions
 
 | Permission | Access | Used for |
 |---|---|---|
-| **Checks** | Read & write | Create and update check runs (`booty/verifier`, `booty/security`) |
+| **Checks** | Read & write | Create and update check runs (`booty/verifier`, `booty/security`, `booty/reviewer`) |
 | **Contents** | Read-only | Read `.booty.yml` config from PR head |
-| **Pull requests** | Read-only | Read PR metadata, base/head SHA for Verifier and Security |
+| **Pull requests** | Read-only | Read PR metadata, base/head SHA for Verifier, Security, and Reviewer |
 | **Metadata** | Read-only | Repository metadata (auto-granted) |
 
 ## Required Webhook Events
@@ -17,13 +17,13 @@ Subscribe to these events in the GitHub App settings:
 
 | Event | Purpose |
 |---|---|
-| **Pull requests** | Triggers Verifier and Security on `opened`, `synchronize`, `reopened` actions |
+| **Pull requests** | Triggers Verifier, Security, and Reviewer on `opened`, `synchronize`, `reopened` actions |
 | **Issues** | Triggers when labeled `agent` (or opened with it); Planner→Builder (system figures it out) |
 | **Workflow runs** | Triggers Release Governor when verification workflow completes on main |
 | **Check runs** | Memory PR comment when Verifier check completes; Builder retry on check failure |
 | **Push** | Memory revert detection when reverts are pushed to main |
 
-**No new events or permissions needed for Security** — it uses the same Pull requests event, Checks API, and Contents API as the Verifier.
+**No new events or permissions needed for Security or Reviewer** — both use the same Pull requests event, Checks API, and Contents API as the Verifier.
 
 ## Required `GITHUB_TOKEN` Scopes (PAT)
 
@@ -125,7 +125,7 @@ Open the `url` in a browser — the check should appear on the commit in the Git
 ## If Not Configured
 
 When `GITHUB_APP_ID` or `GITHUB_APP_PRIVATE_KEY` is empty:
-- **Verifier and Security are disabled**
+- **Verifier, Security, and Reviewer are disabled**
 - `booty status` shows `verifier: disabled`
 - Webhooks accept events but skip check runs
 - `booty verifier check-test` exits with error
