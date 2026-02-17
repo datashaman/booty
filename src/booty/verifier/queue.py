@@ -19,8 +19,15 @@ class VerifierQueue:
         self._queue: asyncio.Queue[VerifierJob] = asyncio.Queue(maxsize=maxsize)
         self._processed: set[str] = set()
         self._processed_order: deque[str] = deque()
+        self._cancel_events: dict[tuple[str, int], asyncio.Event] = {}
         self._worker_tasks: list[asyncio.Task] = []
         self._logger = get_logger()
+
+    def request_cancel(self, repo_full_name: str, pr_number: int) -> None:
+        """Signal in-flight worker for same PR to cancel (best-effort)."""
+        key = (repo_full_name, pr_number)
+        if key in self._cancel_events:
+            self._cancel_events[key].set()
 
     def is_duplicate(self, repo_full_name: str, pr_number: int, head_sha: str) -> bool:
         """Check if this repo+PR+head_sha was already processed or enqueued."""
@@ -48,6 +55,11 @@ class VerifierQueue:
             )
             return False
 
+        self.request_cancel(repo_full_name, job.pr_number)
+        event = asyncio.Event()
+        self._cancel_events[(repo_full_name, job.pr_number)] = event
+        job.cancel_event = event
+
         self.mark_processed(repo_full_name, job.pr_number, job.head_sha)
 
         try:
@@ -66,6 +78,7 @@ class VerifierQueue:
                 pr_number=job.pr_number,
             )
             self._processed.discard(key)
+            self._cancel_events.pop((repo_full_name, job.pr_number), None)
             return False
 
     async def worker(
@@ -83,6 +96,9 @@ class VerifierQueue:
                 log = log.bind(job_id=job.job_id, pr_number=job.pr_number)
                 log.info("verifier_job_started")
 
+                repo_full_name = f"{job.owner}/{job.repo_name}"
+                cancel_key = (repo_full_name, job.pr_number)
+
                 try:
                     await process_fn(job)
                     log.info("verifier_job_completed")
@@ -93,6 +109,7 @@ class VerifierQueue:
                         exc_info=True,
                     )
                 finally:
+                    self._cancel_events.pop(cancel_key, None)
                     self._queue.task_done()
             except asyncio.CancelledError:
                 log.info("verifier_worker_cancelled")
