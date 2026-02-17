@@ -20,7 +20,12 @@ from booty.logging import get_logger
 from booty.reviewer.config import apply_reviewer_env_overrides, get_reviewer_config
 from booty.reviewer.engine import format_reviewer_comment, run_review
 from booty.reviewer.job import ReviewerJob
-from booty.reviewer.metrics import increment_reviewer_fail_open
+from booty.reviewer.metrics import (
+    increment_reviewer_fail_open,
+    increment_reviews_blocked,
+    increment_reviews_suggestions,
+    increment_reviews_total,
+)
 from booty.test_runner.config import load_booty_config_from_content
 
 
@@ -182,3 +187,27 @@ async def process_reviewer_job(job: ReviewerJob, settings: Settings) -> None:
 
     body = format_reviewer_comment(result)
     post_reviewer_comment(settings.GITHUB_TOKEN, job.repo_url, job.pr_number, body)
+
+    # Metrics and structured log (REV-15)
+    increment_reviews_total()
+    if result.decision == "APPROVED_WITH_SUGGESTIONS":
+        increment_reviews_suggestions()
+    elif result.decision == "BLOCKED":
+        increment_reviews_blocked()
+
+    suggestion_count = sum(
+        1
+        for c in result.categories
+        for f in c.findings
+        if f.suggestion
+    )
+    log = get_logger()
+    log.info(
+        "reviewer_outcome",
+        repo=f"{job.owner}/{job.repo_name}",
+        pr=job.pr_number,
+        sha=job.head_sha[:7] if job.head_sha else "",
+        outcome=result.decision,
+        blocked_categories=result.blocking_categories or [],
+        suggestion_count=suggestion_count,
+    )
