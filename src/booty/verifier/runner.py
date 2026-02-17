@@ -9,7 +9,12 @@ from github import UnknownObjectException
 from pydantic import ValidationError
 
 from booty.config import Settings, verifier_enabled
-from booty.github.checks import create_check_run, edit_check_run, get_verifier_repo
+from booty.github.checks import (
+    create_check_run,
+    edit_check_run,
+    get_verifier_repo,
+    reviewer_check_success,
+)
 from booty.github.comments import post_verifier_failure_comment
 from booty.github.promotion import promote_to_ready_for_review
 from booty.jobs import Job
@@ -32,6 +37,11 @@ from booty.verifier.job import VerifierJob
 from booty.memory import add_record, get_memory_config
 from booty.memory.adapters import build_verifier_cluster_record
 from booty.memory.config import apply_memory_env_overrides
+from booty.reviewer.config import (
+    ReviewerConfigError,
+    apply_reviewer_env_overrides,
+    get_reviewer_config,
+)
 from booty.verifier.limits import (
     check_diff_limits,
     format_limit_failures,
@@ -493,26 +503,47 @@ async def process_verifier_job(
             )
 
             # Agent PRs: Verifier promotes on success, posts comment on failure
+            # Promotion gated on booty/reviewer success when Reviewer enabled (REV-14)
             if job.is_agent_pr:
                 if tests_passed:
+                    reviewer_enabled = False
                     try:
-                        promote_to_ready_for_review(
-                            settings.GITHUB_TOKEN,
-                            job.repo_url,
-                            job.pr_number,
-                        )
-                        logger.info(
-                            "agent_pr_promoted",
-                            job_id=job.job_id,
-                            pr_number=job.pr_number,
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "agent_pr_promotion_failed",
-                            job_id=job.job_id,
-                            pr_number=job.pr_number,
-                            error=str(e),
-                        )
+                        rc = get_reviewer_config(config)
+                        if rc is not None:
+                            rc = apply_reviewer_env_overrides(rc)
+                            reviewer_enabled = rc.enabled
+                    except ReviewerConfigError:
+                        reviewer_enabled = False
+
+                    can_promote = True
+                    if reviewer_enabled and repo is not None:
+                        can_promote = reviewer_check_success(repo, job.head_sha)
+                        if not can_promote:
+                            logger.info(
+                                "promotion_waiting_reviewer",
+                                job_id=job.job_id,
+                                pr_number=job.pr_number,
+                            )
+
+                    if can_promote:
+                        try:
+                            promote_to_ready_for_review(
+                                settings.GITHUB_TOKEN,
+                                job.repo_url,
+                                job.pr_number,
+                            )
+                            logger.info(
+                                "agent_pr_promoted",
+                                job_id=job.job_id,
+                                pr_number=job.pr_number,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "agent_pr_promotion_failed",
+                                job_id=job.job_id,
+                                pr_number=job.pr_number,
+                                error=str(e),
+                            )
                 else:
                     # Use combined output — pytest and most runners put failures in stdout
                     combined_lines = (
