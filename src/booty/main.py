@@ -35,6 +35,8 @@ from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
 from booty.self_modification.detector import is_self_modification
+from booty.reviewer import ReviewerJob, ReviewerQueue
+from booty.reviewer.runner import process_reviewer_job
 from booty.security import SecurityJob, SecurityQueue
 from booty.security.runner import process_security_job
 from booty.verifier import VerifierJob
@@ -72,6 +74,7 @@ from booty.test_runner.config import load_booty_config_from_content
 job_queue: JobQueue | None = None
 verifier_queue: VerifierQueue | None = None
 security_queue: SecurityQueue | None = None
+reviewer_queue: ReviewerQueue | None = None
 app_start_time: datetime | None = None
 
 
@@ -270,6 +273,19 @@ async def _process_verifier_job(job: VerifierJob) -> None:
         raise
 
 
+async def _process_reviewer_job(job: ReviewerJob) -> None:
+    """Wrapper to pass settings to process_reviewer_job."""
+    settings = get_settings()
+    try:
+        await process_reviewer_job(job, settings)
+    except Exception as e:
+        sentry_sdk.set_tag("job_id", job.job_id)
+        sentry_sdk.capture_exception(e)
+        logger = get_logger().bind(job_id=job.job_id, pr_number=job.pr_number)
+        logger.error("reviewer_job_exception", error=str(e), exc_info=True)
+        raise
+
+
 async def _process_security_job(job: SecurityJob) -> None:
     """Wrapper to pass settings to process_security_job."""
     settings = get_settings()
@@ -289,7 +305,7 @@ async def lifespan(app: FastAPI):
 
     Configures logging, starts workers on startup, shuts down on exit.
     """
-    global job_queue, verifier_queue, security_queue, app_start_time
+    global job_queue, verifier_queue, security_queue, reviewer_queue, app_start_time
 
     settings = get_settings()
     logger = get_logger()
@@ -339,6 +355,18 @@ async def lifespan(app: FastAPI):
     else:
         security_queue = None
         app.state.security_queue = None
+
+    # Reviewer queue and workers (uses same App as Verifier)
+    if verifier_enabled(settings):
+        reviewer_queue = ReviewerQueue(maxsize=100)
+        await reviewer_queue.start_workers(
+            settings.REVIEWER_WORKER_COUNT or 2,
+            _process_reviewer_job,
+        )
+        app.state.reviewer_queue = reviewer_queue
+    else:
+        reviewer_queue = None
+        app.state.reviewer_queue = None
 
     # Planner worker — Planner-first: plan ready → Architect (when enabled) → Builder
     async def _planner_worker_loop() -> None:
@@ -640,6 +668,8 @@ async def lifespan(app: FastAPI):
         await verifier_queue.shutdown()
     if security_queue:
         await security_queue.shutdown()
+    if reviewer_queue:
+        await reviewer_queue.shutdown()
     planner_worker_task = getattr(app.state, "planner_worker_task", None)
     if planner_worker_task:
         planner_worker_task.cancel()
