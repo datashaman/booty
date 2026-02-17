@@ -1,4 +1,4 @@
-"""Release Governor handler — workflow_run pipeline (GOV-01, GOV-02, GOV-03)."""
+"""Release Governor handler — workflow_run and main-verify pipeline (GOV-01, GOV-02, GOV-03)."""
 
 import os
 from datetime import datetime, timezone
