@@ -103,3 +103,7 @@ def planner_enabled(settings: Settings) -> bool:
 def get_settings() -> Settings:
     """Get cached settings instance."""
     return Settings()
+
+
+# Backward compatibility: some deployments import 'settings' directly
+settings = get_settings()
