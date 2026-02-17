@@ -212,6 +212,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 "event_filtered",
                 event_type=event_type,
                 reason="not_main",
+                ref=ref,
             )
             return {"status": "ignored", "reason": "not_main"}
         repo = payload.get("repository", {})
@@ -247,11 +248,11 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             f"https://github.com/{repo_full_name}",
             settings.GITHUB_TOKEN,
         )
+        head_sha = payload.get("after", "")
         if booty_config and getattr(booty_config, "release_governor", None):
             from booty.test_runner.config import apply_release_governor_env_overrides
             gov_config = apply_release_governor_env_overrides(booty_config.release_governor)
             if gov_config.enabled and gov_config.deploy_workflow_name:
-                head_sha = payload.get("after", "")
                 if head_sha:
                     main_verify_queue = getattr(request.app.state, "main_verification_queue", None)
                     if main_verify_queue and isinstance(main_verify_queue, MainVerificationQueue):
@@ -269,6 +270,47 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                                     repo=repo_full_name,
                                     head_sha=head_sha[:7],
                                 )
+                            else:
+                                logger.info(
+                                    "main_verify_enqueue_skipped",
+                                    repo=repo_full_name,
+                                    head_sha=head_sha[:7],
+                                    reason="enqueue_returned_false",
+                                )
+                        else:
+                            logger.info(
+                                "main_verify_enqueue_skipped",
+                                repo=repo_full_name,
+                                head_sha=head_sha[:7],
+                                reason="duplicate",
+                            )
+                    else:
+                        logger.info(
+                            "main_verify_enqueue_skipped",
+                            repo=repo_full_name,
+                            head_sha=head_sha[:7],
+                            reason="no_queue",
+                        )
+                else:
+                    logger.info(
+                        "main_verify_enqueue_skipped",
+                        repo=repo_full_name,
+                        reason="no_after_sha",
+                    )
+            else:
+                logger.info(
+                    "main_verify_enqueue_skipped",
+                    repo=repo_full_name,
+                    reason="governor_disabled",
+                    enabled=bool(gov_config.enabled if gov_config else False),
+                    deploy_workflow=bool(gov_config.deploy_workflow_name if gov_config else False),
+                )
+        else:
+            logger.info(
+                "main_verify_enqueue_skipped",
+                repo=repo_full_name,
+                reason="no_governor_config",
+            )
         return JSONResponse(
             status_code=202,
             content={"status": "accepted", "event": "push"},
