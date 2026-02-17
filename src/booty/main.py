@@ -245,6 +245,7 @@ async def _process_job_impl(job: Job, logger, settings) -> None:
                 repo_url,
                 job.issue_number,
                 str(e),
+                pr_created=False,
             )
             return
 
