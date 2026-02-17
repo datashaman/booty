@@ -7,6 +7,7 @@ from booty.router.normalizer import (
     normalize_pr_event,
     normalize_workflow_run_event,
 )
+from booty.router.router import route_github_event
 from booty.router.should_run import RoutingContext, enabled, should_run
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "RoutingContext",
     "enabled",
     "normalize",
+    "route_github_event",
     "normalize_issue_event",
     "normalize_pr_event",
     "normalize_workflow_run_event",
