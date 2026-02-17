@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Security (GitHub App) configuration — uses same App as Verifier
     SECURITY_WORKER_COUNT: int = 2  # Number of security workers
 
+    # Reviewer (GitHub App) configuration — uses same App as Verifier
+    REVIEWER_WORKER_COUNT: int = 2  # Number of reviewer workers
+
     # Planner agent — set to false to disable agent-triggered handling
     PLANNER_ENABLED: bool = True
 

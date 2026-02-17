@@ -121,6 +121,55 @@ def create_security_check_run(
     return repo.create_check_run(**kwargs)
 
 
+def create_reviewer_check_run(
+    owner: str,
+    repo_name: str,
+    head_sha: str,
+    installation_id: int,
+    settings: Settings,
+    *,
+    status: str = "queued",
+    output: dict[str, Any] | None = None,
+    details_url: str | None = None,
+) -> "CheckRun | None":
+    """Create a booty/reviewer check run on a commit.
+
+    Returns None if GitHub App credentials are missing. Uses same App as Verifier.
+    """
+    repo = get_verifier_repo(owner, repo_name, installation_id, settings)
+    if repo is None:
+        return None
+
+    output = output or {"title": "Booty Reviewer", "summary": "Queued for review…"}
+    kwargs: dict[str, Any] = {
+        "name": "booty/reviewer",
+        "head_sha": head_sha,
+        "status": status,
+        "output": output,
+    }
+    if details_url is not None:
+        kwargs["details_url"] = details_url
+
+    return repo.create_check_run(**kwargs)
+
+
+def reviewer_check_success(repo: "Repository", head_sha: str) -> bool:
+    """Return True if booty/reviewer check exists, is completed, and conclusion is success.
+
+    Returns False if no such run, or on any exception (fail closed).
+    Uses repo.get_commit(head_sha).get_check_runs(check_name="booty/reviewer").
+    """
+    try:
+        commit = repo.get_commit(head_sha)
+        runs = commit.get_check_runs(check_name="booty/reviewer")
+        for run in runs:
+            if run.status == "completed" and run.conclusion == "success":
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def edit_check_run(
     check_run: "CheckRun",
     *,

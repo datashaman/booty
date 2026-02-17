@@ -54,6 +54,7 @@ from booty.planner.jobs import PlannerJob, planner_enqueue, planner_is_duplicate
 from booty.planner.store import get_plan_for_issue
 from booty.logging import get_logger
 from booty.self_modification.detector import is_self_modification
+from booty.reviewer import ReviewerJob
 from booty.security import SecurityJob
 from booty.verifier import VerifierJob
 
@@ -250,19 +251,22 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 content={"status": "accepted", "event": "check_run", "memory_surfaced": False, "error": str(e)},
             )
 
-    # Handle pull_request events (Verifier + Security)
+    # Handle pull_request events (Verifier + Security + Reviewer)
     if event_type == "pull_request":
         verifier_queue = getattr(request.app.state, "verifier_queue", None)
         security_queue = getattr(request.app.state, "security_queue", None)
+        reviewer_queue = getattr(request.app.state, "reviewer_queue", None)
         verifier_ok = verifier_queue is not None and verifier_enabled(settings)
         security_ok = security_queue is not None and security_enabled(settings)
-        if not verifier_ok and not security_ok:
+        # Reviewer uses same GitHub App as Verifier; no reviewer without App credentials
+        reviewer_ok = reviewer_queue is not None and verifier_enabled(settings)
+        if not verifier_ok and not security_ok and not reviewer_ok:
             logger.info(
                 "event_filtered",
                 event_type=event_type,
-                reason="verifier_and_security_disabled",
+                reason="all_pr_agents_disabled",
             )
-            return {"status": "ignored", "reason": "verifier_and_security_disabled"}
+            return {"status": "ignored", "reason": "all_pr_agents_disabled"}
 
         action = payload.get("action")
         if action not in ("opened", "synchronize", "reopened"):
@@ -335,6 +339,42 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 else:
                     logger.error("verifier_enqueue_failed", job_id=verifier_job_id)
 
+        # Reviewer enqueue (agent PRs only)
+        reviewer_enqueued = False
+        reviewer_job_id = None
+        if reviewer_ok and is_agent_pr:
+            repo_full_name = f"{owner}/{repo_name}"
+            if reviewer_queue.is_duplicate(repo_full_name, pr_number, head_sha):
+                logger.info(
+                    "reviewer_already_processed",
+                    repo_full_name=repo_full_name,
+                    pr_number=pr_number,
+                    head_sha=head_sha[:7],
+                )
+            else:
+                reviewer_job_id = f"reviewer-{pr_number}-{head_sha[:7]}"
+                reviewer_job = ReviewerJob(
+                    job_id=reviewer_job_id,
+                    owner=owner,
+                    repo_name=repo_name,
+                    pr_number=pr_number,
+                    head_sha=head_sha,
+                    head_ref=head_ref,
+                    repo_url=repo_url,
+                    installation_id=installation_id,
+                    payload=payload,
+                    is_agent_pr=True,
+                )
+                if await reviewer_queue.enqueue(reviewer_job):
+                    reviewer_enqueued = True
+                    logger.info(
+                        "reviewer_job_accepted",
+                        job_id=reviewer_job_id,
+                        pr_number=pr_number,
+                    )
+                else:
+                    logger.error("reviewer_enqueue_failed", job_id=reviewer_job_id)
+
         # Security enqueue (runs on every PR, separate queue)
         security_enqueued = False
         security_job_id = None
@@ -366,17 +406,23 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             else:
                 logger.error("security_enqueue_failed", job_id=security_job_id)
 
-        if verifier_enqueued or security_enqueued:
-            job_id = verifier_job_id if verifier_enqueued else security_job_id
+        if verifier_enqueued or security_enqueued or reviewer_enqueued:
+            job_id = (
+                verifier_job_id
+                if verifier_enqueued
+                else (security_job_id if security_enqueued else reviewer_job_id)
+            )
             return JSONResponse(
                 status_code=202,
                 content={"status": "accepted", "job_id": job_id},
             )
 
-        # Both duplicate or failed to enqueue
+        # All duplicate or failed to enqueue
         if verifier_ok:
             return {"status": "already_processed"}
         if security_ok:
+            return {"status": "already_processed"}
+        if reviewer_ok:
             return {"status": "already_processed"}
         return {"status": "ignored"}
 

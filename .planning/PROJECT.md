@@ -181,11 +181,23 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 
 ## Current Milestone
 
-v1.8 shipped. Run `/gsd:new-milestone` to define next.
+**v1.9 Reviewer Agent** — AI-driven code quality review on Builder PRs before promotion.
+
+**Goal:** Reviewer evaluates engineering quality (maintainability, overengineering, duplication, test quality, naming, architectural drift). Sits between Builder and Verifier. Blocks promotion on structural issues; fail-open on infra/LLM failure.
+
+**Target features:**
+- booty/reviewer required check (queued → in_progress → success|failure)
+- Decisions: APPROVED, APPROVED_WITH_SUGGESTIONS, BLOCKED
+- Single updatable PR comment with `<!-- booty-reviewer -->`
+- .booty.yml reviewer block (enabled, block_on); disabled by default
+- Builder promotion requires reviewer success for agent PRs
+- Metrics: reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open
+
+**Flow:** Planner → Architect → Builder → Reviewer → Verifier → Security → Governor → Deploy
 
 ## Current State
 
-**Shipped:** v1.8 (2026-02-17)
+**Shipped:** v1.8 (2026-02-17) | **Next:** v1.9 Reviewer Agent
 
 **What shipped in v1.8:**
 - Architect Agent: ArchitectConfig, .booty.yml architect block, Planner worker integration (Phase 32)
@@ -206,7 +218,7 @@ v1.8 shipped. Run `/gsd:new-milestone` to define next.
 
 ## Next Milestone Goals
 
-Run `/gsd:new-milestone` to define v1.9+.
+v1.9 Reviewer Agent — in progress (Phases 37–41).
 
 <details>
 <summary>v1.8 Architect Agent (shipped 2026-02-17)</summary>
@@ -258,4 +270,4 @@ Run `/gsd:new-milestone` to define v1.9+.
 </details>
 
 ---
-*Last updated: 2026-02-17 after v1.8 milestone*
+*Last updated: 2026-02-17 after v1.9 milestone start*

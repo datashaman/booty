@@ -1,4 +1,4 @@
-# Booty Capabilities Summary (v1.8)
+# Booty Capabilities Summary (v1.9)
 
 Booty is a self-managing software builder powered by AI. GitHub is the interface — issues in, PRs out. No custom UI.
 
@@ -11,6 +11,10 @@ Booty is a self-managing software builder powered by AI. GitHub is the interface
 ## Architect Agent (v1.8)
 
 **Plan validation.** Sits between Planner and Builder. Validates structural integrity, path consistency, risk accuracy; detects ambiguity and overreach. Rewrites plans when needed. When enabled (per `.booty.yml`), Builder runs only after Architect approval. Persists approved plan to `~/.booty/state/plans/<repo>/<issue>-architect.json`. CLI: `booty architect status`, `booty architect review --issue N`.
+
+## Reviewer Agent (v1.9)
+
+**Code quality review.** Sits between Builder and Verifier. AI-driven review of PR diffs for engineering quality: maintainability, overengineering, duplication, test quality, naming, architectural drift. Publishes `booty/reviewer` check. APPROVED / APPROVED_WITH_SUGGESTIONS / BLOCKED. Builder promotion requires reviewer success for agent PRs. Fail-open on infra/LLM failure. When enabled (per `.booty.yml` reviewer block); disabled by default. CLI: `booty reviewer status`. Persisted metrics: reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open.
 
 ## Verifier Agent (v1.2)
 
@@ -43,7 +47,7 @@ Append-only `memory.jsonl` store. Ingests from Observability, Governor, Security
 1. Issue/incident → add `agent` → Planner runs → Plan stored
 2. Architect validates/rewrites plan (when enabled in .booty.yml)
 3. Plan approved → Builder runs automatically (no extra label)
-4. Verifier runs checks on PR
+4. Builder opens PR → Reviewer runs (when enabled) → Verifier runs checks on PR
 5. Merge → Verify main runs on main
 6. Governor decides deploy → HOLD or triggers Deploy workflow
 7. Sentry monitors production
