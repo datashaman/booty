@@ -153,6 +153,23 @@ def create_reviewer_check_run(
     return repo.create_check_run(**kwargs)
 
 
+def reviewer_check_success(repo: "Repository", head_sha: str) -> bool:
+    """Return True if booty/reviewer check exists, is completed, and conclusion is success.
+
+    Returns False if no such run, or on any exception (fail closed).
+    Uses repo.get_commit(head_sha).get_check_runs(check_name="booty/reviewer").
+    """
+    try:
+        commit = repo.get_commit(head_sha)
+        runs = commit.get_check_runs(check_name="booty/reviewer")
+        for run in runs:
+            if run.status == "completed" and run.conclusion == "success":
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def edit_check_run(
     check_run: "CheckRun",
     *,
