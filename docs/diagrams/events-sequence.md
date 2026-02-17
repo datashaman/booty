@@ -15,6 +15,7 @@ participant Router
 participant Planner
 participant Architect
 participant Builder
+participant Reviewer
 participant Verifier
 participant Observability
 
@@ -36,6 +37,9 @@ Builder-->Observability:span branch.created
 Builder-->GitHub:create draft PR
 GitHub->Router:pull_requests.created
 Router-->Observability:span received
+Router->Reviewer:trigger check (agent PR)
+Reviewer-->Observability:span review.completed
+Reviewer-->GitHub:check result
 Router->Verifier:trigger check
 Verifier-->Observability:span check.started
 Verifier-->GitHub:check result
