@@ -1,20 +1,30 @@
 # Project Milestones: Booty
 
-## v1.8 Architect Agent (In Progress)
+## v1.8 Architect Agent (Shipped: 2026-02-17)
 
-**Goal:** Architect validates and refines plans before Builder executes. Sits between Planner and Builder.
+**Delivered:** Architect Agent validates and refines plans before Builder executes. Sits between Planner and Builder. Structural validation, path consistency, risk recompute, ambiguity/overreach detection. ArchitectPlan artifact; Builder triggers only after Architect approval. Block unsafe plans with agent:architect-review.
 
-**Phases:** 32–36 (5 phases)
+**Phases completed:** 32–36 (16 plans total)
 
-**Key scope:**
-- Architect subscribes to Planner completion; never from GitHub labels
-- Validation: structural integrity, path consistency, risk accuracy, ambiguity/overreach
-- ArchitectPlan artifact; Builder triggers only after Architect approval
-- Block unsafe plans with agent:architect-review
-- CLI: booty architect status | review
-- Config: .booty.yml architect block
+**Key accomplishments:**
 
-**What's next:** Phase 32 — Architect Foundation
+- ArchitectConfig, .booty.yml architect block, Planner worker integration — Architect runs only after Planner (Phase 32)
+- Validation: structural integrity, path consistency, risk recompute, ambiguity/overreach; < 5s (Phase 33)
+- ArchitectPlan, comment updates (Approved/Rewritten/Blocked), agent:architect-review on block (Phase 34)
+- plan_hash cache, find/save, 24h TTL, comment diff-before-update (Phase 35)
+- Artifact persistence, architect.plan.approved event, Builder handoff gate, booty architect status | review, metrics (Phase 36)
+- 34/34 v1.8 requirements; milestone audit passed
+
+**Stats:**
+
+- 111 files changed (v1.7..v1.8)
+- 13,967 lines of Python (total)
+- 5 phases, 16 plans
+- 1 day from v1.7 to ship (2026-02-16 → 2026-02-17)
+
+**Git range:** `v1.7` → `107278d` (Merge PR #35)
+
+**What's next:** Run `/gsd:new-milestone` to define v1.9+
 
 ---
 
