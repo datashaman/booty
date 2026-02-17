@@ -107,6 +107,7 @@ def status(workspace: str, as_json: bool) -> None:
                         "verifier": "enabled" if v_enabled else "disabled",
                         "security": "enabled" if v_enabled else "disabled",
                         "planner": "enabled",
+                        "architect": "unknown",
                         "governor": "unknown",
                         "memory": "unknown",
                     }
@@ -116,18 +117,25 @@ def status(workspace: str, as_json: bool) -> None:
             click.echo(f"verifier: {'enabled' if v_enabled else 'disabled'} (incomplete config)")
             click.echo(f"security: {'enabled' if v_enabled else 'disabled'}")
             click.echo("planner: enabled")
+            click.echo("architect: unknown (no config)")
             click.echo("governor: unknown (no config)")
             click.echo("memory: unknown (no config)")
         return
 
-    # Load .booty.yml for governor/memory
+    # Load .booty.yml for governor/memory/architect
     gov_enabled = False
     mem_enabled = False
+    arch_enabled = False
     try:
         config = load_booty_config(ws)
         gov_enabled = is_governor_enabled(config)
+        from booty.architect.config import apply_architect_env_overrides, get_architect_config
         from booty.memory.config import apply_memory_env_overrides, get_memory_config
 
+        arch_cfg = get_architect_config(config) if config else None
+        if arch_cfg:
+            arch_cfg = apply_architect_env_overrides(arch_cfg)
+            arch_enabled = bool(arch_cfg and arch_cfg.enabled)
         mem_cfg = get_memory_config(config) if config else None
         if mem_cfg:
             mem_cfg = apply_memory_env_overrides(mem_cfg)
@@ -139,6 +147,7 @@ def status(workspace: str, as_json: bool) -> None:
         "verifier": "enabled" if verifier_enabled(settings) else "disabled",
         "security": "enabled" if security_enabled(settings) else "disabled",
         "planner": "enabled" if planner_enabled(settings) else "disabled",
+        "architect": "enabled" if arch_enabled else "disabled",
         "governor": "enabled" if gov_enabled else "disabled",
         "memory": "enabled" if mem_enabled else "disabled",
     }
