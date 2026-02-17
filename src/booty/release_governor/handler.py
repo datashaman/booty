@@ -77,6 +77,7 @@ def simulate_decision_for_cli(
 
     raw_val = (
         os.environ.get("RELEASE_GOVERNOR_APPROVED", "")
+        .split("#")[0]  # drop inline comment (systemd may pass it through)
         .strip()
         .strip('"\'')
         .lower()
@@ -154,6 +155,7 @@ def handle_workflow_run(
 
     raw_val = (
         os.environ.get("RELEASE_GOVERNOR_APPROVED", "")
+        .split("#")[0]  # drop inline comment (systemd may pass it through)
         .strip()
         .strip('"\'')
         .lower()
