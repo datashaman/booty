@@ -102,11 +102,11 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | 32 | Pending |
-| ARCH-02 | 32 | Pending |
-| ARCH-03 | 32 | Pending |
-| ARCH-04 | 32 | Pending |
-| ARCH-05 | 32 | Pending |
+| ARCH-01 | 32 | Complete |
+| ARCH-02 | 32 | Complete |
+| ARCH-03 | 32 | Complete |
+| ARCH-04 | 32 | Complete |
+| ARCH-05 | 32 | Complete |
 | ARCH-06 | 33 | Pending |
 | ARCH-07 | 33 | Pending |
 | ARCH-08 | 33 | Pending |
@@ -132,8 +132,8 @@ Deferred to later milestones.
 | ARCH-28 | 36 | Pending |
 | ARCH-29 | 36 | Pending |
 | ARCH-30 | 36 | Pending |
-| ARCH-31 | 32 | Pending |
-| ARCH-32 | 32 | Pending |
+| ARCH-31 | 32 | Complete |
+| ARCH-32 | 32 | Complete |
 | ARCH-33 | 36 | Pending |
 | ARCH-34 | 33 | Pending |
 

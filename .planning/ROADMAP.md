@@ -10,7 +10,7 @@
 
 ## Next Milestone
 
-v1.8 Architect Agent — Phase 32 ready. Run `/gsd:discuss-phase 32` or `/gsd:plan-phase 32`.
+v1.8 Architect Agent — Phase 32 complete ✓. Phase 33 ready.
 
 ---
-*Last updated: 2026-02-17 — v1.8 milestone started*
+*Last updated: 2026-02-17 — Phase 32 complete*
