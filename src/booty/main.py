@@ -41,6 +41,7 @@ from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
+from booty.architect.artifact import save_architect_artifact
 from booty.architect.cache import (
     architect_plan_hash,
     find_cached_architect_result,
@@ -54,6 +55,7 @@ from booty.architect.config import (
 from booty.architect.input import ArchitectInput
 from booty.architect.output import build_architect_plan, format_architect_section
 from booty.architect.worker import process_architect_input
+from booty.planner.cache import input_hash as planner_input_hash
 from booty.planner.jobs import planner_queue
 from booty.planner.schema import Plan
 from booty.planner.store import get_plan_for_issue
@@ -393,6 +395,22 @@ async def lifespan(app: FastAPI):
                                         Plan.model_validate(cached.plan),
                                         cached.architect_notes,
                                     )
+                                    save_architect_artifact(
+                                        job.owner,
+                                        job.repo,
+                                        job.issue_number,
+                                        architect_plan,
+                                        input_hash=planner_input_hash(result.normalized_input)
+                                        if result.normalized_input
+                                        else None,
+                                    )
+                                    get_logger().info(
+                                        "architect_plan_approved",
+                                        issue_number=job.issue_number,
+                                        owner=job.owner,
+                                        repo=job.repo,
+                                        event="architect.plan.approved",
+                                    )
                                     architect_section = format_architect_section(
                                         "approved",
                                         risk_level=architect_plan.risk_level,
@@ -466,6 +484,22 @@ async def lifespan(app: FastAPI):
                                     )
                                     architect_plan = build_architect_plan(
                                         arch_result.plan, arch_result.architect_notes
+                                    )
+                                    save_architect_artifact(
+                                        job.owner,
+                                        job.repo,
+                                        job.issue_number,
+                                        architect_plan,
+                                        input_hash=planner_input_hash(result.normalized_input)
+                                        if result.normalized_input
+                                        else None,
+                                    )
+                                    get_logger().info(
+                                        "architect_plan_approved",
+                                        issue_number=job.issue_number,
+                                        owner=job.owner,
+                                        repo=job.repo,
+                                        event="architect.plan.approved",
                                     )
                                     notes = arch_result.architect_notes or ""
                                     status = (
