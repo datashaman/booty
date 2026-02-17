@@ -53,6 +53,12 @@ from booty.architect.config import (
     get_architect_config,
 )
 from booty.architect.input import ArchitectInput
+from booty.architect.metrics import (
+    increment_blocked,
+    increment_cache_hit,
+    increment_rewritten,
+    increment_reviewed,
+)
 from booty.architect.output import build_architect_plan, format_architect_section
 from booty.architect.worker import process_architect_input
 from booty.planner.cache import input_hash as planner_input_hash
@@ -429,8 +435,10 @@ async def lifespan(app: FastAPI):
                                             issue_number=job.issue_number,
                                             error=str(e),
                                         )
+                                    increment_cache_hit()
                                     should_enqueue_builder = True
                                 else:
+                                    increment_cache_hit()
                                     architect_section = format_architect_section(
                                         "blocked",
                                         reason=cached.block_reason or "",
@@ -511,6 +519,10 @@ async def lifespan(app: FastAPI):
                                         )
                                         else "approved"
                                     )
+                                    if status == "approved":
+                                        increment_reviewed()
+                                    else:
+                                        increment_rewritten()
                                     architect_section = format_architect_section(
                                         status,
                                         risk_level=architect_plan.risk_level,
@@ -538,6 +550,7 @@ async def lifespan(app: FastAPI):
                                         end = notes.rfind(")")
                                         if end > start:
                                             reason = notes[start:end]
+                                    increment_blocked()
                                     save_architect_result(
                                         job.owner,
                                         job.repo,
