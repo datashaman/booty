@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from github import Github
 
 from booty.config import get_settings
+from booty.release_governor.main_verify import MainVerificationJob, MainVerificationQueue
 from booty.router import route_github_event
 from booty.github.issues import create_sentry_issue_with_retry
 from booty.github.repo_config import load_booty_config_for_repo, repo_from_url
@@ -242,6 +243,32 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                         type="revert",
                         error=str(e),
                     )
+        booty_config = load_booty_config_for_repo(
+            f"https://github.com/{repo_full_name}",
+            settings.GITHUB_TOKEN,
+        )
+        if booty_config and getattr(booty_config, "release_governor", None):
+            from booty.test_runner.config import apply_release_governor_env_overrides
+            gov_config = apply_release_governor_env_overrides(booty_config.release_governor)
+            if gov_config.enabled and gov_config.deploy_workflow_name:
+                head_sha = payload.get("after", "")
+                if head_sha:
+                    main_verify_queue = getattr(request.app.state, "main_verification_queue", None)
+                    if main_verify_queue and isinstance(main_verify_queue, MainVerificationQueue):
+                        if not main_verify_queue.is_duplicate(repo_full_name, head_sha):
+                            job = MainVerificationJob(
+                                repo_full_name=repo_full_name,
+                                head_sha=head_sha,
+                                repo_url=repo.get("html_url", "") or f"https://github.com/{repo_full_name}",
+                                delivery_id=delivery_id or "",
+                            )
+                            enqueued = await main_verify_queue.enqueue(job)
+                            if enqueued:
+                                logger.info(
+                                    "main_verify_enqueued_from_push",
+                                    repo=repo_full_name,
+                                    head_sha=head_sha[:7],
+                                )
         return JSONResponse(
             status_code=202,
             content={"status": "accepted", "event": "push"},

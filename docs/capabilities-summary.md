@@ -47,7 +47,7 @@ Automated deployment via GitHub Actions (SSH to DigitalOcean, deploy.sh, health 
 
 ## Release Governor (v1.4)
 
-Gates production deployment. When Verify main workflow completes, computes risk from paths touched (LOW/MEDIUM/HIGH), applies approval rules, and either triggers deploy via `workflow_dispatch` or posts HOLD with reason and unblock instructions. Commit status `booty/release-governor`, CLI: `booty governor status | simulate | trigger`.
+Gates production deployment. On push to main, Booty runs verification (tests); on success, computes risk from paths touched (LOW/MEDIUM/HIGH), applies approval rules, and either triggers deploy via `workflow_dispatch` or posts HOLD with reason and unblock instructions. Commit status `booty/release-governor`, CLI: `booty governor status | simulate | trigger`.
 
 ## Security Agent (v1.5)
 
@@ -69,8 +69,7 @@ Append-only `memory.jsonl` store. Ingests from Observability, Governor, Security
 2. Architect validates/rewrites plan (when enabled in .booty.yml)
 3. Plan approved → Builder runs automatically (no extra label)
 4. Builder opens PR → Reviewer runs (when enabled) → Verifier runs checks on PR
-5. Merge → Verify main runs on main
-6. Governor decides deploy → HOLD or triggers Deploy workflow
+5. Merge → Booty verifies main (runs tests); on success, Governor decides deploy → HOLD or triggers Deploy workflow
 7. Sentry monitors production
 8. Observability creates issues for incidents → Planner picks up → Architect → Builder runs when plan ready
 9. Security and Memory support each stage

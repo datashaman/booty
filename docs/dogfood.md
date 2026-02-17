@@ -36,15 +36,17 @@ gh api "repos/${REPO}/labels" -X POST -f name="self-modification" -f description
 
 When a PR touches sensitive paths (e.g. `.github/workflows/**`), Security **ESCALATE**s — the check **passes** (conclusion=success) but Memory stores a `security_block` record for related history. The PR comment "Memory: related history" surfaces this. It is informational, not a failure. Governor uses it for deploy risk (HIGH when override present).
 
-## Verify PR Workflow
+## PR verification
 
-The `verify-pr.yml` workflow is **disabled** so only Booty agents run verification:
+PR checks are Booty-owned:
 
 - **Booty Verifier** posts the `booty/verifier` check (tests, limits, import validation)
 - **Booty Security** posts the `booty/security` check
 - **Booty Reviewer** posts the `booty/reviewer` check when enabled
 
-Duplicate Actions-based verification is avoided. To re-enable for local development, remove the `if: false` in `.github/workflows/verify-pr.yml`.
+## Deploy flow (main)
+
+When code is merged to main, Booty runs verification (clone main, run tests). On success, the Release Governor evaluates risk and either triggers deploy via `workflow_dispatch` or posts HOLD. No separate verify-main workflow — Booty owns main verification.
 
 ## Flow
 

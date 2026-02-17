@@ -2,10 +2,9 @@
 
 ## GitHub Actions (visible logs)
 
-- **Verify PR** — Runs on every pull request. Full output in the [Actions](https://github.com/datashaman/booty/actions) tab.
-- **Verify main** — Runs on push to `main`.
+- **Deploy** — Triggered by Release Governor via `workflow_dispatch` after main verification passes.
 
-Click a workflow run → click the **Verify** job → expand steps to see full output.
+PR and main verification are Booty-owned: Verifier, Security, and Reviewer run on the Booty server. Main verification runs on push to main.
 
 ## Booty App checks (booty/security, booty/verifier)
 

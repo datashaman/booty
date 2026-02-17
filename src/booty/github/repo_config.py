@@ -2,7 +2,7 @@
 
 from urllib.parse import urlparse
 
-from github import Github
+from github import Auth, Github
 
 from booty.logging import get_logger
 from booty.test_runner.config import load_booty_config_from_content
@@ -30,7 +30,7 @@ def load_booty_config_for_repo(repo_url: str, gh_token: str):
         owner_repo = repo_from_url(repo_url)
         if not owner_repo or "/" not in owner_repo:
             return None
-        g = Github(gh_token)
+        g = Github(auth=Auth.Token(gh_token))
         repo = g.get_repo(owner_repo)
         fc = repo.get_contents(".booty.yml", ref=repo.default_branch or "main")
         content = fc.decoded_content.decode("utf-8")

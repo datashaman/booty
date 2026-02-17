@@ -17,20 +17,21 @@ Operators can use the CLI to simulate decisions and manually trigger deploys whe
 
 ## Execution flow
 
-1. Verification workflow completes on main (`workflow_run`, `conclusion=success`)
-2. Governor receives webhook; reads `head_sha` from payload
-3. Loads release state; gets `production_sha` (current or previous)
+1. **Push to main** → Booty receives `push` webhook
+2. Booty enqueues main verification job; clones main at `head_sha`, runs tests (setup, install, test from `.booty.yml`)
+3. On **test success**: Governor evaluates; loads release state; gets `production_sha` (current or previous)
 4. Fetches diff: `gh.compare(production_sha, head_sha)`
 5. Computes risk from pathspecs (workflows, migrations = HIGH; manifests = MEDIUM; rest = LOW)
-6. Applies decision rules:
+6. On **test failure**: posts HOLD with `verification_failed`; no deploy
+7. Applies decision rules (when tests passed):
    - **Hard holds**: deploy not configured, first deploy without approval, degraded + HIGH risk
    - **Cooldown**: same SHA failed recently
    - **Rate limit**: max deploys per hour
    - **LOW**: auto-ALLOW
    - **MEDIUM**: ALLOW (unless degraded)
    - **HIGH**: HOLD unless approved (env/label/comment)
-7. On **ALLOW**: POST `workflow_dispatch` with `sha` input; update release state
-8. On **HOLD**: commit status with Decision, SHA, Risk, Reason, "How to unblock"
+8. On **ALLOW**: POST `workflow_dispatch` with `sha` input; update release state
+9. On **HOLD**: commit status with Decision, SHA, Risk, Reason, "How to unblock"
 
 ## CLI reference
 
@@ -172,19 +173,18 @@ For first deploy with `require_approval_for_first_deploy: true`, same rules appl
 
 ### Deploy not triggering after merges
 
-**Flow:** Push to main → Verify main runs → on success, GitHub sends `workflow_run` webhook → Governor receives it → decision → ALLOW triggers deploy via `workflow_dispatch`.
+**Flow:** Push to main → Booty receives `push` webhook → Booty runs verification (clone main, run tests) → on success, Governor evaluates → ALLOW triggers deploy via `workflow_dispatch`.
 
 **Check these in order:**
 
-1. **GitHub App: Workflow runs subscription**
+1. **GitHub App: Push subscription**
    - App Settings → Permissions and events → Subscribe to events.
-   - Ensure **Workflow runs** is checked. Without it, Booty never receives `workflow_run` events.
-   - Repo webhooks: same — enable "Workflow runs" if using a repo webhook.
+   - Ensure **Push** is checked so Booty receives push webhooks.
 
-2. **Verify main completed successfully**
-   - GitHub → Actions → "Verify main" workflow.
-   - Confirm recent merges have successful runs. Governor only reacts to `conclusion=success`.
-   - Re-runs: Governor dedupes by commit SHA; re-running Verify main for the same SHA is ignored.
+2. **Booty main verification completed successfully**
+   - Booty clones main at head SHA and runs tests (setup, install, test from `.booty.yml`).
+   - Governor only runs when tests pass. If tests fail, commit status shows HOLD with `verification_failed`.
+   - Check Booty logs: `main_verify_enqueued_from_push`, `main_verify_governor_processed`.
 
 3. **GITHUB_TOKEN has workflow permission**
    - Governor uses `GITHUB_TOKEN` for `workflow_dispatch`.
@@ -201,9 +201,9 @@ For first deploy with `require_approval_for_first_deploy: true`, same rules appl
    - Set `RELEASE_GOVERNOR_APPROVED=true` in Booty's environment for env approval.
    - Or run `booty governor simulate <sha>` to see decision and reason.
 
-6. **Workflow name match**
-   - Config: `verification_workflow_name: "Verify main"` must match `workflow_run.name` from GitHub.
-   - `verify-main.yml` uses `name: Verify main` — should match.
+6. **Repos with custom verification workflow**
+   - If using a separate verification workflow (not Booty-owned), `verification_workflow_name` must match `workflow_run.name`.
+   - Booty-owned flow does not use `verification_workflow_name`.
 
 ### How to see what the Governor is doing
 
@@ -212,9 +212,9 @@ For first deploy with `require_approval_for_first_deploy: true`, same rules appl
 | **booty governor status** | Release state: `production_sha_current`, `last_deploy_attempt_sha`, `last_deploy_result` |
 | **booty governor simulate &lt;sha&gt;** | Dry-run: decision (ALLOW/HOLD), risk_class, reason, unblock hints |
 | **Commit status** | On merge commit: `booty/release-governor` (success = ALLOW, failure = HOLD) |
-| **Booty logs** | `event_filtered` (reason: governor_disabled, workflow_not_matched, etc.), `governor_workflow_processed` (outcome, reason) |
+| **Booty logs** | `main_verify_enqueued_from_push`, `main_verify_governor_processed` (outcome, reason) |
 | **Sentry** | `dispatch_deploy` or webhook errors (403 workflow, etc.) |
-| **GitHub Actions** | Verify main run history; Deploy workflow (only runs when Governor dispatches) |
+| **GitHub Actions** | Deploy workflow (only runs when Governor dispatches) |
 
 **Quick diagnostic:**
 ```bash
@@ -234,6 +234,7 @@ booty governor status --json
 | `high_risk_no_approval` | HIGH risk, no approval | Approve per approval_mode (env/label/comment) |
 | `cooldown` | Same SHA failed recently | Wait cooldown_minutes |
 | `rate_limit` | Too many deploys in last hour | Wait until deploy count resets |
+| `verification_failed` | Tests failed on main | Fix tests and push |
 | `degraded_high_risk` | Degraded state + HIGH risk | Fix degraded; or wait |
 
 ### Where to look

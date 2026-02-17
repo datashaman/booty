@@ -18,16 +18,13 @@ from booty.github.repo_config import load_booty_config_for_repo
 from booty.jobs import Job
 from booty.logging import get_logger
 from booty.memory import add_record, get_memory_config
-from booty.memory.adapters import (
-    build_deploy_failure_record,
-    build_governor_hold_record,
-)
+from booty.memory.adapters import build_deploy_failure_record
 from booty.memory.config import apply_memory_env_overrides
 from booty.planner.jobs import PlannerJob, planner_enqueue, planner_is_duplicate, planner_mark_processed
 from booty.planner.store import get_plan_for_issue
 from booty.release_governor.deploy import dispatch_deploy
 from booty.release_governor.failure_issues import create_or_append_deploy_failure_issue
-from booty.release_governor.handler import handle_workflow_run
+from booty.release_governor.handler import apply_governor_decision, handle_workflow_run
 from booty.release_governor.store import (
     append_deploy_to_history,
     get_state_dir,
@@ -36,7 +33,6 @@ from booty.release_governor.store import (
     record_delivery_id,
     save_release_state,
 )
-from booty.release_governor.ux import post_allow_status, post_hold_status
 from booty.router.events import IssueEvent, PREvent
 from booty.router.normalizer import normalize
 from booty.router.skip_reasons import _log_event_skip
@@ -622,33 +618,8 @@ async def _route_workflow_run(
         decision = handle_workflow_run(payload, governor_config)
 
         html_url = repo.get("html_url", "") or ""
-        actions_url = f"{html_url.rstrip('/')}/actions" if html_url else ""
-        hold_docs_url = (
-            f"{html_url.rstrip('/')}/blob/{default_branch}/docs/release-governor.md"
-            if html_url else ""
-        )
 
-        if decision.outcome == "ALLOW":
-            dispatch_deploy(gh_repo, governor_config, head_sha)
-            now_iso = datetime.now(timezone.utc).isoformat()
-            state = load_release_state(state_dir)
-            state.last_deploy_attempt_sha = head_sha
-            state.last_deploy_time = now_iso
-            state.last_deploy_result = "pending"
-            save_release_state(state_dir, state)
-            append_deploy_to_history(state_dir, head_sha, now_iso, "pending")
-            post_allow_status(gh_repo, head_sha, actions_url)
-        else:
-            approval_hint = None
-            if decision.reason == "high_risk_no_approval":
-                mode = governor_config.approval_mode
-                if mode == "label" and governor_config.approval_label:
-                    approval_hint = f"Approval via label: {governor_config.approval_label}"
-                elif mode == "comment" and governor_config.approval_command:
-                    approval_hint = f"Approval via comment: {governor_config.approval_command}"
-                elif mode == "environment":
-                    approval_hint = "Approval via env: RELEASE_GOVERNOR_APPROVED=true"
-            post_hold_status(gh_repo, head_sha, decision, hold_docs_url, approval_hint)
+        def _surface_hold():
             mem_config = get_memory_config(config) if config else None
             if mem_config:
                 mem_config = apply_memory_env_overrides(mem_config)
@@ -661,19 +632,19 @@ async def _route_workflow_run(
                     decision.reason,
                     mem_config,
                 )
-            if mem_config and mem_config.enabled:
-                try:
-                    record = build_governor_hold_record(decision, repo_full_name)
-                    add_record(record, mem_config)
-                except Exception as e:
-                    logger.warning(
-                        "memory_ingestion_failed",
-                        type="governor_hold",
-                        error=str(e),
-                    )
 
-        if delivery_id:
-            record_delivery_id(state_dir, repo_full_name, head_sha, delivery_id)
+        apply_governor_decision(
+            gh_repo,
+            head_sha,
+            decision,
+            governor_config,
+            repo_full_name,
+            html_url,
+            delivery_id,
+            state_dir,
+            booty_config=config,
+            surface_hold_fn=_surface_hold,
+        )
 
         logger.info(
             "governor_workflow_processed",

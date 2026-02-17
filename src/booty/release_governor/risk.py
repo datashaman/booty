@@ -25,8 +25,8 @@ def compute_risk_class(
     if not files or len(files) == 0:
         return "LOW"
 
-    high_spec = PathSpec.from_lines("gitwildmatch", config.high_risk_paths)
-    medium_spec = PathSpec.from_lines("gitwildmatch", config.medium_risk_paths)
+    high_spec = PathSpec.from_lines("gitignore", config.high_risk_paths)
+    medium_spec = PathSpec.from_lines("gitignore", config.medium_risk_paths)
 
     max_risk: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
     for f in files:
@@ -54,8 +54,8 @@ def get_risk_paths(comparison, config: ReleaseGovernorConfig) -> list[str]:
     files = getattr(comparison, "files", None)
     if not files:
         return []
-    high_spec = PathSpec.from_lines("gitwildmatch", config.high_risk_paths)
-    medium_spec = PathSpec.from_lines("gitwildmatch", config.medium_risk_paths)
+    high_spec = PathSpec.from_lines("gitignore", config.high_risk_paths)
+    medium_spec = PathSpec.from_lines("gitignore", config.medium_risk_paths)
     paths: list[str] = []
     for f in files:
         path = getattr(f, "filename", None) or (f if isinstance(f, str) else "")
