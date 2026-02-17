@@ -39,6 +39,7 @@ from booty.release_governor.store import (
 from booty.release_governor.ux import post_allow_status, post_hold_status
 from booty.router.events import IssueEvent, PREvent
 from booty.router.normalizer import normalize
+from booty.router.skip_reasons import _log_event_skip
 from booty.router.should_run import RoutingContext, should_run
 from booty.self_modification.detector import is_self_modification
 from booty.test_runner.config import (
@@ -76,13 +77,7 @@ async def route_github_event(
             payload, delivery_id, app_state, background_tasks=background_tasks
         )
 
-    logger.info(
-        "event_skip",
-        agent=None,
-        repo=None,
-        event_type=event_type,
-        reason="unsupported_event",
-    )
+    _log_event_skip(agent=None, repo=None, event_type=event_type, reason="unsupported_event")
     return {"status": "ignored", "reason": "unsupported_event"}
 
 
@@ -93,13 +88,7 @@ async def _route_issues(
     settings = get_settings()
     internal = normalize("issues", payload, delivery_id)
     if internal is None or not isinstance(internal, IssueEvent):
-        logger.info(
-            "event_skip",
-            agent=None,
-            repo=None,
-            event_type="issues",
-            reason="normalize_failed",
-        )
+        _log_event_skip(agent=None, repo=None, event_type="issues", reason="normalize_failed")
         return {"status": "ignored", "reason": "normalize_failed"}
 
     action = internal.action
@@ -121,8 +110,7 @@ async def _route_issues(
     }
 
     if not has_trigger_label:
-        logger.info(
-            "event_skip",
+        _log_event_skip(
             agent=None,
             repo=internal.full_name,
             event_type="issues",
@@ -148,6 +136,12 @@ async def _route_issues(
     def _do_builder_enqueue():
         """Perform Builder enqueue checks and enqueue. Returns (status_dict, None) or (None, result)."""
         if not job_queue:
+            _log_event_skip(
+                agent="builder",
+                repo=internal.full_name,
+                event_type="issues",
+                reason="no_job_queue",
+            )
             return ({"status": "ignored", "reason": "no_job_queue"}, None)
         if delivery_id and job_queue.is_duplicate(delivery_id):
             return ({"status": "already_processed"}, None)
@@ -155,6 +149,12 @@ async def _route_issues(
             return ({"status": "already_processed"}, None)
         is_self = is_self_modification(internal.repo_url, settings.BOOTY_OWN_REPO_URL)
         if is_self and not settings.BOOTY_SELF_MODIFY_ENABLED:
+            _log_event_skip(
+                agent="builder",
+                repo=internal.full_name,
+                event_type="issues",
+                reason="self_modification_disabled",
+            )
             if background_tasks:
                 background_tasks.add_task(
                     post_self_modification_disabled_comment,
@@ -199,6 +199,12 @@ async def _route_issues(
             # Unreviewed plan -> Architect (not Planner)
             plan_hash = architect_plan_hash(plan)
             if architect_is_duplicate(internal.full_name, plan_hash):
+                _log_event_skip(
+                    agent="architect",
+                    repo=internal.full_name,
+                    event_type="issues",
+                    reason="dedup_hit",
+                )
                 return {"status": "already_processed"}
             job_id = f"architect-{internal.issue_number}-{delivery_id or 'no-delivery'}"
             arch_job = ArchitectJob(
@@ -226,9 +232,20 @@ async def _route_issues(
                     internal.repo_url,
                     internal.issue_number,
                 )
-            logger.info("builder_blocked_no_plan", issue_number=internal.issue_number)
+            _log_event_skip(
+                agent="planner",
+                repo=internal.full_name,
+                event_type="issues",
+                reason="builder_blocked_no_plan",
+            )
             return {"status": "ignored", "reason": "builder_blocked_no_plan"}
         if delivery_id and planner_is_duplicate(delivery_id):
+            _log_event_skip(
+                agent="planner",
+                repo=internal.full_name,
+                event_type="issues",
+                reason="dedup_hit",
+            )
             return {"status": "already_processed"}
         job_id = f"planner-{internal.issue_number}-{delivery_id or 'no-delivery'}"
         planner_job = PlannerJob(
@@ -271,9 +288,20 @@ async def _route_issues(
                     internal.repo_url,
                     internal.issue_number,
                 )
-            logger.info("builder_blocked_no_plan", issue_number=internal.issue_number)
+            _log_event_skip(
+                agent="planner",
+                repo=internal.full_name,
+                event_type="issues",
+                reason="builder_blocked_no_plan",
+            )
             return {"status": "ignored", "reason": "builder_blocked_no_plan"}
         if delivery_id and planner_is_duplicate(delivery_id):
+            _log_event_skip(
+                agent="planner",
+                repo=internal.full_name,
+                event_type="issues",
+                reason="dedup_hit",
+            )
             return {"status": "already_processed"}
         job_id = f"planner-{internal.issue_number}-{delivery_id or 'no-delivery'}"
         planner_job = PlannerJob(
@@ -302,18 +330,13 @@ async def _route_pull_request(
     settings = get_settings()
     internal = normalize("pull_request", payload, delivery_id)
     if internal is None or not isinstance(internal, PREvent):
-        logger.info(
-            "event_skip",
-            agent=None,
-            repo=None,
-            event_type="pull_request",
-            reason="normalize_failed",
+        _log_event_skip(
+            agent=None, repo=None, event_type="pull_request", reason="normalize_failed"
         )
         return {"status": "ignored", "reason": "normalize_failed"}
 
     if internal.action not in ("opened", "synchronize", "reopened"):
-        logger.info(
-            "event_skip",
+        _log_event_skip(
             agent=None,
             repo=internal.full_name,
             event_type="pull_request",
@@ -340,8 +363,7 @@ async def _route_pull_request(
     if not should_run("verifier", internal.full_name, ctx, settings, booty_config) and not should_run(
         "security", internal.full_name, ctx, settings, booty_config
     ) and not should_run("reviewer", internal.full_name, ctx, settings, booty_config):
-        logger.info(
-            "event_skip",
+        _log_event_skip(
             agent=None,
             repo=internal.full_name,
             event_type="pull_request",
@@ -353,10 +375,11 @@ async def _route_pull_request(
     verifier_job_id = None
     if verifier_queue and should_run("verifier", internal.full_name, ctx, settings, booty_config):
         if verifier_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
-            logger.info(
-                "verifier_already_processed",
-                pr_number=internal.pr_number,
-                head_sha=internal.head_sha[:7],
+            _log_event_skip(
+                agent="verifier",
+                repo=internal.full_name,
+                event_type="pull_request",
+                reason="dedup_hit",
             )
         else:
             issue_number_from_branch = None
@@ -386,7 +409,14 @@ async def _route_pull_request(
     reviewer_enqueued = False
     reviewer_job_id = None
     if reviewer_queue and should_run("reviewer", internal.full_name, ctx, settings, booty_config):
-        if not reviewer_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
+        if reviewer_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
+            _log_event_skip(
+                agent="reviewer",
+                repo=internal.full_name,
+                event_type="pull_request",
+                reason="dedup_hit",
+            )
+        else:
             reviewer_job_id = f"reviewer-{internal.pr_number}-{internal.head_sha[:7]}"
             reviewer_job = ReviewerJob(
                 job_id=reviewer_job_id,
@@ -409,7 +439,14 @@ async def _route_pull_request(
     security_enqueued = False
     security_job_id = None
     if security_queue and should_run("security", internal.full_name, ctx, settings, booty_config):
-        if not security_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
+        if security_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
+            _log_event_skip(
+                agent="security",
+                repo=internal.full_name,
+                event_type="pull_request",
+                reason="dedup_hit",
+            )
+        else:
             security_job_id = f"security-{internal.pr_number}-{internal.head_sha[:7]}"
             base = payload.get("pull_request", {}).get("base", {})
             base_sha = base.get("sha", "") or ""
@@ -447,8 +484,7 @@ async def _route_workflow_run(
     settings = get_settings()
     internal = normalize("workflow_run", payload, delivery_id)
     if internal is None:
-        logger.info(
-            "event_skip",
+        _log_event_skip(
             agent=None,
             repo=None,
             event_type="workflow_run",
@@ -457,8 +493,7 @@ async def _route_workflow_run(
         return {"status": "ignored", "reason": "normalize_failed"}
 
     if internal.action != "completed":
-        logger.info(
-            "event_skip",
+        _log_event_skip(
             agent="governor",
             repo=internal.full_name,
             event_type="workflow_run",
@@ -496,8 +531,7 @@ async def _route_workflow_run(
         "action": internal.action,
     }
     if not should_run("governor", repo_full_name, ctx, settings, booty_config):
-        logger.info(
-            "event_skip",
+        _log_event_skip(
             agent="governor",
             repo=repo_full_name,
             event_type="workflow_run",
@@ -650,8 +684,7 @@ async def _route_workflow_run(
         )
         return {"status": "accepted", "event": "workflow_run", "outcome": decision.outcome}
 
-    logger.info(
-        "event_skip",
+    _log_event_skip(
         agent="governor",
         repo=repo_full_name,
         event_type="workflow_run",
