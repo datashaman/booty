@@ -1,11 +1,13 @@
 """Reviewer job runner — check lifecycle and LLM review integration.
 
-Phase 38: event plumbing. Phase 39: full LLM review.
+Phase 38: event plumbing. Phase 39: full LLM review. Phase 41: fail-open.
 """
 
 import asyncio
+import json
 
-from github import UnknownObjectException
+from github import GithubException, UnknownObjectException
+from pydantic import ValidationError
 
 from booty.config import Settings
 from booty.github.comments import post_reviewer_comment
@@ -14,10 +16,29 @@ from booty.github.checks import (
     edit_check_run,
     get_verifier_repo,
 )
+from booty.logging import get_logger
 from booty.reviewer.config import apply_reviewer_env_overrides, get_reviewer_config
 from booty.reviewer.engine import format_reviewer_comment, run_review
 from booty.reviewer.job import ReviewerJob
+from booty.reviewer.metrics import increment_reviewer_fail_open
 from booty.test_runner.config import load_booty_config_from_content
+
+
+def _classify_fail_open_exception(exc: BaseException) -> str:
+    """Classify exception into fail-open bucket for metrics and logging."""
+    if isinstance(exc, UnknownObjectException):
+        return "github_api_failed"
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return "llm_timeout"
+    if isinstance(exc, (json.JSONDecodeError, ValidationError)):
+        return "schema_parse_failed"
+    if isinstance(exc, GithubException):
+        return "github_api_failed"
+    # Diff fetch / compare errors before run_review
+    exc_name = type(exc).__name__
+    if "timeout" in exc_name.lower() or "timeout" in str(exc).lower():
+        return "llm_timeout"
+    return "unexpected_exception"
 
 
 async def process_reviewer_job(job: ReviewerJob, settings: Settings) -> None:
@@ -115,14 +136,24 @@ async def process_reviewer_job(job: ReviewerJob, settings: Settings) -> None:
             pr_meta,
             config.block_on,
         )
-    except Exception:
+    except Exception as exc:
+        bucket = _classify_fail_open_exception(exc)
+        increment_reviewer_fail_open(bucket)
+        log = get_logger()
+        log.info(
+            "reviewer_fail_open",
+            repo=f"{job.owner}/{job.repo_name}",
+            pr=job.pr_number,
+            sha=job.head_sha[:7] if job.head_sha else "",
+            fail_open_type=bucket,
+        )
         edit_check_run(
             check_run,
             status="completed",
-            conclusion="failure",
+            conclusion="success",
             output={
-                "title": "Reviewer error",
-                "summary": "LLM or infrastructure failure. Phase 41 adds fail-open.",
+                "title": "Reviewer unavailable (fail-open)",
+                "summary": "Review did not run; promotion/merge not blocked",
             },
         )
         return
