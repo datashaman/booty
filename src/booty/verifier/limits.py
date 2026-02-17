@@ -101,7 +101,7 @@ def check_diff_limits(stats: DiffStats, limits: LimitsConfig) -> list[LimitFailu
 
     if limits.max_loc_per_file is not None:
         exclude_patterns = limits.max_loc_per_file_pathspec or DEFAULT_MAX_LOC_PER_FILE_EXCLUDE
-        spec = PathSpec.from_lines("gitwildmatch", exclude_patterns)
+        spec = PathSpec.from_lines("gitignore", exclude_patterns)
         for f in stats.files:
             if spec.match_file(f.filename):
                 continue

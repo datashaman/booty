@@ -25,7 +25,7 @@ class PathRestrictor:
         """
         self.workspace_root = workspace_root.resolve()
         # Use pathspec for gitignore-style patterns (supports **)
-        self.denylist = pathspec.PathSpec.from_lines('gitwildmatch', denylist_patterns)
+        self.denylist = pathspec.PathSpec.from_lines('gitignore', denylist_patterns)
 
     def is_path_allowed(self, file_path: str) -> tuple[bool, str | None]:
         """Validate path against security restrictions.

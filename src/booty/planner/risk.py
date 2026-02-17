@@ -40,9 +40,9 @@ def classify_risk_from_paths(
     if not touch_paths:
         return ("HIGH", [])
 
-    exclude_spec = PathSpec.from_lines("gitwildmatch", EXCLUDE_FROM_RISK)
-    high_spec = PathSpec.from_lines("gitwildmatch", HIGH_RISK_PATTERNS)
-    medium_spec = PathSpec.from_lines("gitwildmatch", MEDIUM_RISK_PATTERNS)
+    exclude_spec = PathSpec.from_lines("gitignore", EXCLUDE_FROM_RISK)
+    high_spec = PathSpec.from_lines("gitignore", HIGH_RISK_PATTERNS)
+    medium_spec = PathSpec.from_lines("gitignore", MEDIUM_RISK_PATTERNS)
 
     paths_to_check: list[str] = []
     for p in touch_paths:

@@ -57,7 +57,7 @@ def sensitive_paths_touched(
     """
     if not sensitive_paths:
         return []
-    spec = PathSpec.from_lines("gitwildmatch", sensitive_paths)
+    spec = PathSpec.from_lines("gitignore", sensitive_paths)
     touched: set[str] = set()
     for path, old_path in paths:
         if spec.match_file(path):

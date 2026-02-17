@@ -45,3 +45,9 @@ dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
 ]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:UserImageMessage is deprecated:DeprecationWarning",
+    "ignore:GitWildMatchPattern.*deprecated:DeprecationWarning",
+]

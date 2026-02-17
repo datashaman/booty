@@ -1,11 +1,26 @@
 """Tests for security scanner module."""
 
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from booty.security.scanner import build_annotations, run_secret_scan, ScanResult
+
+
+def _mock_path_is_file_no_scanner(real_is_file):
+    """Return a mock Path.is_file that returns False for gitleaks/trufflehog in bin dirs."""
+
+    def mock_is_file(self) -> bool:
+        s = str(self)
+        if ("gitleaks" in s or "trufflehog" in s) and (
+            "/usr/local/bin" in s or "/usr/bin" in s
+        ):
+            return False
+        return real_is_file(self)
+
+    return mock_is_file
 
 
 class TestBuildAnnotations:
@@ -44,7 +59,12 @@ class TestRunSecretScan:
     def test_missing_binary_returns_scan_ok_false(self) -> None:
         """When both gitleaks and trufflehog missing, ScanResult.scan_ok=False."""
         with patch("booty.security.scanner.shutil.which", return_value=None):
-            r = run_secret_scan(".", "HEAD^", "HEAD", None)
+            with patch.object(
+                Path,
+                "is_file",
+                _mock_path_is_file_no_scanner(Path.is_file),
+            ):
+                r = run_secret_scan(".", "HEAD^", "HEAD", None)
         assert r.scan_ok is False
         assert r.error_message is not None
         assert "not found" in r.error_message.lower()
