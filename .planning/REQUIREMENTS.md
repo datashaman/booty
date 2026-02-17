@@ -124,9 +124,9 @@ Deferred to later milestones.
 | ARCH-20 | 34 | Complete |
 | ARCH-21 | 34 | Complete |
 | ARCH-22 | 34 | Complete |
-| ARCH-23 | 35 | Pending |
-| ARCH-24 | 35 | Pending |
-| ARCH-25 | 35 | Pending |
+| ARCH-23 | 35 | Complete |
+| ARCH-24 | 35 | Complete |
+| ARCH-25 | 35 | Complete |
 | ARCH-26 | 36 | Pending |
 | ARCH-27 | 36 | Pending |
 | ARCH-28 | 36 | Pending |

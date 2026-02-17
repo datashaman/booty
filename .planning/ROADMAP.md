@@ -3,6 +3,7 @@
 ## Milestones
 
 - 🚧 **v1.8 Architect Agent** — Phases 32–36 (in progress) — [Full details](milestones/v1.8-ROADMAP.md)
+  - Phase 35 Idempotency complete ✓
 - ✅ **v1.7 Planner Agent** — Phases 27–31 (shipped 2026-02-16) — [Full details](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.6 Memory Agent** — Phases 22–26 (shipped 2026-02-16) — [Full details](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.5 Security Agent** — Phases 18–21 (shipped 2026-02-16) — [Full details](milestones/v1.5-ROADMAP.md)
@@ -10,7 +11,7 @@
 
 ## Next Milestone
 
-v1.8 Architect Agent — Phases 32–34 complete ✓. Phase 35 ready.
+v1.8 Architect Agent — Phases 32–35 complete ✓. Phase 36 ready.
 
 ---
-*Last updated: 2026-02-17 — Phase 34 complete*
+*Last updated: 2026-02-17 — Phase 35 complete*
