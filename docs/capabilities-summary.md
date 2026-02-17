@@ -4,6 +4,27 @@ Booty is a self-managing software builder powered by AI. GitHub is the interface
 
 ---
 
+## Dedup Keys
+
+Standard keys for deduplication across agents. Same key = same work; avoids duplicate runs.
+
+**PR agents (Verifier, Reviewer, Security):**
+
+| Key | Serialization | Purpose |
+|-----|---------------|---------|
+| `(repo_full_name, pr_number, head_sha)` | `{repo_full_name}:{pr_number}:{head_sha}` | Same PR+commit = same work; repo required for multi-tenant correctness |
+
+**Issue agents:**
+
+| Agent | Key | Notes |
+|-------|-----|-------|
+| Planner | `(repo, delivery_id)` | delivery_id is GitHub X-GitHub-Delivery; globally unique per webhook |
+| Builder (issue-driven) | `(repo, delivery_id)` | Same as Planner for issue-triggered jobs |
+| Builder (plan-driven) | `(repo, plan_hash)` | Phase 44 — reserve |
+| Architect | TBD | Phase 44 — reserve slot |
+
+---
+
 ## Builder Agent (v1.0, v1.1)
 
 **Planner-first:** Pure executor — only runs when a valid Plan artifact exists. Plan ready → Architect (when enabled) → Builder runs automatically (autonomous). Trigger: `agent` label. Uses plan's goal, steps, handoff_to_builder for execution. No fallback to raw issue interpretation.
