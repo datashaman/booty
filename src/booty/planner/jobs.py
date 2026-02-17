@@ -19,6 +19,17 @@ class PlannerJob:
     payload: dict
 
 
+@dataclass
+class PlannerJobResult:
+    """Result of process_planner_job — for Architect integration."""
+
+    cache_hit: bool
+    plan: object
+    normalized_input: object
+    repo_context: dict | None
+    job: PlannerJob
+
+
 planner_queue: asyncio.Queue[PlannerJob] = asyncio.Queue()
 planner_processed_deliveries: Set[str] = set()
 _planner_delivery_order: Deque[str] = deque()

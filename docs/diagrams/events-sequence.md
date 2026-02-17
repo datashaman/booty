@@ -55,7 +55,7 @@ end
 
 ## Notes
 
-- **Planner** is implemented — issues with `agent` trigger planner worker; plans are stored and posted as comments. **Architect** is not yet implemented.
+- **Planner** is implemented — issues with `agent` trigger planner worker; plans are stored and posted as comments. **Architect** validates plans before Builder; runs after Planner, persists approved artifact, emits architect.plan.approved.
 - **Observability** receives telemetry spans at each stage (traces, metrics, or logs).
 - Dashed arrows (`-->`) indicate async, non-blocking emission.
 - GitHub event names follow webhook conventions: `issues` (action: opened/labeled), `create` (ref_type: branch), `pull_request` (action: opened), `check_run` (action: completed).

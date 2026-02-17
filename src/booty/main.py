@@ -15,13 +15,22 @@ from importlib.metadata import version, PackageNotFoundError
 
 import sentry_sdk
 from asgi_correlation_id import CorrelationIdMiddleware
+from github import Github, GithubException
 from fastapi import FastAPI, Header, HTTPException, Request
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings, security_enabled, verifier_enabled
-from booty.github.comments import post_builder_blocked_comment, post_failure_comment
+from booty.github.comments import (
+    get_plan_comment_body,
+    post_architect_blocked_comment,
+    post_architect_invalid_config_comment,
+    post_builder_blocked_comment,
+    post_failure_comment,
+    update_plan_comment_with_architect_section_if_changed,
+)
+from booty.github.issues import add_architect_review_label
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
@@ -32,9 +41,31 @@ from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
+from booty.architect.artifact import get_plan_for_builder, save_architect_artifact
+from booty.architect.cache import (
+    architect_plan_hash,
+    find_cached_architect_result,
+    save_architect_result,
+)
+from booty.architect.config import (
+    ArchitectConfigError,
+    apply_architect_env_overrides,
+    get_architect_config,
+)
+from booty.architect.input import ArchitectInput
+from booty.architect.metrics import (
+    increment_blocked,
+    increment_cache_hit,
+    increment_rewritten,
+    increment_reviewed,
+)
+from booty.architect.output import build_architect_plan, format_architect_section
+from booty.architect.worker import process_architect_input
+from booty.planner.cache import input_hash as planner_input_hash
 from booty.planner.jobs import planner_queue
-from booty.planner.store import get_plan_for_issue
+from booty.planner.schema import Plan
 from booty.planner.worker import process_planner_job
+from booty.test_runner.config import load_booty_config_from_content
 
 
 # Module-level job queue and app start time
@@ -140,16 +171,20 @@ async def process_job(job: Job) -> None:
     repo_url = job.repo_url or settings.TARGET_REPO_URL
 
     # Planner-first: Builder is pure executor — require plan to exist
-    # Try local file first, then GitHub issue comments (durable across workers)
+    # Architect artifact first, then Planner plan (unreviewed by Architect)
     repo_info = job.payload.get("repository", {})
     owner = repo_info.get("owner", {}).get("login", "")
     repo_name = repo_info.get("name", "")
-    plan = get_plan_for_issue(owner, repo_name, job.issue_number, github_token=settings.GITHUB_TOKEN)
+    plan, unreviewed = get_plan_for_builder(
+        owner, repo_name, job.issue_number, github_token=settings.GITHUB_TOKEN
+    )
     if plan is None:
         logger.warning("builder_blocked_no_plan", issue_number=job.issue_number)
         post_builder_blocked_comment(settings.GITHUB_TOKEN, repo_url, job.issue_number)
         return
 
+    if unreviewed:
+        logger.info("builder_using_planner_plan_unreviewed", issue_number=job.issue_number)
     # Prepare workspace
     async with prepare_workspace(
         job, repo_url, settings.TARGET_BRANCH, settings.GITHUB_TOKEN
@@ -305,19 +340,263 @@ async def lifespan(app: FastAPI):
         security_queue = None
         app.state.security_queue = None
 
-    # Planner worker — Planner-first: plan ready → Builder runs (autonomous)
+    # Planner worker — Planner-first: plan ready → Architect (when enabled) → Builder
     async def _planner_worker_loop() -> None:
         while True:
             try:
                 job = await planner_queue.get()
                 try:
-                    await asyncio.to_thread(process_planner_job, job)
-                    # Autonomous: plan ready → Builder runs. No extra label required.
+                    result = await asyncio.to_thread(process_planner_job, job)
+
                     # Skip if webhook already enqueued Builder for same issue (race avoidance)
-                    if (
-                        job_queue
-                        and not job_queue.has_issue_in_queue(job.repo_url, job.issue_number)
-                    ):
+                    if not job_queue or job_queue.has_issue_in_queue(job.repo_url, job.issue_number):
+                        planner_queue.task_done()
+                        continue
+
+                    should_enqueue_builder = False
+
+                    if result.cache_hit:
+                        # Planner cache hit: skip Architect, enqueue Builder directly
+                        should_enqueue_builder = True
+                    else:
+                        # Not cache hit: check Architect config, run Architect when enabled
+                        booty_config = None
+                        try:
+                            token = (settings.GITHUB_TOKEN or "").strip()
+                            if token and job.owner and job.repo:
+                                gh = Github(token)
+                                gh_repo = gh.get_repo(f"{job.owner}/{job.repo}")
+                                default_branch = gh_repo.default_branch or "main"
+                                fc = gh_repo.get_contents(".booty.yml", ref=default_branch)
+                                yaml_content = fc.decoded_content.decode("utf-8")
+                                booty_config = load_booty_config_from_content(yaml_content)
+                        except Exception:
+                            booty_config = None  # No .booty.yml or load failed → no architect
+
+                        try:
+                            architect_config = get_architect_config(booty_config) if booty_config else None
+                        except ArchitectConfigError:
+                            post_architect_invalid_config_comment(
+                                settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                            )
+                            add_architect_review_label(
+                                settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                            )
+                            planner_queue.task_done()
+                            continue
+
+                        if architect_config is None:
+                            should_enqueue_builder = True
+                        else:
+                            architect_config = apply_architect_env_overrides(architect_config)
+                            if not architect_config.enabled:
+                                should_enqueue_builder = True
+
+                        if not should_enqueue_builder and architect_config is not None:
+                            h = architect_plan_hash(result.plan)
+                            cached = find_cached_architect_result(
+                                job.owner, job.repo, job.issue_number, h
+                            )
+                            if cached:
+                                # Architect cache hit — reuse result, update comment only if changed
+                                if cached.approved:
+                                    architect_plan = build_architect_plan(
+                                        Plan.model_validate(cached.plan),
+                                        cached.architect_notes,
+                                    )
+                                    save_architect_artifact(
+                                        job.owner,
+                                        job.repo,
+                                        job.issue_number,
+                                        architect_plan,
+                                        input_hash=planner_input_hash(result.normalized_input)
+                                        if result.normalized_input
+                                        else None,
+                                    )
+                                    get_logger().info(
+                                        "architect_plan_approved",
+                                        issue_number=job.issue_number,
+                                        owner=job.owner,
+                                        repo=job.repo,
+                                        event="architect.plan.approved",
+                                    )
+                                    architect_section = format_architect_section(
+                                        "approved",
+                                        risk_level=architect_plan.risk_level,
+                                        architect_notes=architect_plan.architect_notes,
+                                    )
+                                    try:
+                                        update_plan_comment_with_architect_section_if_changed(
+                                            settings.GITHUB_TOKEN,
+                                            job.repo_url,
+                                            job.issue_number,
+                                            architect_section,
+                                        )
+                                    except GithubException as e:
+                                        get_logger().warning(
+                                            "architect_plan_comment_update_failed",
+                                            issue_number=job.issue_number,
+                                            error=str(e),
+                                        )
+                                    increment_cache_hit()
+                                    should_enqueue_builder = True
+                                else:
+                                    increment_cache_hit()
+                                    architect_section = format_architect_section(
+                                        "blocked",
+                                        reason=cached.block_reason or "",
+                                    )
+                                    if get_plan_comment_body(
+                                        settings.GITHUB_TOKEN,
+                                        job.repo_url,
+                                        job.issue_number,
+                                    ):
+                                        try:
+                                            update_plan_comment_with_architect_section_if_changed(
+                                                settings.GITHUB_TOKEN,
+                                                job.repo_url,
+                                                job.issue_number,
+                                                architect_section,
+                                            )
+                                        except GithubException as e:
+                                            get_logger().warning(
+                                                "architect_block_comment_update_failed",
+                                                issue_number=job.issue_number,
+                                                error=str(e),
+                                            )
+                                    else:
+                                        post_architect_blocked_comment(
+                                            settings.GITHUB_TOKEN,
+                                            job.repo_url,
+                                            job.issue_number,
+                                            reason=cached.block_reason or "",
+                                        )
+                                    # No add_architect_review_label on cache hit (label already from first block)
+                            else:
+                                # Architect cache miss — run validation
+                                inp = ArchitectInput(
+                                    plan=result.plan,
+                                    normalized_input=result.normalized_input,
+                                    repo_context=result.repo_context,
+                                    issue_metadata={"issue_number": job.issue_number},
+                                )
+                                arch_result = process_architect_input(
+                                    architect_config, inp
+                                )
+                                if arch_result.approved:
+                                    save_architect_result(
+                                        job.owner,
+                                        job.repo,
+                                        job.issue_number,
+                                        h,
+                                        approved=True,
+                                        plan=arch_result.plan.model_dump(),
+                                        architect_notes=arch_result.architect_notes,
+                                    )
+                                    architect_plan = build_architect_plan(
+                                        arch_result.plan, arch_result.architect_notes
+                                    )
+                                    save_architect_artifact(
+                                        job.owner,
+                                        job.repo,
+                                        job.issue_number,
+                                        architect_plan,
+                                        input_hash=planner_input_hash(result.normalized_input)
+                                        if result.normalized_input
+                                        else None,
+                                    )
+                                    get_logger().info(
+                                        "architect_plan_approved",
+                                        issue_number=job.issue_number,
+                                        owner=job.owner,
+                                        repo=job.repo,
+                                        event="architect.plan.approved",
+                                    )
+                                    notes = arch_result.architect_notes or ""
+                                    status = (
+                                        "rewritten"
+                                        if notes
+                                        and (
+                                            "ambiguous" in notes.lower()
+                                            or "overreach" in notes.lower()
+                                        )
+                                        else "approved"
+                                    )
+                                    if status == "approved":
+                                        increment_reviewed()
+                                    else:
+                                        increment_rewritten()
+                                    architect_section = format_architect_section(
+                                        status,
+                                        risk_level=architect_plan.risk_level,
+                                        architect_notes=architect_plan.architect_notes,
+                                    )
+                                    try:
+                                        update_plan_comment_with_architect_section_if_changed(
+                                            settings.GITHUB_TOKEN,
+                                            job.repo_url,
+                                            job.issue_number,
+                                            architect_section,
+                                        )
+                                    except GithubException as e:
+                                        get_logger().warning(
+                                            "architect_plan_comment_update_failed",
+                                            issue_number=job.issue_number,
+                                            error=str(e),
+                                        )
+                                    should_enqueue_builder = True
+                                else:
+                                    notes = arch_result.architect_notes or ""
+                                    reason = ""
+                                    if "(" in notes and ")" in notes:
+                                        start = notes.rfind("(") + 1
+                                        end = notes.rfind(")")
+                                        if end > start:
+                                            reason = notes[start:end]
+                                    increment_blocked()
+                                    save_architect_result(
+                                        job.owner,
+                                        job.repo,
+                                        job.issue_number,
+                                        h,
+                                        approved=False,
+                                        block_reason=reason,
+                                    )
+                                    architect_section = format_architect_section(
+                                        "blocked", reason=reason
+                                    )
+                                    if get_plan_comment_body(
+                                        settings.GITHUB_TOKEN,
+                                        job.repo_url,
+                                        job.issue_number,
+                                    ):
+                                        try:
+                                            update_plan_comment_with_architect_section_if_changed(
+                                                settings.GITHUB_TOKEN,
+                                                job.repo_url,
+                                                job.issue_number,
+                                                architect_section,
+                                            )
+                                        except GithubException as e:
+                                            get_logger().warning(
+                                                "architect_block_comment_update_failed",
+                                                issue_number=job.issue_number,
+                                                error=str(e),
+                                            )
+                                    else:
+                                        post_architect_blocked_comment(
+                                            settings.GITHUB_TOKEN,
+                                            job.repo_url,
+                                            job.issue_number,
+                                            reason=reason,
+                                        )
+                                    add_architect_review_label(
+                                        settings.GITHUB_TOKEN,
+                                        job.repo_url,
+                                        job.issue_number,
+                                    )
+
+                    if should_enqueue_builder:
                         builder_job_id = f"{job.issue_number}-plan-complete-{id(job)}"
                         builder_job = Job(
                             job_id=builder_job_id,

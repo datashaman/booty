@@ -2,6 +2,8 @@
 
 ## Milestones
 
+- ✅ **v1.8 Architect Agent** — Phases 32–36 (complete) — [Full details](milestones/v1.8-ROADMAP.md)
+  - Phase 36 Builder Handoff & CLI complete ✓
 - ✅ **v1.7 Planner Agent** — Phases 27–31 (shipped 2026-02-16) — [Full details](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.6 Memory Agent** — Phases 22–26 (shipped 2026-02-16) — [Full details](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.5 Security Agent** — Phases 18–21 (shipped 2026-02-16) — [Full details](milestones/v1.5-ROADMAP.md)
@@ -9,7 +11,7 @@
 
 ## Next Milestone
 
-Run `/gsd:new-milestone` to define v1.8+ (questioning → research → requirements → roadmap).
+v1.8 complete ✓. Milestone ready for audit.
 
 ---
-*Last updated: 2026-02-16 — v1.7 milestone complete*
+*Last updated: 2026-02-17 — Phase 36 complete*

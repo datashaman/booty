@@ -14,14 +14,15 @@ from booty.planner.cache import (
     plan_hash,
 )
 from booty.planner.generation import generate_plan
-from booty.planner.input import get_repo_context, normalize_from_job
-from booty.planner.jobs import PlannerJob
+from booty.planner.input import PlannerInput, get_repo_context, normalize_from_job
+from booty.planner.jobs import PlannerJob, PlannerJobResult
 from booty.planner.output import format_plan_comment
 from booty.planner.risk import classify_risk_from_paths
+from booty.planner.schema import Plan
 from booty.planner.store import plan_path_for_issue, save_plan
 
 
-def process_planner_job(job: PlannerJob) -> None:
+def process_planner_job(job: PlannerJob) -> PlannerJobResult:
     """Process planner job: generate plan via LLM, classify risk, store to plans/."""
     logger = get_logger().bind(job_id=job.job_id, issue_number=job.issue_number)
     repo_context = None
@@ -33,6 +34,7 @@ def process_planner_job(job: PlannerJob) -> None:
     h = input_hash(inp)
     ttl = float(os.environ.get("PLANNER_CACHE_TTL_HOURS", "24"))
     cached = find_cached_issue_plan(job.owner, job.repo, job.issue_number, h, ttl)
+    cache_hit = cached is not None
     if cached:
         plan = cached
         logger.info("planner_cache_hit", job_id=job.job_id, issue_number=job.issue_number)
@@ -70,3 +72,11 @@ def process_planner_job(job: PlannerJob) -> None:
             issue_number=job.issue_number,
             reason="no token or repo_url",
         )
+
+    return PlannerJobResult(
+        cache_hit=cache_hit,
+        plan=plan,
+        normalized_input=inp,
+        repo_context=repo_context,
+        job=job,
+    )

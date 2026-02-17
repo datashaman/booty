@@ -13,7 +13,7 @@ class Step(BaseModel):
         pattern=r"^P\d+$",
         description="Step identifier P1, P2, ... P12 (exactly this format)",
     )
-    action: Literal["read", "edit", "add", "run", "verify"] = Field(
+    action: Literal["read", "edit", "add", "run", "verify", "research"] = Field(
         description="One of: read (inspect file), edit (modify existing), add (create new), run (execute command), verify (check outcome)"
     )
     path: str | None = Field(
