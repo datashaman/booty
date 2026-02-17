@@ -73,6 +73,7 @@ from booty.architect.metrics import (
 from booty.architect.output import build_architect_plan, format_architect_section
 from booty.architect.worker import process_architect_input
 from booty.architect.input import ArchitectInput
+from booty.operator.last_run import record_agent_completed
 from booty.architect.worker import process_architect_input
 from booty.planner.cache import input_hash as planner_input_hash
 from booty.planner.jobs import planner_queue
@@ -175,7 +176,14 @@ async def process_job(job: Job) -> None:
     """
     logger = get_logger().bind(job_id=job.job_id, issue_number=job.issue_number)
     settings = get_settings()
+    try:
+        await _process_job_impl(job, logger, settings)
+    finally:
+        record_agent_completed("builder")
 
+
+async def _process_job_impl(job: Job, logger, settings) -> None:
+    """Inner implementation of process_job for try/finally wrapper."""
     logger.info(
         "job_started",
         verifier_retries=job.verifier_retries,
@@ -806,6 +814,9 @@ async def lifespan(app: FastAPI):
                     )
                 finally:
                     architect_queue.task_done()
+                    from booty.operator.last_run import record_agent_completed
+
+                    record_agent_completed("architect")
             except asyncio.CancelledError:
                 break
 

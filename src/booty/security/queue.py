@@ -94,6 +94,9 @@ class SecurityQueue:
                     )
                 finally:
                     self._queue.task_done()
+                    from booty.operator.last_run import record_agent_completed
+
+                    record_agent_completed("security")
             except asyncio.CancelledError:
                 log.info("security_worker_cancelled")
                 break

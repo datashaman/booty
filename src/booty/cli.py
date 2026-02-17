@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 
 from booty.config import get_settings, planner_enabled, security_enabled, verifier_enabled
+from booty.operator.last_run import get_last_run
 from booty.release_governor import is_governor_enabled
 from booty.release_governor.deploy import dispatch_deploy
 from booty.release_governor.handler import simulate_decision_for_cli
@@ -100,37 +101,38 @@ def status(workspace: str, as_json: bool) -> None:
         app_id = os.environ.get("GITHUB_APP_ID", "")
         app_key = os.environ.get("GITHUB_APP_PRIVATE_KEY", "")
         v_enabled = bool(app_id and app_key)
+        agents = ("verifier", "security", "planner", "architect", "governor", "memory", "builder", "reviewer")
+        fallback = {
+            "verifier": {"enabled": "enabled" if v_enabled else "disabled", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "security": {"enabled": "enabled" if v_enabled else "disabled", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "planner": {"enabled": "enabled", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "architect": {"enabled": "unknown", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "governor": {"enabled": "unknown", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "memory": {"enabled": "unknown", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "builder": {"enabled": "enabled", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+            "reviewer": {"enabled": "unknown", "last_run_completed_at": "N/A", "queue_depth": "N/A"},
+        }
         if as_json:
-            click.echo(
-                json.dumps(
-                    {
-                        "verifier": "enabled" if v_enabled else "disabled",
-                        "security": "enabled" if v_enabled else "disabled",
-                        "planner": "enabled",
-                        "architect": "unknown",
-                        "governor": "unknown",
-                        "memory": "unknown",
-                    }
-                )
-            )
+            click.echo(json.dumps(fallback))
         else:
-            click.echo(f"verifier: {'enabled' if v_enabled else 'disabled'} (incomplete config)")
-            click.echo(f"security: {'enabled' if v_enabled else 'disabled'}")
-            click.echo("planner: enabled")
-            click.echo("architect: unknown (no config)")
-            click.echo("governor: unknown (no config)")
-            click.echo("memory: unknown (no config)")
+            for name in agents:
+                r = fallback[name]
+                click.echo(f"{name}: {r['enabled']}")
+                click.echo(f"{name}_last_run_completed_at: {r['last_run_completed_at']}")
+                click.echo(f"{name}_queue_depth: {r['queue_depth']}")
         return
 
-    # Load .booty.yml for governor/memory/architect
+    # Load .booty.yml for governor/memory/architect/reviewer
     gov_enabled = False
     mem_enabled = False
     arch_enabled = False
+    reviewer_enabled = False
     try:
         config = load_booty_config(ws)
         gov_enabled = is_governor_enabled(config)
         from booty.architect.config import apply_architect_env_overrides, get_architect_config
         from booty.memory.config import apply_memory_env_overrides, get_memory_config
+        from booty.reviewer.config import apply_reviewer_env_overrides, get_reviewer_config
 
         arch_cfg = get_architect_config(config) if config else None
         if arch_cfg:
@@ -140,22 +142,46 @@ def status(workspace: str, as_json: bool) -> None:
         if mem_cfg:
             mem_cfg = apply_memory_env_overrides(mem_cfg)
             mem_enabled = bool(mem_cfg and mem_cfg.enabled)
+        rev_cfg = get_reviewer_config(config) if config else None
+        if rev_cfg:
+            rev_cfg = apply_reviewer_env_overrides(rev_cfg)
+            reviewer_enabled = bool(rev_cfg and rev_cfg.enabled)
     except Exception:
         pass
 
-    result = {
-        "verifier": "enabled" if verifier_enabled(settings) else "disabled",
-        "security": "enabled" if security_enabled(settings) else "disabled",
-        "planner": "enabled" if planner_enabled(settings) else "disabled",
-        "architect": "enabled" if arch_enabled else "disabled",
-        "governor": "enabled" if gov_enabled else "disabled",
-        "memory": "enabled" if mem_enabled else "disabled",
+    # Builder enabled: planner + architect (or planner when architect disabled)
+    builder_enabled = planner_enabled(settings) and (arch_enabled or True)
+
+    agents = (
+        "verifier", "security", "planner", "architect", "governor", "memory",
+        "builder", "reviewer",
+    )
+    enabled_map = {
+        "verifier": verifier_enabled(settings),
+        "security": security_enabled(settings),
+        "planner": planner_enabled(settings),
+        "architect": arch_enabled,
+        "governor": gov_enabled,
+        "memory": mem_enabled,
+        "builder": builder_enabled,
+        "reviewer": reviewer_enabled,
     }
+    result = {}
+    for name in agents:
+        last_run = get_last_run(name) or "N/A"
+        result[name] = {
+            "enabled": "enabled" if enabled_map[name] else "disabled",
+            "last_run_completed_at": last_run,
+            "queue_depth": "N/A",
+        }
     if as_json:
         click.echo(json.dumps(result))
     else:
-        for name, state in result.items():
-            click.echo(f"{name}: {state}")
+        for name in agents:
+            r = result[name]
+            click.echo(f"{name}: {r['enabled']}")
+            click.echo(f"{name}_last_run_completed_at: {r['last_run_completed_at']}")
+            click.echo(f"{name}_queue_depth: {r['queue_depth']}")
 
 
 @cli.group()

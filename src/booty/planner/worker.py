@@ -20,6 +20,7 @@ from booty.planner.output import format_plan_comment
 from booty.planner.risk import classify_risk_from_paths
 from booty.planner.schema import Plan
 from booty.planner.store import plan_path_for_issue, save_plan
+from booty.operator.last_run import record_agent_completed
 
 
 def process_planner_job(job: PlannerJob) -> PlannerJobResult:
@@ -73,6 +74,7 @@ def process_planner_job(job: PlannerJob) -> PlannerJobResult:
             reason="no token or repo_url",
         )
 
+    record_agent_completed("planner")
     return PlannerJobResult(
         cache_hit=cache_hit,
         plan=plan,

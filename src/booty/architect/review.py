@@ -4,6 +4,7 @@ from booty.architect.config import ArchitectConfig, apply_architect_env_override
 from booty.architect.input import ArchitectInput
 from booty.architect.output import ArchitectPlan, build_architect_plan
 from booty.architect.worker import process_architect_input
+from booty.operator.last_run import record_agent_completed
 from booty.planner.generation import generate_plan
 from booty.planner.input import get_repo_context, normalize_github_issue
 from booty.planner.risk import classify_risk_from_paths
@@ -52,6 +53,7 @@ def force_architect_review(
         issue_metadata={"issue_number": issue_number},
     )
     result = process_architect_input(config, arch_inp)
+    record_agent_completed("architect")
     if result.approved:
         architect_plan = build_architect_plan(result.plan, result.architect_notes)
         notes = (result.architect_notes or "").lower()

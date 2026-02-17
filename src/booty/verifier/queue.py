@@ -111,6 +111,9 @@ class VerifierQueue:
                 finally:
                     self._cancel_events.pop(cancel_key, None)
                     self._queue.task_done()
+                    from booty.operator.last_run import record_agent_completed
+
+                    record_agent_completed("verifier")
             except asyncio.CancelledError:
                 log.info("verifier_worker_cancelled")
                 break
