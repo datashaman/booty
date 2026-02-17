@@ -1,127 +1,125 @@
-# Pitfalls Research
+# Pitfalls Research: Control-Plane and Event Routing
 
-**Domain:** Observability — deploy automation, Sentry APM, alert-to-issue pipeline
-**Researched:** 2026-02-15
+**Domain:** Event routing, dedup, promotion, cancellation
+**Researched:** 2026-02-17
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: Skipping Webhook Signature Verification
+### Pitfall 1: Dedup Key Collision Across Repos
 
-**What goes wrong:** Attacker posts fake Sentry payloads → creates spam/issues or triggers unintended behavior.
+**What goes wrong:** Verifier and Security use `(pr_number, head_sha)` without repo. In multi-tenant deployment, PR #42 in repo A and PR #42 in repo B could share same head_sha (unlikely but possible) or hash collision; dedup incorrectly skips work.
 
-**Why it happens:** Dev treats webhook as "internal" or prioritizes speed over security.
+**Why it happens:** Verifier was built single-repo first; repo added to config later. Reviewer correctly added repo from day one.
 
-**How to avoid:** Always verify `Sentry-Hook-Signature` with HMAC-SHA256 before processing. Use constant-time comparison.
+**How to avoid:** Standardize all PR agents to `(repo_full_name, pr_number, head_sha)`.
 
-**Warning signs:** No verification in initial webhook handler; secret stored in code.
+**Warning signs:** "Verifier didn't run for my PR" when another repo's PR was processed first.
 
-**Phase to address:** Observability agent phase (webhook route).
-
----
-
-### Pitfall 2: Alert Storm — No Dedup or Cooldown
-
-**What goes wrong:** Same error fires 100 times → 100 GitHub issues → Builder overwhelmed.
-
-**Why it happens:** Sentry sends one webhook per triggered rule per event; no built-in dedup at receiver.
-
-**How to avoid:** Dedup by `grouping_fingerprint` (or equivalent); cooldown per fingerprint (e.g., 1 hour). Filter by severity.
-
-**Warning signs:** "Create issue for every webhook" in requirements without filtering.
-
-**Phase to address:** Observability agent phase (filter module).
+**Phase to address:** Dedup alignment phase.
 
 ---
 
-### Pitfall 3: Release Not Set or Wrong Format
+### Pitfall 2: Promotion Race — Double Promote
 
-**What goes wrong:** Sentry shows "release: unknown" → can't correlate errors with deploy.
+**What goes wrong:** If both Verifier and Reviewer called `promote_to_ready_for_review`, duplicate API calls; or worse, logic bug causes both to think they "won" and promote.
 
-**Why it happens:** Forgetting to pass `release` to sentry_sdk.init(); or using app version instead of git SHA.
+**Why it happens:** "Second finisher promotes" sounds like either could promote. Without single-owner design, both might try.
 
-**How to avoid:** Set `release="booty@${GIT_SHA}"` at startup; CI exports GIT_SHA and deploy passes to app (env or systemd).
+**How to avoid:** **Verifier only** promotes. Reviewer never promotes. Verifier gates on `reviewer_check_success` when Reviewer enabled. Single promote point.
 
-**Warning signs:** Sentry events without release; manual deploy doesn't set env.
+**Warning signs:** Two promote API calls for same PR; or PR promoted then "demoted" by conflicting logic.
 
-**Phase to address:** Deploy automation + Sentry APM phase.
-
----
-
-### Pitfall 4: SSH Key Exposure in Workflow
-
-**What goes wrong:** Private key committed; or logged in step output.
-
-**Why it happens:** Copy-paste from examples; debug `echo $SSH_KEY`.
-
-**How to avoid:** Use GitHub Actions secrets; never echo secrets; use `appleboy/ssh-action` or pass via env to `ssh`.
-
-**Warning signs:** Key in workflow file; run step that prints env.
-
-**Phase to address:** Deploy automation phase.
+**Phase to address:** Promotion gate correctness phase.
 
 ---
 
-### Pitfall 5: Webhook Secret Mismatch
+### Pitfall 3: Promotion Stall — Verifier Finishes First, Reviewer Never Runs
 
-**What goes wrong:** Sentry configured with one secret; Booty expects another → all webhooks fail verify.
+**What goes wrong:** Verifier completes, checks Reviewer — not done. Doesn't promote. Reviewer never runs (bug, crash, filtered). PR stuck in draft forever.
 
-**Why it happens:** Env var typo; different secret in Sentry UI vs .env.
+**Why it happens:** Reviewer enqueue failed or was skipped; or Reviewer and Verifier use different agent-PR detection and Reviewer didn't get the job.
 
-**How to avoid:** Document exact env name (e.g. SENTRY_WEBHOOK_SECRET); verify in dev with test webhook.
+**How to avoid:** Ensure both Reviewer and Verifier enqueued from same `pull_request` event with same agent-PR gate. Log when Verifier skips promote (promotion_waiting_reviewer). Operator visibility: "why nothing happened."
 
-**Warning signs:** 401/403 on every webhook; "signature invalid" in logs.
+**Warning signs:** PR green on both checks but still draft; logs show promotion_waiting_reviewer repeatedly.
 
-**Phase to address:** Observability agent phase.
+**Phase to address:** Promotion gate + operator visibility.
 
 ---
 
-## Integration Gotchas
+### Pitfall 4: Hard Cancel of LLM Worker
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| Sentry webhook | Using raw body for HMAC then parsing JSON again | Use raw bytes for HMAC; parse once after verify |
-| GitHub issue | Missing agent:builder label | Builder won't pick up; label is required |
-| Deploy workflow | Running on every push (incl. PR) | Use `on.push.branches: [main]` |
+**What goes wrong:** Kill Verifier/Reviewer worker mid-run. Check left in `in_progress`; GitHub shows stale status. Or partial comment posted.
 
-## Performance Traps
+**Why it happens:** Implementer uses `task.cancel()` or process kill instead of cooperative cancel.
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Cooldown store unbounded | Memory growth over days | TTL + periodic cleanup or max size | Long-running process |
-| Blocking Sentry in request path | Slow responses | Sentry SDK is async by default | If custom sync code |
+**How to avoid:** Cooperative cancel: worker checks `cancel_event.is_set()` at phase boundaries; exits with `conclusion=cancelled`. No hard kill.
 
-## Security Mistakes
+**Warning signs:** Checks stuck "in progress"; logs show worker killed.
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Logging webhook payload | PII/exceptions in logs | Log only fingerprint, action; never full body |
-| DSN in client code | DSN exposure | Server-only; never in frontend |
+**Phase to address:** Cancel semantics phase.
+
+---
+
+### Pitfall 5: Silent Skip — No Log When Event Ignored
+
+**What goes wrong:** Webhook receives event; routing logic skips (disabled, not agent PR, dedup hit). No structured log. Operator cannot debug "why didn't Booty run?"
+
+**Why it happens:** Early return `{"status":"ignored"}` without logging decision and reason.
+
+**How to avoid:** Emit structured log: `agent, repo, event_type, decision=skip, reason`. Example: `reason=disabled`, `reason=not_agent_pr`, `reason=dedup_hit`.
+
+**Warning signs:** User reports "Booty didn't run" and logs show nothing.
+
+**Phase to address:** Operator visibility phase.
+
+---
+
+### Pitfall 6: Architect Gate Missing in Promotion
+
+**What goes wrong:** Agent PR from plan; Architect disabled in config. Builder ran from Planner plan. Verifier promotes when tests+reviewer pass. Correct. But: Architect enabled, plan exists, Architect blocked — Builder shouldn't have run. If Builder did run (bug), Verifier could promote without Architect approval.
+
+**Why it happens:** Promotion gate only checks Verifier + Reviewer. Architect approval is a Builder enqueue gate, not a promote gate. For plan-originated PRs, Builder only runs after Architect. So PR existence implies Architect approved. But if wiring is wrong, could promote without Architect.
+
+**How to avoid:** Promotion gate: for agent PRs that have plan (linked issue with plan), ensure Architect approved. Re-fetch plan status if needed. Belt-and-suspenders.
+
+**Warning signs:** PR promoted with Architect having blocked the plan (shouldn't happen if wiring correct).
+
+**Phase to address:** Promotion gate correctness phase.
+
+---
+
+## Technical Debt Patterns
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| In-memory dedup (no persistence) | Simple; no DB | Process restart loses history; replay can duplicate | OK for Booty scale; document |
+| Security without cancel | Faster to ship | New push leaves old Security run in flight | Acceptable; Security is fast |
+| No booty status CLI | Less work | Operator blind to queue depth, last run | Not acceptable for v1.10 |
+
+---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Deploy workflow:** Verify it actually runs on merge to main; check Actions tab
-- [ ] **Sentry release:** Confirm Sentry UI shows release = git SHA for new events
-- [ ] **Webhook:** Test with Sentry "Send Test" or curl with valid signature
-- [ ] **Issue creation:** Check issue has agent:builder label; Builder picks it up
-- [ ] **Cooldown:** Trigger same error twice; second should not create issue
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| No webhook verify | Observability agent | Unit test: invalid signature → 401 |
-| Alert storm | Observability agent | Manual: fire same alert 2x → 1 issue |
-| Release not set | Deploy + Sentry APM | Sentry UI shows release |
-| SSH key exposure | Deploy automation | Audit workflow; no secrets in logs |
-| Webhook secret mismatch | Observability agent | Doc env name; test webhook |
-
-## Sources
-
-- Sentry docs — signature verification
-- GitHub Actions — secrets handling
-- Booty deploy.sh — existing patterns
+- [ ] **Event router:** Single should_run — verify no duplicate config checks in legacy branches
+- [ ] **Dedup:** All PR agents use (repo, pr_number, head_sha) — grep for is_duplicate calls
+- [ ] **Promotion:** Only Verifier calls promote — grep for promote_to_ready_for_review
+- [ ] **Cancel:** Verifier checks cancel_event at phase boundaries — grep runner for cancel
+- [ ] **Skip logging:** Every early return logs agent, reason — audit webhooks.py returns
 
 ---
-*Pitfalls research for: v1.3 Observability*
-*Researched: 2026-02-15*
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Dedup collision | LOW | Add repo to keys; redeploy; replay may duplicate (one-time) |
+| Double promote | LOW | No user impact; promote is idempotent |
+| Promotion stall | MEDIUM | Manual promote; fix enqueue gate; add visibility |
+| Hard cancel | MEDIUM | Implement cooperative cancel; restart workers |
+| Silent skip | LOW | Add logging; redeploy |
+
+---
+*Pitfalls research for: v1.10 Pipeline Correctness*
+*Researched: 2026-02-17*

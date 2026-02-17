@@ -1,73 +1,49 @@
-# Stack Research
+# Stack Research: Control-Plane Event Infrastructure
 
-**Domain:** Observability — deploy automation, APM, alert-to-issue pipeline
-**Researched:** 2026-02-15
+**Domain:** GitHub webhook event routing, dedup, and delivery semantics for multi-agent pipelines
+**Researched:** 2026-02-17
 **Confidence:** HIGH
 
-## Recommended Stack
+## GitHub Webhook Delivery Semantics (Verified)
 
-### Core Technologies (New for v1.3)
+### Key Facts
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| sentry-sdk | 2.x (Python) | Error tracking, release correlation, APM | Official Sentry Python SDK; FastAPI integration built-in; `release` param maps to git SHA; structlog compatible |
-| GitHub Actions | — | Deploy workflow (SSH to DO) | Booty is already on GitHub; workflow triggers on push/merge; no new infra |
-| SSH (appleboy/ssh-action or native) | latest | Remote command execution | deploy.sh already exists; workflow invokes same pattern |
+| Aspect | Behavior | Source |
+|--------|----------|--------|
+| Auto-retry on failure | **None** — GitHub does NOT automatically redeliver failed webhooks | [GitHub docs: Handling failed webhook deliveries](https://docs.github.com/en/webhooks/using-webhooks/handling-failed-webhook-deliveries) |
+| Response timeout | 10 seconds — server must respond with 2XX or delivery marked failed | [Best practices](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks) |
+| X-GitHub-Delivery | Unique per delivery; **same on manual redelivery** — use for replay protection | [Best practices](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks) |
+| Ordering | No guarantee — out-of-order delivery possible | Inferred from docs |
 
-### Supporting Libraries
+### Implications for Dedup Design
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| sentry-sdk[fastapi] | same as core | FastAPI + Starlette integrations | Bootstrap Sentry in main app |
-| — | — | Webhook HMAC verification | Observability agent; use stdlib `hmac` + `hashlib` |
-| — | — | PyGithub | Already present; Observability agent creates issues |
+1. **At-least-once on manual redeliver:** User can redeliver from GitHub UI/API; same `X-GitHub-Delivery` — must dedup.
+2. **Network retries:** Client retries (e.g., 5xx) can cause duplicate deliveries with same delivery_id.
+3. **Respond within 10s:** Enqueue asynchronously; process in workers. Booty already does this.
 
-### Integration with Existing Stack
+## Recommended Stack Additions (Minimal)
 
-| Existing | New Addition | Integration Point |
-|----------|--------------|-------------------|
-| FastAPI | sentry_sdk.init() at app startup | Before app creation; set `release`, `environment` |
-| structlog | Sentry breadcrumbs | Sentry can attach log context; optional |
-| deploy.sh | .github/workflows/deploy.yml | Workflow calls `./deploy.sh` or equivalent SSH |
-| PyGithub | Issue creation | Same pattern as Builder; Observability agent uses it |
+**Existing stack is sufficient.** No new libraries needed. Changes are architectural:
 
-## Installation
+| Area | Current | Recommendation |
+|------|---------|----------------|
+| Event model | Ad-hoc branches in webhooks.py | Canonical internal event types (see ARCHITECTURE.md) |
+| Dedup keys | Inconsistent (delivery_id vs pr_number:head_sha, some without repo) | Standardize (see FEATURES.md) |
+| Cancellation | Reviewer only | Extend Verifier/Security with cooperative cancel |
 
-```bash
-# Sentry Python SDK
-pip install sentry-sdk[fastapi]
-```
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Sentry | Datadog, New Relic | If org already has APM contract |
-| GitHub Actions deploy | Manual deploy.sh | Keeps current flow; CI/CD is explicit add |
-| Sentry webhook | Sentry email/Slack → custom parser | Webhook is direct, no parsing needed |
-
-## What NOT to Use
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Custom APM from scratch | High complexity, Sentry is mature | sentry-sdk |
-| Polling Sentry API for alerts | Latency, rate limits | Webhook (push) |
-| Storing webhook secret in code | Security risk | Pydantic Settings from env |
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| sentry-sdk | Python 3.10+ | Booty uses 3.11+ |
-| FastAPI integration | Starlette 0.14+ | Already in Booty deps |
+| Message queue (RabbitMQ, SQS) for webhooks | Adds infra; in-memory queue + fast 202 response is sufficient for Booty scale | Current asyncio.Queue |
+| Distributed lock for promotion | Overkill for single-instance; deterministic "only Verifier promotes" suffices | Single promote point + reviewer_check_success |
 
 ## Sources
 
-- /getsentry/sentry-python (Context7) — FastAPI init, release, integrations
-- /getsentry/sentry-docs (Context7) — Webhook signature verification, payload
-- /websites/github_en_actions — Secrets, shell, SSH patterns
-- deploy.sh — Existing deploy flow
+- [GitHub: Handling failed webhook deliveries](https://docs.github.com/en/webhooks/using-webhooks/handling-failed-webhook-deliveries)
+- [GitHub: Best practices for webhooks](https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks)
+- [Idempotent webhook handling (Averagedevs, Hookdeck, Inngest)](https://www.averagedevs.com/blog/reliable-webhook-delivery-idempotent-secure)
 
 ---
-*Stack research for: v1.3 Observability*
-*Researched: 2026-02-15*
+*Stack research for: v1.10 Pipeline Correctness*
+*Researched: 2026-02-17*

@@ -1,105 +1,77 @@
 # Project Research Summary
 
 **Project:** Booty
-**Domain:** Observability — deploy automation, Sentry APM, alert-to-issue pipeline
-**Researched:** 2026-02-15
+**Domain:** Pipeline correctness — event routing, dedup, promotion, cancellation
+**Researched:** 2026-02-17
 **Confidence:** HIGH
 
 ## Executive Summary
 
-v1.3 adds three capabilities: (1) automated deploy via GitHub Actions and existing deploy.sh, (2) Sentry APM for error tracking and release correlation, and (3) an Observability agent that receives Sentry webhooks, filters by severity/dedup/cooldown, and creates GitHub issues with agent:builder for Builder intake. The recommended approach reuses Booty's FastAPI + webhook patterns. Key risks: alert storm without filtering, and skipping webhook signature verification. Both are addressed in the Observability agent design.
+v1.10 focuses on the control plane: ensuring the right agents run at the right time, exactly once, with correct promotion and no silent stalls. Research validates that GitHub webhooks do not auto-retry failed deliveries, that X-GitHub-Delivery is stable on redelivery (enabling dedup), and that cooperative cancellation is the right model for long-running LLM tasks. The primary risks are: (1) inconsistent dedup keys (Verifier/Security lack repo), (2) promotion race if more than one component promotes, (3) silent skips with no operator visibility. A single canonical event router with standardized dedup and explicit skip logging addresses these. Requirements can be derived directly from the five target outputs: canonical event model, dedup strategy, cancellation model, promotion gate design, failure/retry semantics.
 
 ## Key Findings
 
-### Recommended Stack
+### Canonical Event Model
 
-**Core:** sentry-sdk (Python) for APM; GitHub Actions for deploy; stdlib hmac for webhook verification.
-**Integration:** sentry_sdk.init() at app startup with `release` = git SHA; deploy workflow triggers on push to main; Observability agent adds one POST route.
-**Avoid:** Polling Sentry API; custom APM; storing secrets in code.
+- Normalize GitHub events to internal events: issues.labeled/opened → planner|builder; pull_request → reviewer|verifier|security; workflow_run → governor.
+- Single `should_run(agent, repo, context)` with config+env precedence.
+- Planner→Architect→Builder: route by plan/architect artifact; Builder consumes Architect first.
 
-### Expected Features
+### Dedup Strategy
 
-**Must have (table stakes):** Deploy on merge; error tracking with release correlation; webhook verification; severity filter; fingerprint dedup; cooldown per fingerprint; auto-created GitHub issues with agent:builder.
-**Should have:** Repro breadcrumbs in issue body; environment + release tags.
-**Defer:** Multi-environment routing; persistent cooldown store; dashboard.
+- **PR agents:** `(repo_full_name, pr_number, head_sha)` — all three. Verifier and Security currently omit repo; fix.
+- **Issue agents:** `(repo, issue_number, plan_hash)` or delivery_id for delivery-scoped.
+- Standardize; document.
 
-### Architecture Approach
+### Cancellation Model
 
-New `observability/` subsystem with webhook handler, filters, and issue creator. Deploy workflow in .github/workflows/deploy.yml. Sentry SDK initialized in main.py before app creation.
+- Cooperative cancel: `asyncio.Event`, worker checks at phase boundaries, `conclusion=cancelled` on exit.
+- New head_sha supersedes; request_cancel for prior run. Reviewer has it; extend to Verifier (Security optional).
 
-**Major components:**
-1. Deploy workflow — triggers on main, SSH to DO, runs deploy.sh, passes SHA if needed
-2. Sentry SDK — init in main; FastAPI integration; release = SHA
-3. Observability agent — webhook route, verify, filter, create issue
+### Promotion Gate Design
 
-### Critical Pitfalls
+- Single promoter: Verifier only.
+- Gate: verifier success AND (reviewer disabled OR reviewer success OR fail-open) AND (architect approved for plan PRs when enabled).
+- Idempotent promote (optional re-fetch draft state).
 
-1. **No webhook verify** — Always HMAC-verify Sentry-Hook-Signature
-2. **Alert storm** — Dedup by fingerprint + cooldown; severity threshold
-3. **Release not set** — Pass git SHA from deploy to sentry_sdk.init
-4. **SSH key exposure** — Use GitHub secrets only; never log
-5. **Secret mismatch** — Document env name; test webhook in dev
+### Failure/Retry Semantics
+
+- 202 on accept; 200 already_processed on dedup; 200 ignored on filter.
+- Structured skip log: agent, repo, event_type, decision=skip, reason.
+- GitHub does not auto-retry; manual redelivery same delivery_id.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+### Phase Order (suggested)
 
-### Phase 11: Deploy Automation
-**Rationale:** Foundation; enables repeatable deploys and SHA for release tagging.
-**Delivers:** .github/workflows/deploy.yml; trigger on main; SSH to DO; run deploy.sh.
-**Addresses:** Automated deployment (PROJECT.md Active v1.3).
-**Avoids:** Manual deploy drift; no SHA for Sentry.
-
-### Phase 12: Sentry APM
-**Rationale:** Error tracking before Observability agent; release correlation depends on this.
-**Delivers:** sentry-sdk in app; release = git SHA; environment; FastAPI integration.
-**Addresses:** Sentry APM integration (PROJECT.md Active v1.3).
-**Uses:** sentry-sdk, FastAPI integration from STACK.md.
-
-### Phase 13: Observability Agent
-**Rationale:** Closes loop; Sentry alerts → GitHub issues → Builder.
-**Delivers:** Webhook route; HMAC verify; filters (severity, dedup, cooldown); issue creation with agent:builder, severity, breadcrumbs, release.
-**Addresses:** Observability agent, alert-to-issue correlation, filtering, auto-created issues (PROJECT.md Active v1.3).
-**Avoids:** Alert storm, unverified webhooks from PITFALLS.md.
-
-### Phase Ordering Rationale
-
-- Deploy first: Enables SHA at deploy time; needed for Sentry release.
-- Sentry APM second: App must send events before Observability agent can correlate.
-- Observability agent third: Consumes Sentry webhooks; depends on Sentry project + DSN.
+1. **Event Router** — Extract single router; normalize events; should_run decision point.
+2. **Dedup Alignment** — Add repo to Verifier/Security dedup keys; document standard.
+3. **Planner→Architect→Builder Wiring** — Audit and fix routing; Builder compat flag.
+4. **Promotion Gate Hardening** — Architect check for plan PRs; idempotent promote.
+5. **Cancel Semantics** — Extend cooperative cancel to Verifier.
+6. **Operator Visibility** — Structured skip logs; booty status CLI.
 
 ### Research Flags
 
-- **Phase 11:** Straightforward; deploy.sh exists; workflow pattern well-known.
-- **Phase 12:** Straightforward; Context7 verified FastAPI + release.
-- **Phase 13:** Verify Sentry issue-alert payload structure (event_alert vs metric_alert) during planning.
+- **Phase 2 (Dedup):** VerifierQueue and SecurityQueue signatures change; callers must pass repo.
+- **Phase 4 (Promotion):** Architect gate — verify when plan-originated PRs require Architect approval at promote time.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Context7 + deploy.sh verified |
-| Features | HIGH | PROJECT.md Active aligned with research |
-| Architecture | HIGH | Mirrors builder/verifier patterns |
-| Pitfalls | HIGH | Standard webhook/APM gotchas |
+| Event model | HIGH | Clear mapping; Booty codebase reviewed |
+| Dedup | HIGH | Reviewer correct; Verifier/Security gap documented |
+| Cancel | HIGH | Reviewer pattern exists; extend |
+| Promotion | HIGH | Phase 40 research + current impl |
+| Retry/skip | HIGH | GitHub docs + best practices |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Sentry payload variants:** Issue alerts vs metric alerts may differ; plan-phase should confirm payload shape for filtering (severity, fingerprint).
-- **Cooldown persistence:** MVP uses in-memory; document upgrade path to Redis if needed.
-
-## Sources
-
-### Primary (HIGH confidence)
-- /getsentry/sentry-python — FastAPI, release
-- /getsentry/sentry-docs — Webhook signature, payload
-- deploy.sh — Existing deploy flow
-
-### Secondary (MEDIUM confidence)
-- Web search — Sentry issue alert payload (action=triggered, event_alert)
+- Architect approval at promote time: Builder enqueue gate may be sufficient; add promote-time check as hardening.
 
 ---
-*Research completed: 2026-02-15*
+*Research completed: 2026-02-17*
 *Ready for roadmap: yes*
