@@ -13,6 +13,7 @@ from booty.code_gen.security import PathRestrictor
 from booty.code_gen.validator import validate_generated_code
 from booty.test_generation import detect_conventions, validate_test_imports
 from booty.config import Settings
+from git import Actor
 from booty.git.operations import commit_changes, format_commit_message, push_to_remote
 from booty.github.pulls import (
     add_agent_builder_label,
@@ -435,11 +436,17 @@ async def process_issue_to_pr(
                 plan.approach,
                 job.issue_number,
             )
+        actor = Actor(
+            settings.BOOTY_GIT_AUTHOR_NAME,
+            settings.BOOTY_GIT_AUTHOR_EMAIL,
+        )
         commit_sha = commit_changes(
             workspace.repo,
             modified_paths,
             commit_message,
             deleted_paths if deleted_paths else None,
+            author=actor,
+            committer=actor,
         )
         logger.info("changes_committed", sha=commit_sha)
 

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     MAX_FILES_PER_ISSUE: int = 10  # File count cap
     RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock,.booty.yml"  # Comma-separated denylist patterns
 
+    # Git commit attribution (Builder agent commits)
+    BOOTY_GIT_AUTHOR_NAME: str = "Booty Agent"
+    BOOTY_GIT_AUTHOR_EMAIL: str = "noreply@booty.dev"
+
     # Self-modification configuration
     BOOTY_OWN_REPO_URL: str = ""  # Empty means self-modification detection disabled
     BOOTY_SELF_MODIFY_ENABLED: bool = False  # Explicit opt-in required
