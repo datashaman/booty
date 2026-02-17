@@ -53,3 +53,21 @@ Single updatable comment with marker `<!-- booty-reviewer -->`:
 ### Recommended Fix
 Actionable guidance with file/path references.
 ```
+
+## Fail-open
+
+When diff fetch, GitHub API, LLM, or schema fails: check success with title "Reviewer unavailable (fail-open)", summary "Review did not run; promotion/merge not blocked". No PR comment. Increments reviewer_fail_open. Failure buckets: diff_fetch_failed, github_api_failed, llm_timeout, llm_error, schema_parse_failed, unexpected_exception.
+
+## Metrics
+
+Persisted under `~/.booty/state/reviewer/metrics.json`: reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open (rolling 24h).
+
+## CLI
+
+`booty reviewer status [--repo owner/repo] [--json]`
+
+## Troubleshooting
+
+- **Token missing** — Set GITHUB_TOKEN in environment.
+- **Diff fetch** — Ensure base/head SHA are accessible to the GitHub App.
+- **LLM timeout** — Increase timeout or check provider availability.

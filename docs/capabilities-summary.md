@@ -14,7 +14,7 @@ Booty is a self-managing software builder powered by AI. GitHub is the interface
 
 ## Reviewer Agent (v1.9)
 
-**Code quality review.** Sits between Builder and Verifier. AI-driven review of PR diffs for engineering quality: maintainability, overengineering, duplication, test quality, naming, architectural drift. Publishes `booty/reviewer` check. APPROVED / APPROVED_WITH_SUGGESTIONS / BLOCKED. Builder promotion requires reviewer success for agent PRs. Fail-open on infra/LLM failure. When enabled (per `.booty.yml` reviewer block); disabled by default.
+**Code quality review.** Sits between Builder and Verifier. AI-driven review of PR diffs for engineering quality: maintainability, overengineering, duplication, test quality, naming, architectural drift. Publishes `booty/reviewer` check. APPROVED / APPROVED_WITH_SUGGESTIONS / BLOCKED. Builder promotion requires reviewer success for agent PRs. Fail-open on infra/LLM failure. When enabled (per `.booty.yml` reviewer block); disabled by default. CLI: `booty reviewer status`. Persisted metrics: reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open.
 
 ## Verifier Agent (v1.2)
 
