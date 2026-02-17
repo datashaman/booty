@@ -15,13 +15,20 @@ from importlib.metadata import version, PackageNotFoundError
 
 import sentry_sdk
 from asgi_correlation_id import CorrelationIdMiddleware
+from github import Github
 from fastapi import FastAPI, Header, HTTPException, Request
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings, security_enabled, verifier_enabled
-from booty.github.comments import post_builder_blocked_comment, post_failure_comment
+from booty.github.comments import (
+    post_architect_blocked_comment,
+    post_architect_invalid_config_comment,
+    post_builder_blocked_comment,
+    post_failure_comment,
+)
+from booty.github.issues import add_architect_review_label
 from booty.jobs import Job, JobQueue
 from booty.logging import configure_logging, get_logger
 from booty.repositories import prepare_workspace
@@ -32,9 +39,17 @@ from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
+from booty.architect.config import (
+    ArchitectConfigError,
+    apply_architect_env_overrides,
+    get_architect_config,
+)
+from booty.architect.input import ArchitectInput
+from booty.architect.worker import process_architect_input
 from booty.planner.jobs import planner_queue
 from booty.planner.store import get_plan_for_issue
 from booty.planner.worker import process_planner_job
+from booty.test_runner.config import load_booty_config_from_content
 
 
 # Module-level job queue and app start time
@@ -305,19 +320,77 @@ async def lifespan(app: FastAPI):
         security_queue = None
         app.state.security_queue = None
 
-    # Planner worker — Planner-first: plan ready → Builder runs (autonomous)
+    # Planner worker — Planner-first: plan ready → Architect (when enabled) → Builder
     async def _planner_worker_loop() -> None:
         while True:
             try:
                 job = await planner_queue.get()
                 try:
-                    await asyncio.to_thread(process_planner_job, job)
-                    # Autonomous: plan ready → Builder runs. No extra label required.
+                    result = await asyncio.to_thread(process_planner_job, job)
+
                     # Skip if webhook already enqueued Builder for same issue (race avoidance)
-                    if (
-                        job_queue
-                        and not job_queue.has_issue_in_queue(job.repo_url, job.issue_number)
-                    ):
+                    if not job_queue or job_queue.has_issue_in_queue(job.repo_url, job.issue_number):
+                        planner_queue.task_done()
+                        continue
+
+                    should_enqueue_builder = False
+
+                    if result.cache_hit:
+                        # Planner cache hit: skip Architect, enqueue Builder directly
+                        should_enqueue_builder = True
+                    else:
+                        # Not cache hit: check Architect config, run Architect when enabled
+                        booty_config = None
+                        try:
+                            token = (settings.GITHUB_TOKEN or "").strip()
+                            if token and job.owner and job.repo:
+                                gh = Github(token)
+                                gh_repo = gh.get_repo(f"{job.owner}/{job.repo}")
+                                default_branch = gh_repo.default_branch or "main"
+                                fc = gh_repo.get_contents(".booty.yml", ref=default_branch)
+                                yaml_content = fc.decoded_content.decode("utf-8")
+                                booty_config = load_booty_config_from_content(yaml_content)
+                        except Exception:
+                            booty_config = None  # No .booty.yml or load failed → no architect
+
+                        try:
+                            architect_config = get_architect_config(booty_config) if booty_config else None
+                        except ArchitectConfigError:
+                            post_architect_invalid_config_comment(
+                                settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                            )
+                            add_architect_review_label(
+                                settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                            )
+                            planner_queue.task_done()
+                            continue
+
+                        if architect_config is None:
+                            should_enqueue_builder = True
+                        else:
+                            architect_config = apply_architect_env_overrides(architect_config)
+                            if not architect_config.enabled:
+                                should_enqueue_builder = True
+
+                        if not should_enqueue_builder and architect_config is not None:
+                            inp = ArchitectInput(
+                                plan=result.plan,
+                                normalized_input=result.normalized_input,
+                                repo_context=result.repo_context,
+                                issue_metadata={"issue_number": job.issue_number},
+                            )
+                            arch_result = process_architect_input(architect_config, inp)
+                            if arch_result.approved:
+                                should_enqueue_builder = True
+                            else:
+                                post_architect_blocked_comment(
+                                    settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                                )
+                                add_architect_review_label(
+                                    settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                                )
+
+                    if should_enqueue_builder:
                         builder_job_id = f"{job.issue_number}-plan-complete-{id(job)}"
                         builder_job = Job(
                             job_id=builder_job_id,
