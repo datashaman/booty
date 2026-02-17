@@ -1,4 +1,4 @@
-"""GitHub issue creation from Sentry events."""
+"""GitHub issue creation from Sentry events and label helpers."""
 
 import json
 import os
@@ -17,6 +17,49 @@ from booty.config import get_settings
 from booty.logging import get_logger
 
 logger = get_logger()
+
+ARCHITECT_REVIEW_LABEL = "agent:architect-review"
+
+
+def add_architect_review_label(
+    github_token: str,
+    repo_url: str,
+    issue_number: int,
+) -> None:
+    """Add agent:architect-review label to an issue.
+
+    Args:
+        github_token: GitHub authentication token
+        repo_url: Repository URL
+        issue_number: Issue number
+
+    Raises:
+        GithubException: If label addition fails
+    """
+    parsed = urlparse(repo_url)
+    path = parsed.path
+    if path.startswith("/"):
+        path = path[1:]
+    if path.endswith(".git"):
+        path = path[:-4]
+    owner_repo = path
+
+    auth = Auth.Token(github_token)
+    g = Github(auth=auth)
+    repo = g.get_repo(owner_repo)
+    issue = repo.get_issue(issue_number)
+
+    try:
+        issue.add_to_labels(ARCHITECT_REVIEW_LABEL)
+        logger.info("architect_review_label_added", issue_number=issue_number)
+    except GithubException as e:
+        if e.status == 404:
+            logger.info("creating_architect_review_label")
+            repo.create_label(ARCHITECT_REVIEW_LABEL, "0366d6", "Architect review required")
+            issue.add_to_labels(ARCHITECT_REVIEW_LABEL)
+            logger.info("architect_review_label_created_and_added", issue_number=issue_number)
+        else:
+            raise
 
 
 def build_sentry_issue_title(event: dict) -> str:
