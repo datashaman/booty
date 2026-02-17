@@ -529,6 +529,90 @@ def governor_trigger(
 
 
 @cli.group()
+def architect() -> None:
+    """Architect (plan validation) commands."""
+
+
+@architect.command("status")
+@click.option("--repo", help="Repository owner/repo (default: infer from git)")
+@click.option("--workspace", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable JSON output")
+def architect_status(repo: str | None, workspace: str, as_json: bool) -> None:
+    """Show Architect status: enabled, 24h metrics (approved, rewritten, blocked, cache_hits)."""
+    from booty.architect.config import apply_architect_env_overrides, get_architect_config
+    from booty.architect.metrics import get_24h_stats
+
+    ws = Path(workspace).resolve()
+    repo_name = repo or _infer_repo_from_git(ws)
+    if not repo_name or "/" not in repo_name:
+        click.echo("Error: Cannot infer repo. Use --repo owner/repo or run from a git repo.", err=True)
+        raise SystemExit(1)
+    enabled = False
+    try:
+        config = load_booty_config(ws)
+        architect_config = get_architect_config(config) if config else None
+        if architect_config:
+            architect_config = apply_architect_env_overrides(architect_config)
+            enabled = architect_config.enabled
+    except Exception:
+        pass
+    stats = get_24h_stats()
+    data = {
+        "enabled": enabled,
+        "plans_approved": stats["approved"],
+        "plans_rewritten": stats["rewritten"],
+        "plans_blocked": stats["blocked"],
+        "cache_hits": stats["cache_hits"],
+    }
+    if as_json:
+        click.echo(json.dumps(data))
+    else:
+        for k, v in data.items():
+            click.echo(f"{k}: {v}")
+
+
+@architect.command("review")
+@click.option("--issue", "issue_number", required=True, type=int, help="Issue number to re-evaluate")
+@click.option("--repo", help="Repository owner/repo (default: infer from git)")
+@click.option("--workspace", type=click.Path(exists=True, file_okay=False), default=".")
+def architect_review(issue_number: int, repo: str | None, workspace: str) -> None:
+    """Force Architect re-evaluation of an issue. Exit 0 on approve/rewrite, 1 on block."""
+    from booty.architect.config import apply_architect_env_overrides, get_architect_config
+    from booty.architect.review import force_architect_review
+
+    ws = Path(workspace).resolve()
+    repo_name = repo or _infer_repo_from_git(ws)
+    if not repo_name or "/" not in repo_name:
+        click.echo("Error: Cannot infer repo. Use --repo owner/repo or run from a git repo.", err=True)
+        raise SystemExit(1)
+    settings = get_settings()
+    token = (settings.GITHUB_TOKEN or "").strip()
+    if not token:
+        click.echo("Error: GITHUB_TOKEN required", err=True)
+        raise SystemExit(1)
+    architect_config = None
+    try:
+        config = load_booty_config(ws)
+        architect_config = get_architect_config(config) if config else None
+        if architect_config:
+            architect_config = apply_architect_env_overrides(architect_config)
+    except Exception:
+        pass
+    owner, repo_slug = repo_name.split("/", 1)
+    outcome, architect_plan, block_reason = force_architect_review(
+        owner, repo_slug, issue_number, token, architect_config=architect_config
+    )
+    if outcome == "blocked":
+        click.echo(f"Architect blocked — see comment on issue #{issue_number}", err=True)
+        raise SystemExit(1)
+    if architect_plan:
+        click.echo(architect_plan.goal.split("\n")[0] if architect_plan.goal else "(no goal)")
+        click.echo(f"steps: {len(architect_plan.steps)} | risk: {architect_plan.risk_level} | outcome: {outcome}")
+    else:
+        click.echo(f"outcome: {outcome}")
+
+
+@cli.group()
 def plan() -> None:
     """Plan generation subcommands."""
 
