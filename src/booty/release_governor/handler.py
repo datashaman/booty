@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal
 from github import Github
 
 from booty.config import get_settings
+from booty.logging import get_logger
 from booty.release_governor.decision import Decision, compute_decision
 from booty.release_governor.deploy import dispatch_deploy
 from booty.release_governor.override import get_security_override_with_poll
@@ -74,10 +75,8 @@ def simulate_decision_for_cli(
 
     degraded: bool | None = None
 
-    env_approved = (
-        os.environ.get("RELEASE_GOVERNOR_APPROVED", "").lower()
-        in ("1", "true", "yes")
-    )
+    raw_val = os.environ.get("RELEASE_GOVERNOR_APPROVED", "").strip().lower()
+    env_approved = raw_val in ("1", "true", "yes")
     approval_context = {
         "env_approved": env_approved,
         "label_approved": False,
@@ -85,6 +84,16 @@ def simulate_decision_for_cli(
     }
 
     is_first_deploy = state.production_sha_current is None
+
+    # Diagnostic: log approval context when HIGH risk to debug HOLD vs ALLOW
+    if risk_class == "HIGH":
+        get_logger().info(
+            "governor_approval_context",
+            repo=repo,
+            head_sha=head_sha[:7],
+            risk_class=risk_class,
+            env_approved=env_approved,
+        )
 
     decision = compute_decision(
         head_sha=head_sha,
@@ -138,10 +147,8 @@ def handle_workflow_run(
 
     degraded: bool | None = None  # Stub; future Sentry integration
 
-    env_approved = (
-        os.environ.get("RELEASE_GOVERNOR_APPROVED", "").lower()
-        in ("1", "true", "yes")
-    )
+    raw_val = os.environ.get("RELEASE_GOVERNOR_APPROVED", "").strip().lower()
+    env_approved = raw_val in ("1", "true", "yes")
     approval_context = {
         "env_approved": env_approved,
         "label_approved": False,  # TODO: Phase 16 — PR label check
