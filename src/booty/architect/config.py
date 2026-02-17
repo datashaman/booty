@@ -25,6 +25,7 @@ class ArchitectConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = True
+    builder_compat: bool = True
     rewrite_ambiguous_steps: bool = True
     enforce_risk_rules: bool = True
 
@@ -50,14 +51,23 @@ def get_architect_config(booty_config: object) -> ArchitectConfig | None:
 
 
 def apply_architect_env_overrides(config: ArchitectConfig) -> ArchitectConfig:
-    """Apply ARCHITECT_ENABLED env var. Returns new config."""
+    """Apply ARCHITECT_ENABLED and ARCHITECT_BUILDER_COMPAT env vars. Returns new config."""
     v = os.environ.get("ARCHITECT_ENABLED")
-    if v is None:
-        return config
-    low = v.lower()
-    enabled = low in ("1", "true", "yes")
-    if low in ("0", "false", "no"):
-        enabled = False
-    if low not in ("1", "true", "yes", "0", "false", "no"):
-        return config
-    return config.model_copy(update={"enabled": enabled})
+    if v is not None:
+        low = v.lower()
+        enabled = low in ("1", "true", "yes")
+        if low in ("0", "false", "no"):
+            enabled = False
+        if low in ("1", "true", "yes", "0", "false", "no"):
+            config = config.model_copy(update={"enabled": enabled})
+
+    v = os.environ.get("ARCHITECT_BUILDER_COMPAT")
+    if v is not None:
+        low = v.lower()
+        builder_compat = low in ("1", "true", "yes")
+        if low in ("0", "false", "no"):
+            builder_compat = False
+        if low in ("1", "true", "yes", "0", "false", "no"):
+            config = config.model_copy(update={"builder_compat": builder_compat})
+
+    return config
