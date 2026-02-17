@@ -88,9 +88,9 @@ def build_related_history_for_incident(
         link = links[0] if links else ""
         try:
             dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            date_str = dt.strftime("%Y-%m-%d")
+            date_str = dt.strftime("%Y-%m-%d %H:%M")
         except (ValueError, TypeError):
-            date_str = ts[:10] if ts else ""
+            date_str = ts[:16].replace("T", " ") if ts and len(ts) >= 16 else (ts[:10] if ts else "")
         line = f"- **{rec_type}** ({date_str}) — {summary}"
         if link:
             line += f" — {link}"
@@ -119,9 +119,9 @@ def format_matches_for_pr(matches: list[dict]) -> str:
         link = links[0] if links else ""
         try:
             dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            date_str = dt.strftime("%Y-%m-%d")
+            date_str = dt.strftime("%Y-%m-%d %H:%M")
         except (ValueError, TypeError):
-            date_str = ts[:10] if ts else ""
+            date_str = ts[:16].replace("T", " ") if ts and len(ts) >= 16 else (ts[:10] if ts else "")
         key = (rec_type, summary, date_str)
         if key in seen:
             continue
