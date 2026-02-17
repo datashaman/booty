@@ -41,7 +41,7 @@ from booty.verifier import VerifierJob
 from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
-from booty.architect.artifact import save_architect_artifact
+from booty.architect.artifact import get_plan_for_builder, save_architect_artifact
 from booty.architect.cache import (
     architect_plan_hash,
     find_cached_architect_result,
@@ -64,7 +64,6 @@ from booty.architect.worker import process_architect_input
 from booty.planner.cache import input_hash as planner_input_hash
 from booty.planner.jobs import planner_queue
 from booty.planner.schema import Plan
-from booty.planner.store import get_plan_for_issue
 from booty.planner.worker import process_planner_job
 from booty.test_runner.config import load_booty_config_from_content
 
@@ -172,16 +171,20 @@ async def process_job(job: Job) -> None:
     repo_url = job.repo_url or settings.TARGET_REPO_URL
 
     # Planner-first: Builder is pure executor — require plan to exist
-    # Try local file first, then GitHub issue comments (durable across workers)
+    # Architect artifact first, then Planner plan (unreviewed by Architect)
     repo_info = job.payload.get("repository", {})
     owner = repo_info.get("owner", {}).get("login", "")
     repo_name = repo_info.get("name", "")
-    plan = get_plan_for_issue(owner, repo_name, job.issue_number, github_token=settings.GITHUB_TOKEN)
+    plan, unreviewed = get_plan_for_builder(
+        owner, repo_name, job.issue_number, github_token=settings.GITHUB_TOKEN
+    )
     if plan is None:
         logger.warning("builder_blocked_no_plan", issue_number=job.issue_number)
         post_builder_blocked_comment(settings.GITHUB_TOKEN, repo_url, job.issue_number)
         return
 
+    if unreviewed:
+        logger.info("builder_using_planner_plan_unreviewed", issue_number=job.issue_number)
     # Prepare workspace
     async with prepare_workspace(
         job, repo_url, settings.TARGET_BRANCH, settings.GITHUB_TOKEN

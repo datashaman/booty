@@ -47,7 +47,7 @@ async def test_process_job_capture_exception_on_pipeline_crash():
         patch("booty.main.post_failure_comment") as mock_post,
         patch("booty.main.sentry_sdk") as mock_sentry,
         patch("booty.main.get_settings", return_value=mock_settings),
-        patch("booty.main.get_plan_for_issue", return_value=mock_plan),
+        patch("booty.main.get_plan_for_builder", return_value=(mock_plan, False)),
     ):
         mock_process.side_effect = ValueError("pipeline crash")
         mock_prepare.return_value.__aenter__ = AsyncMock(return_value=mock_workspace)

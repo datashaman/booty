@@ -48,6 +48,8 @@ from booty.memory.adapters import (
 )
 from booty.memory.config import apply_memory_env_overrides
 from booty.jobs import Job
+from booty.architect.artifact import get_plan_for_builder
+from booty.architect.config import apply_architect_env_overrides, get_architect_config
 from booty.planner.jobs import PlannerJob, planner_enqueue, planner_is_duplicate, planner_mark_processed
 from booty.planner.store import get_plan_for_issue
 from booty.logging import get_logger
@@ -712,8 +714,23 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         return {"status": "ignored"}
 
     # Check plan existence — Builder is pure executor, no plan = block or run Planner first
-    # Try local file first, then GitHub issue comments (durable across workers)
-    plan = get_plan_for_issue(owner, repo_name, issue_number, github_token=settings.GITHUB_TOKEN)
+    # When Architect enabled: Builder only when Architect-approved artifact exists; else Planner
+    # When Architect disabled: plan exists → Builder; no plan → Planner
+    booty_config = _load_booty_config_for_repo(repo_url, settings.GITHUB_TOKEN)
+    architect_config = get_architect_config(booty_config) if booty_config else None
+    if architect_config:
+        architect_config = apply_architect_env_overrides(architect_config)
+    architect_enabled = architect_config is not None and architect_config.enabled
+
+    plan, unreviewed = get_plan_for_builder(
+        owner, repo_name, issue_number, github_token=settings.GITHUB_TOKEN
+    )
+    if architect_enabled and unreviewed:
+        plan = None  # Planner plan without Architect review — enqueue Planner, not Builder
+    elif architect_enabled and plan is None:
+        pass  # No plan at all — enqueue Planner
+    # When architect disabled: plan or None drives decision
+
     if plan is None:
         # Safety net: enqueue Planner; it will enqueue Builder when done (autonomous)
         if planner_enabled(settings):
