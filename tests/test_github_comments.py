@@ -6,6 +6,7 @@ import pytest
 
 from booty.github.comments import (
     get_plan_comment_body,
+    post_reviewer_comment,
     update_plan_comment_with_architect_section_if_changed,
 )
 
@@ -88,3 +89,57 @@ def test_update_if_changed_calls_when_different() -> None:
     mock_update.assert_called_once_with(
         "token", "https://github.com/owner/repo", 1, new_section
     )
+
+
+def test_post_reviewer_comment_edits_existing() -> None:
+    """post_reviewer_comment edits existing comment when marker found."""
+    body = "## Reviewer\n\n<!-- booty-reviewer -->\ncontent\n<!-- /booty-reviewer -->"
+    mock_comment = MagicMock()
+    mock_comment.body = "old\n<!-- booty-reviewer -->\nold\n<!-- /booty-reviewer -->"
+    mock_issue = MagicMock()
+    mock_issue.get_comments.return_value = [mock_comment]
+    mock_repo = MagicMock()
+    mock_repo.get_issue.return_value = mock_issue
+
+    with patch("booty.github.comments._get_repo", return_value=mock_repo):
+        post_reviewer_comment(
+            "token", "https://github.com/owner/repo", 42, body
+        )
+
+    mock_comment.edit.assert_called_once_with(body)
+    mock_issue.create_comment.assert_not_called()
+
+
+def test_post_reviewer_comment_creates_when_no_match() -> None:
+    """post_reviewer_comment creates new comment when no matching comment exists."""
+    body = "## Reviewer\n\n<!-- booty-reviewer -->\ncontent\n<!-- /booty-reviewer -->"
+    mock_other = MagicMock()
+    mock_other.body = "Some other comment"
+    mock_issue = MagicMock()
+    mock_issue.get_comments.return_value = [mock_other]
+    mock_repo = MagicMock()
+    mock_repo.get_issue.return_value = mock_issue
+
+    with patch("booty.github.comments._get_repo", return_value=mock_repo):
+        post_reviewer_comment(
+            "token", "https://github.com/owner/repo", 42, body
+        )
+
+    mock_issue.create_comment.assert_called_once_with(body)
+    mock_other.edit.assert_not_called()
+
+
+def test_post_reviewer_comment_body_passed_through() -> None:
+    """post_reviewer_comment passes body as-is to create_comment."""
+    body = "Custom body\n<!-- booty-reviewer -->\n<!-- /booty-reviewer -->"
+    mock_issue = MagicMock()
+    mock_issue.get_comments.return_value = []
+    mock_repo = MagicMock()
+    mock_repo.get_issue.return_value = mock_issue
+
+    with patch("booty.github.comments._get_repo", return_value=mock_repo):
+        post_reviewer_comment(
+            "token", "https://github.com/owner/repo", 1, body
+        )
+
+    mock_issue.create_comment.assert_called_once_with(body)
