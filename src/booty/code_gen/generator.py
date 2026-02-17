@@ -23,8 +23,8 @@ from booty.github.pulls import (
     format_self_modification_pr_body,
 )
 from booty.jobs import Job
-from booty.llm.models import IssueAnalysis
-from booty.llm.prompts import analyze_issue, generate_code_changes
+from booty.llm.models import CodeGenerationPlan, FileChange, IssueAnalysis
+from booty.llm.prompts import analyze_issue, generate_code_changes, generate_single_file
 from booty.planner.schema import Plan
 from booty.llm.token_budget import TokenBudget
 from booty.logging import get_logger
@@ -34,6 +34,90 @@ from booty.test_runner.config import load_booty_config
 from booty.test_runner.quality import run_quality_checks
 
 logger = get_logger()
+
+
+def _is_test_file(path: str) -> bool:
+    """Return True if path appears to be a test file."""
+    return path.startswith("tests/") or path.startswith("test_") or "/test_" in path
+
+
+def _generate_code_incremental(
+    planner_plan: Plan,
+    file_contents: dict[str, str],
+    workspace_path: Path,
+    issue_title: str,
+    issue_body: str,
+    test_conventions_text: str,
+) -> CodeGenerationPlan:
+    """Generate code one file at a time (step-wise) to avoid max_tokens truncation."""
+    changes: list[FileChange] = []
+    test_files: list[FileChange] = []
+    approach_parts: list[str] = []
+
+    # Get add/edit steps in plan order
+    code_steps = [
+        s for s in planner_plan.steps
+        if s.action in ("add", "edit") and s.path
+    ]
+
+    for step in code_steps:
+        path = step.path.strip().lstrip("/")
+        operation = "create" if step.action == "add" else "modify"
+        current_content = file_contents.get(path, "")
+        if operation == "modify" and path not in file_contents:
+            # May have been created by a previous step - load from workspace
+            full_path = workspace_path / path
+            if full_path.exists():
+                current_content = full_path.read_text()
+
+        previously_generated = "\n".join(
+            f"- {c.path}: {c.explanation[:80]}..." if len(c.explanation) > 80 else f"- {c.path}: {c.explanation}"
+            for c in (changes + test_files)
+        ) or "(none yet)"
+
+        test_conv = test_conventions_text if _is_test_file(path) else ""
+
+        logger.info(
+            "generating_single_file",
+            path=path,
+            operation=operation,
+            step_id=step.id,
+        )
+        change = generate_single_file(
+            goal=planner_plan.goal,
+            task_for_file=step.acceptance,
+            target_path=path,
+            operation=operation,
+            current_content=current_content or "",
+            previously_generated=previously_generated,
+            issue_title=issue_title,
+            issue_body=issue_body,
+            test_conventions=test_conv,
+        )
+        approach_parts.append(change.explanation)
+
+        if _is_test_file(path):
+            test_files.append(change)
+        else:
+            changes.append(change)
+
+        # Apply immediately so next step sees it
+        full_path = workspace_path / change.path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(change.content)
+        # Refresh file_contents for subsequent edits that might read this file
+        file_contents[path] = change.content
+
+    approach = approach_parts[0][:200] if approach_parts else planner_plan.goal[:200]
+    if len(approach_parts) > 1:
+        approach = f"{approach} (+{len(approach_parts) - 1} more files)"
+
+    return CodeGenerationPlan(
+        changes=changes,
+        approach=approach,
+        testing_notes=planner_plan.handoff_to_builder.pr_body_outline[:500] if planner_plan.handoff_to_builder.pr_body_outline else "",
+        test_files=test_files,
+    )
 
 
 def _analysis_from_plan(plan: Plan) -> IssueAnalysis:
@@ -217,54 +301,65 @@ async def process_issue_to_pr(
             else:
                 logger.warning("file_not_found_skipping", path=file_path)
 
-        # Step 6: Token budget check
-        logger.info("checking_token_budget")
-        budget = TokenBudget(settings.LLM_MAX_CONTEXT_TOKENS)
-
-        # Build base content for budget check
-        base_content = f"Task: {analysis.task_description}\n\nIssue: {issue_title}\n{issue_body}"
-
-        # Check if we need to trim files
-        result = budget.check_budget(
-            "You are a code generation assistant.",
-            base_content + "\n\n" + "\n".join([f"{k}: {v}" for k, v in file_contents.items()]),
+        # Step 6: Token budget check (skip trim when using incremental - one file per call)
+        use_incremental = (
+            planner_plan is not None
+            and getattr(settings, "BUILDER_INCREMENTAL_GENERATION", True)
+            and total_file_changes > getattr(settings, "BUILDER_INCREMENTAL_THRESHOLD", 4)
         )
-
-        if not result["fits"]:
-            logger.warning(
-                "context_overflow_detected",
-                overflow_by=result["overflow_by"],
-                attempting_file_selection=True,
-            )
-            # Try to select files within budget
-            file_contents = budget.select_files_within_budget(
+        if not use_incremental:
+            logger.info("checking_token_budget")
+            budget = TokenBudget(settings.LLM_MAX_CONTEXT_TOKENS)
+            base_content = f"Task: {analysis.task_description}\n\nIssue: {issue_title}\n{issue_body}"
+            result = budget.check_budget(
                 "You are a code generation assistant.",
-                base_content,
-                file_contents,
-                settings.LLM_MAX_CONTEXT_TOKENS - budget.max_output_tokens,
+                base_content + "\n\n" + "\n".join([f"{k}: {v}" for k, v in file_contents.items()]),
             )
-
-            # Check if even base content fits
-            if len(file_contents) == 0:
-                raise ValueError("Context too large: even base content doesn't fit within budget")
-
-            logger.info("files_selected_within_budget", selected_count=len(file_contents))
+            if not result["fits"]:
+                logger.warning(
+                    "context_overflow_detected",
+                    overflow_by=result["overflow_by"],
+                    attempting_file_selection=True,
+                )
+                file_contents = budget.select_files_within_budget(
+                    "You are a code generation assistant.",
+                    base_content,
+                    file_contents,
+                    settings.LLM_MAX_CONTEXT_TOKENS - budget.max_output_tokens,
+                )
+                if len(file_contents) == 0:
+                    raise ValueError("Context too large: even base content doesn't fit within budget")
+                logger.info("files_selected_within_budget", selected_count=len(file_contents))
+            else:
+                logger.info("token_budget_check_passed", remaining=result["remaining"])
         else:
-            logger.info("token_budget_check_passed", remaining=result["remaining"])
+            logger.info("token_budget_skipped", reason="incremental_generation")
 
-        # Step 7: Generate code
-        logger.info("generating_code_changes")
-        plan = generate_code_changes(
-            analysis.task_description,
-            file_contents,
-            issue_title,
-            issue_body,
-            test_conventions=test_conventions_text,
-        )
+        # Step 7: Generate code (incremental for large plans, batch for small)
+        if use_incremental:
+            logger.info("generating_code_incremental", file_count=total_file_changes)
+            plan = _generate_code_incremental(
+                planner_plan,
+                file_contents,
+                workspace_path,
+                issue_title,
+                issue_body,
+                test_conventions_text,
+            )
+        else:
+            logger.info("generating_code_changes")
+            plan = generate_code_changes(
+                analysis.task_description,
+                file_contents,
+                issue_title,
+                issue_body,
+                test_conventions=test_conventions_text,
+            )
         logger.info(
             "code_generated",
             changes_count=len(plan.changes),
-            approach=plan.approach,
+            test_files_count=len(plan.test_files),
+            approach=plan.approach[:80] if plan.approach else "",
         )
 
         # Step 7b: Validate test imports
@@ -388,8 +483,8 @@ async def process_issue_to_pr(
             tests_passed = False
             logger.warning("quality_checks_failed", errors_count=len(quality_result.errors))
 
-        # If changes were regenerated (final_changes differ from plan.changes), re-apply them
-        if final_changes != plan.changes:
+        # If changes were regenerated (final_changes differ from what we had), re-apply them
+        if final_changes != all_changes:
             logger.info("reapplying_regenerated_changes", count=len(final_changes))
             modified_paths = []
             deleted_paths = []

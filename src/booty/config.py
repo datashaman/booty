@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     # Code generation limits
     MAX_FILES_PER_ISSUE: int = 10  # File count cap
+    BUILDER_INCREMENTAL_GENERATION: bool = True  # Use step-wise generation for large plans
+    BUILDER_INCREMENTAL_THRESHOLD: int = 4  # Use incremental when file count > this
     RESTRICTED_PATHS: str = ".github/workflows/**,.env,.env.*,**/*.env,**/secrets.*,Dockerfile,docker-compose*.yml,*lock.json,*.lock,.booty.yml"  # Comma-separated denylist patterns
 
     # Git commit attribution (Builder agent commits)
