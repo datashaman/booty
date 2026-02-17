@@ -243,6 +243,11 @@ async def process_verifier_job(
         logger.info("verifier_skipped", job_id=job.job_id, reason="verifier_disabled")
         return
 
+    # Build details_url if BOOTY_URL is configured
+    details_url = None
+    if settings.BOOTY_URL:
+        details_url = f"{settings.BOOTY_URL.rstrip('/')}/detail/verifier/{job.job_id}"
+
     check_run = create_check_run(
         job.owner,
         job.repo_name,
@@ -250,6 +255,7 @@ async def process_verifier_job(
         job.installation_id,
         settings,
         status="queued",
+        details_url=details_url,
     )
     if check_run is None:
         logger.info("verifier_skipped", job_id=job.job_id, reason="check_run_failed")
