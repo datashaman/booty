@@ -15,7 +15,7 @@ from importlib.metadata import version, PackageNotFoundError
 
 import sentry_sdk
 from asgi_correlation_id import CorrelationIdMiddleware
-from github import Github
+from github import Github, GithubException
 from fastapi import FastAPI, Header, HTTPException, Request
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -27,6 +27,7 @@ from booty.github.comments import (
     post_architect_invalid_config_comment,
     post_builder_blocked_comment,
     post_failure_comment,
+    post_plan_comment,
 )
 from booty.github.issues import add_architect_review_label
 from booty.jobs import Job, JobQueue
@@ -45,8 +46,10 @@ from booty.architect.config import (
     get_architect_config,
 )
 from booty.architect.input import ArchitectInput
+from booty.architect.output import build_architect_plan, format_architect_section
 from booty.architect.worker import process_architect_input
 from booty.planner.jobs import planner_queue
+from booty.planner.output import format_plan_comment
 from booty.planner.store import get_plan_for_issue
 from booty.planner.worker import process_planner_job
 from booty.test_runner.config import load_booty_config_from_content
@@ -381,10 +384,54 @@ async def lifespan(app: FastAPI):
                             )
                             arch_result = process_architect_input(architect_config, inp)
                             if arch_result.approved:
+                                architect_plan = build_architect_plan(
+                                    arch_result.plan, arch_result.architect_notes
+                                )
+                                notes = arch_result.architect_notes or ""
+                                status = (
+                                    "rewritten"
+                                    if notes
+                                    and (
+                                        "ambiguous" in notes.lower()
+                                        or "overreach" in notes.lower()
+                                    )
+                                    else "approved"
+                                )
+                                architect_section = format_architect_section(
+                                    status,
+                                    risk_level=architect_plan.risk_level,
+                                    architect_notes=architect_plan.architect_notes,
+                                )
+                                body = format_plan_comment(
+                                    arch_result.plan, architect_section
+                                )
+                                try:
+                                    post_plan_comment(
+                                        settings.GITHUB_TOKEN,
+                                        job.repo_url,
+                                        job.issue_number,
+                                        body,
+                                    )
+                                except GithubException as e:
+                                    get_logger().warning(
+                                        "architect_plan_comment_update_failed",
+                                        issue_number=job.issue_number,
+                                        error=str(e),
+                                    )
                                 should_enqueue_builder = True
                             else:
+                                notes = arch_result.architect_notes or ""
+                                reason = ""
+                                if "(" in notes and ")" in notes:
+                                    start = notes.rfind("(") + 1
+                                    end = notes.rfind(")")
+                                    if end > start:
+                                        reason = notes[start:end]
                                 post_architect_blocked_comment(
-                                    settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                                    settings.GITHUB_TOKEN,
+                                    job.repo_url,
+                                    job.issue_number,
+                                    reason=reason,
                                 )
                                 add_architect_review_label(
                                     settings.GITHUB_TOKEN, job.repo_url, job.issue_number
