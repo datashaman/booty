@@ -60,11 +60,32 @@ from booty.verifier.limits import (
 from booty.verifier.workspace import prepare_verification_workspace
 
 if TYPE_CHECKING:
+    from github import CheckRun
+
     from booty.jobs import JobQueue
 
 CHECK_OUTPUT_MAX = 65535
 
+CANCELLED_OUTPUT = {
+    "title": "Booty Verifier — Cancelled",
+    "summary": "Cancelled — superseded by new push",
+}
+
 logger = get_logger()
+
+
+def _check_cancel(job: VerifierJob, check_run: "CheckRun | None") -> bool:
+    """Return True if job.cancel_event is set. If check_run exists, edit to cancelled first."""
+    if not (getattr(job, "cancel_event", None) and job.cancel_event.is_set()):
+        return False
+    if check_run is not None:
+        edit_check_run(
+            check_run,
+            status="completed",
+            conclusion="cancelled",
+            output=CANCELLED_OUTPUT,
+        )
+    return True
 
 
 def _ingest_verifier_record(
@@ -199,6 +220,25 @@ async def process_verifier_job(
 
     Agent PRs: schema validation and diff limits run before clone (fail fast).
     """
+    # Cancel before any check run: create check run with cancelled (do not silent exit)
+    if getattr(job, "cancel_event", None) and job.cancel_event.is_set():
+        check_run = create_check_run(
+            job.owner,
+            job.repo_name,
+            job.head_sha,
+            job.installation_id,
+            settings,
+            status="queued",
+        )
+        if check_run is not None:
+            edit_check_run(
+                check_run,
+                status="completed",
+                conclusion="cancelled",
+                output=CANCELLED_OUTPUT,
+            )
+        return
+
     if not verifier_enabled(settings):
         logger.info("verifier_skipped", job_id=job.job_id, reason="verifier_disabled")
         return
@@ -213,6 +253,9 @@ async def process_verifier_job(
     )
     if check_run is None:
         logger.info("verifier_skipped", job_id=job.job_id, reason="check_run_failed")
+        return
+
+    if _check_cancel(job, check_run):
         return
 
     logger.info("check_created", job_id=job.job_id, status="queued")
@@ -243,6 +286,8 @@ async def process_verifier_job(
                         "summary": msg,
                     },
                 )
+                if _check_cancel(job, check_run):
+                    return
                 logger.info("check_failed_schema", job_id=job.job_id)
                 return
 
@@ -264,6 +309,8 @@ async def process_verifier_job(
                         "summary": output_text[:CHECK_OUTPUT_MAX],
                     },
                 )
+                if _check_cancel(job, check_run):
+                    return
                 logger.info("check_failed_limits", job_id=job.job_id)
                 return
 
@@ -279,6 +326,8 @@ async def process_verifier_job(
                 status="in_progress",
                 output={"title": "Booty Verifier", "summary": "Running tests..."},
             )
+            if _check_cancel(job, check_run):
+                return
             logger.info("check_in_progress", job_id=job.job_id)
 
             try:
@@ -301,6 +350,8 @@ async def process_verifier_job(
                         "summary": msg,
                     },
                 )
+                if _check_cancel(job, check_run):
+                    return
                 logger.info("check_failed_schema", job_id=job.job_id)
                 return
 
@@ -330,6 +381,8 @@ async def process_verifier_job(
                             "summary": "Config required for agent PRs: install_command.",
                         },
                     )
+                    if _check_cancel(job, check_run):
+                        return
                     logger.info("check_failed_config", job_id=job.job_id)
                     return
 
@@ -362,8 +415,13 @@ async def process_verifier_job(
                                 "annotations": ann,
                             },
                         )
+                        if _check_cancel(job, check_run):
+                            return
                         logger.info("check_failed_setup", job_id=job.job_id)
                         return
+
+                if _check_cancel(job, check_run):
+                    return
 
                 if config.install_command:
                     install_result = await execute_tests(
@@ -390,8 +448,13 @@ async def process_verifier_job(
                                 "summary": summary,
                             },
                         )
+                        if _check_cancel(job, check_run):
+                            return
                         logger.info("check_failed_install", job_id=job.job_id)
                         return
+
+                if _check_cancel(job, check_run):
+                    return
 
             # Import/compile sweep: get changed .py files
             py_files: list[str] = []
@@ -457,8 +520,13 @@ async def process_verifier_job(
                             "annotations": annotations,
                         },
                     )
+                    if _check_cancel(job, check_run):
+                        return
                     logger.info("check_failed_import_compile", job_id=job.job_id)
                     return
+
+            if _check_cancel(job, check_run):
+                return
 
             result = await execute_tests(
                 config.test_command, config.timeout, workspace_path
@@ -504,6 +572,8 @@ async def process_verifier_job(
                 conclusion=conclusion,
                 output={"title": "Booty Verifier", "summary": output_summary},
             )
+            if _check_cancel(job, check_run):
+                return
             logger.info(
                 "check_completed",
                 job_id=job.job_id,
@@ -641,3 +711,5 @@ async def process_verifier_job(
                 "summary": f"Verifier error: {str(e)[:500]}",
             },
         )
+        if _check_cancel(job, check_run):
+            return
