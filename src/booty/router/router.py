@@ -157,10 +157,12 @@ async def _route_issues(
     if architect_config:
         architect_config = apply_architect_env_overrides(architect_config)
     architect_enabled = architect_config is not None and architect_config.enabled
+    builder_compat = architect_config.builder_compat if architect_config else True
 
     plan, unreviewed = get_plan_for_builder(
         internal.owner, internal.repo_name, internal.issue_number,
         github_token=settings.GITHUB_TOKEN,
+        builder_compat=builder_compat,
     )
     if architect_enabled and unreviewed:
         plan = None
