@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 35 complete
+Phase: 36 complete
 Plan: —
-Status: Phase 35 Idempotency complete
-Last activity: 2026-02-17 — Phase 35 executed, verified
+Status: Phase 36 Builder Handoff & CLI complete
+Last activity: 2026-02-17 — Phase 36 executed, verified
 
 ## Accumulated Context
 
@@ -32,4 +32,4 @@ None.
 
 Last session: 2026-02-17
 Stopped at: v1.8 milestone started
-Next step: Phase 36 Builder Handoff & CLI. Run `/gsd:discuss-phase 36` or `/gsd:plan-phase 36` to begin.
+Next step: v1.8 milestone complete. Run `/gsd:audit-milestone` to verify.

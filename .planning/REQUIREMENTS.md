@@ -127,14 +127,14 @@ Deferred to later milestones.
 | ARCH-23 | 35 | Complete |
 | ARCH-24 | 35 | Complete |
 | ARCH-25 | 35 | Complete |
-| ARCH-26 | 36 | Pending |
-| ARCH-27 | 36 | Pending |
-| ARCH-28 | 36 | Pending |
-| ARCH-29 | 36 | Pending |
-| ARCH-30 | 36 | Pending |
+| ARCH-26 | 36 | Complete |
+| ARCH-27 | 36 | Complete |
+| ARCH-28 | 36 | Complete |
+| ARCH-29 | 36 | Complete |
+| ARCH-30 | 36 | Complete |
 | ARCH-31 | 32 | Complete |
 | ARCH-32 | 32 | Complete |
-| ARCH-33 | 36 | Pending |
+| ARCH-33 | 36 | Complete |
 | ARCH-34 | 33 | Complete |
 
 **Coverage:**
