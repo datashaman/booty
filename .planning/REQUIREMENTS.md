@@ -17,11 +17,11 @@
 
 ### Planner→Architect→Builder Wiring (WIRE)
 
-- [ ] **WIRE-01**: When agent:builder (or equivalent) arrives and Architect-approved plan exists for that issue+plan_hash, enqueue Builder directly
-- [ ] **WIRE-02**: When plan exists but not Architect-approved, enqueue Architect (not Builder)
-- [ ] **WIRE-03**: When no plan exists, enqueue Planner
-- [ ] **WIRE-04**: Builder consumes Architect artifact first; fallback to Planner plan only when compat flag enabled
-- [ ] **WIRE-05**: Routing logic is auditable and documented (config precedence, Architect/Planner disabled behavior)
+- [x] **WIRE-01**: When agent:builder (or equivalent) arrives and Architect-approved plan exists for that issue+plan_hash, enqueue Builder directly
+- [x] **WIRE-02**: When plan exists but not Architect-approved, enqueue Architect (not Builder)
+- [x] **WIRE-03**: When no plan exists, enqueue Planner
+- [x] **WIRE-04**: Builder consumes Architect artifact first; fallback to Planner plan only when compat flag enabled
+- [x] **WIRE-05**: Routing logic is auditable and documented (config precedence, Architect/Planner disabled behavior)
 
 ### Promotion Gating (PROMO)
 
@@ -74,11 +74,11 @@ Deferred to later milestones:
 | DEDUP-01 | 43 | Complete |
 | DEDUP-02 | 43 | Complete |
 | DEDUP-04 | 43 | Complete |
-| WIRE-01 | 44 | Pending |
-| WIRE-02 | 44 | Pending |
-| WIRE-03 | 44 | Pending |
-| WIRE-04 | 44 | Pending |
-| WIRE-05 | 44 | Pending |
+| WIRE-01 | 44 | Complete |
+| WIRE-02 | 44 | Complete |
+| WIRE-03 | 44 | Complete |
+| WIRE-04 | 44 | Complete |
+| WIRE-05 | 44 | Complete |
 | PROMO-01 | 45 | Pending |
 | PROMO-02 | 45 | Pending |
 | PROMO-03 | 45 | Pending |
@@ -92,6 +92,7 @@ Deferred to later milestones:
 | OPS-04 | 47 | Pending |
 
 **Coverage:**
+
 - v1.10 requirements: 23 total
 - Mapped to phases: 23
 - Unmapped: 0 ✓
