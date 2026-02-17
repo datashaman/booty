@@ -8,8 +8,8 @@ from booty.logging import get_logger
 from booty.verifier.job import VerifierJob
 
 
-def _dedup_key(pr_number: int, head_sha: str) -> str:
-    return f"{pr_number}:{head_sha}"
+def _dedup_key(repo_full_name: str, pr_number: int, head_sha: str) -> str:
+    return f"{repo_full_name}:{pr_number}:{head_sha}"
 
 
 class VerifierQueue:
@@ -22,13 +22,13 @@ class VerifierQueue:
         self._worker_tasks: list[asyncio.Task] = []
         self._logger = get_logger()
 
-    def is_duplicate(self, pr_number: int, head_sha: str) -> bool:
-        """Check if this PR+head_sha was already processed or enqueued."""
-        return _dedup_key(pr_number, head_sha) in self._processed
+    def is_duplicate(self, repo_full_name: str, pr_number: int, head_sha: str) -> bool:
+        """Check if this repo+PR+head_sha was already processed or enqueued."""
+        return _dedup_key(repo_full_name, pr_number, head_sha) in self._processed
 
-    def mark_processed(self, pr_number: int, head_sha: str) -> None:
-        """Mark PR+head_sha as processed (used before enqueue to reserve slot)."""
-        key = _dedup_key(pr_number, head_sha)
+    def mark_processed(self, repo_full_name: str, pr_number: int, head_sha: str) -> None:
+        """Mark repo+PR+head_sha as processed (used before enqueue to reserve slot)."""
+        key = _dedup_key(repo_full_name, pr_number, head_sha)
         self._processed.add(key)
         self._processed_order.append(key)
         if len(self._processed) > 10000:
@@ -37,7 +37,8 @@ class VerifierQueue:
 
     async def enqueue(self, job: VerifierJob) -> bool:
         """Enqueue a verifier job. Returns False if duplicate."""
-        key = _dedup_key(job.pr_number, job.head_sha)
+        repo_full_name = f"{job.owner}/{job.repo_name}"
+        key = _dedup_key(repo_full_name, job.pr_number, job.head_sha)
         if key in self._processed:
             self._logger.warning(
                 "verifier_duplicate",
@@ -47,7 +48,7 @@ class VerifierQueue:
             )
             return False
 
-        self.mark_processed(job.pr_number, job.head_sha)
+        self.mark_processed(repo_full_name, job.pr_number, job.head_sha)
 
         try:
             await asyncio.wait_for(self._queue.put(job), timeout=1.0)
