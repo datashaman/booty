@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+import asyncio
+
 
 @dataclass
 class VerifierJob:
@@ -18,3 +20,4 @@ class VerifierJob:
     payload: dict
     is_agent_pr: bool = False
     issue_number: int | None = None
+    cancel_event: asyncio.Event | None = None  # Queue sets for cancel signaling
