@@ -19,7 +19,7 @@
 - 44. Planner→Architect→Builder Wiring — WIRE-01 to WIRE-05 ✓
 - 45. Promotion Gate Hardening — PROMO-01 to PROMO-05 ✓
 - 46. Cancel Semantics — DEDUP-03, DEDUP-05 ✓
-- 47. Operator Visibility — OPS-01 to OPS-04
+- 47. Operator Visibility — OPS-01 to OPS-04 ✓
 
 ---
 *Last updated: 2026-02-17 — v1.10 milestone roadmap created*

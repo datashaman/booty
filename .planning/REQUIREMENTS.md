@@ -41,10 +41,10 @@
 
 ### Operator Visibility (OPS)
 
-- [ ] **OPS-01**: When an event is ignored (skip), emit structured log with agent, repo, event_type, decision=skip, reason
-- [ ] **OPS-02**: Skip reasons include: disabled, not_agent_pr, missing_config, dedup_hit
-- [ ] **OPS-03**: booty status CLI shows enabled agents, last run timestamps, queue depth (if available)
-- [ ] **OPS-04**: Verifier logs promotion_waiting_reviewer when tests pass but Reviewer not yet success
+- [x] **OPS-01**: When an event is ignored (skip), emit structured log with agent, repo, event_type, decision=skip, reason
+- [x] **OPS-02**: Skip reasons include: disabled, not_agent_pr, missing_config, dedup_hit
+- [x] **OPS-03**: booty status CLI shows enabled agents, last run timestamps, queue depth (if available)
+- [x] **OPS-04**: Verifier logs promotion_waiting_reviewer when tests pass but Reviewer not yet success
 
 ## Future Requirements
 
@@ -86,10 +86,10 @@ Deferred to later milestones:
 | PROMO-05 | 45 | Complete |
 | DEDUP-03 | 46 | Complete |
 | DEDUP-05 | 46 | Complete |
-| OPS-01 | 47 | Pending |
-| OPS-02 | 47 | Pending |
-| OPS-03 | 47 | Pending |
-| OPS-04 | 47 | Pending |
+| OPS-01 | 47 | Complete |
+| OPS-02 | 47 | Complete |
+| OPS-03 | 47 | Complete |
+| OPS-04 | 47 | Complete |
 
 **Coverage:**
 

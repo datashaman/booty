@@ -39,7 +39,7 @@ Standard keys for deduplication across agents. Same key = same work; avoids dupl
 
 ## Verifier Agent (v1.2)
 
-Runs on every PR, enforces gates for agent PRs: runs tests in clean env, validates `.booty.yml`, enforces diff limits, detects hallucinated imports / compile failures. Blocks merge and promotion when checks fail. Publishes the `booty/verifier` GitHub check.
+Runs on every PR, enforces gates for agent PRs: runs tests in clean env, validates `.booty.yml`, enforces diff limits, detects hallucinated imports / compile failures. Blocks merge and promotion when checks fail. Publishes the `booty/verifier` GitHub check. When tests pass but Reviewer has not yet succeeded, Verifier logs promotion_waiting_reviewer (OPS-04).
 
 ## Deploy & Observability (v1.3)
 
