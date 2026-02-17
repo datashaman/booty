@@ -1,7 +1,7 @@
 name: Deploy
 
 # Deploy is triggered ONLY by the Release Governor via workflow_dispatch.
-# Push to main → Verify main runs → Governor decides ALLOW → dispatches this workflow.
+# Push to main → Booty verifies (runs tests) → Governor decides ALLOW → dispatches this workflow.
 on:
   workflow_dispatch:
     inputs:
