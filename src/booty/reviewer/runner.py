@@ -1,17 +1,21 @@
-"""Reviewer job runner — check lifecycle and stub success.
+"""Reviewer job runner — check lifecycle and LLM review integration.
 
-Phase 38: event plumbing only. Phase 39 adds LLM review.
+Phase 38: event plumbing. Phase 39: full LLM review.
 """
+
+import asyncio
 
 from github import UnknownObjectException
 
 from booty.config import Settings
+from booty.github.comments import post_reviewer_comment
 from booty.github.checks import (
     create_reviewer_check_run,
     edit_check_run,
     get_verifier_repo,
 )
 from booty.reviewer.config import apply_reviewer_env_overrides, get_reviewer_config
+from booty.reviewer.engine import format_reviewer_comment, run_review
 from booty.reviewer.job import ReviewerJob
 from booty.test_runner.config import load_booty_config_from_content
 
@@ -78,12 +82,72 @@ async def process_reviewer_job(job: ReviewerJob, settings: Settings) -> None:
         )
         return
 
+    # Phase 39: fetch diff, run LLM review
+    pr_payload = job.payload.get("pull_request", {})
+    base_ref = pr_payload.get("base", {})
+    base_sha = base_ref.get("sha", "") or job.head_sha
+
+    try:
+        compare = repo.compare(base_sha, job.head_sha)
+        diff_parts: list[str] = []
+        file_entries: list[str] = []
+        for f in compare.files:
+            if getattr(f, "patch", None):
+                diff_parts.append(f.patch)
+            file_type = "test" if (getattr(f, "filename", "") or "").startswith("tests/") else "src"
+            file_entries.append(f"{getattr(f, 'filename', '')} ({file_type})")
+        diff = "\n".join(diff_parts)
+        file_list = "\n".join(file_entries) if file_entries else ""
+
+        pr_title = pr_payload.get("title", "") or ""
+        pr_body = (pr_payload.get("body") or "") or ""
+        pr_meta = {
+            "title": pr_title,
+            "body": pr_body,
+            "base_sha": base_sha,
+            "head_sha": job.head_sha,
+            "file_list": file_list,
+        }
+
+        result = await asyncio.to_thread(
+            run_review,
+            diff,
+            pr_meta,
+            config.block_on,
+        )
+    except Exception:
+        edit_check_run(
+            check_run,
+            status="completed",
+            conclusion="failure",
+            output={
+                "title": "Reviewer error",
+                "summary": "LLM or infrastructure failure. Phase 41 adds fail-open.",
+            },
+        )
+        return
+
+    # Check conclusion per REV-05
+    if result.decision == "APPROVED":
+        conclusion = "success"
+        title = "Reviewer approved"
+    elif result.decision == "APPROVED_WITH_SUGGESTIONS":
+        conclusion = "success"
+        title = "Reviewer approved with suggestions"
+    else:
+        conclusion = "failure"
+        title = "Reviewer blocked"
+
+    summary = "See PR comment for details."
+    if result.blocking_categories:
+        summary = f"Blocking: {', '.join(result.blocking_categories)}"
+
     edit_check_run(
         check_run,
         status="completed",
-        conclusion="success",
-        output={
-            "title": "Reviewer approved",
-            "summary": "Review complete (stub). Phase 39 adds LLM.",
-        },
+        conclusion=conclusion,
+        output={"title": title, "summary": summary},
     )
+
+    body = format_reviewer_comment(result)
+    post_reviewer_comment(settings.GITHUB_TOKEN, job.repo_url, job.pr_number, body)

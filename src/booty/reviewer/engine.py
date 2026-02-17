@@ -1,4 +1,4 @@
-"""Review engine — run_review, block_on mapping, decision logic."""
+"""Review engine — run_review, format_reviewer_comment, block_on mapping, decision logic."""
 
 from typing import Literal
 
@@ -96,3 +96,41 @@ def _compute_non_blocked_decision(categories: list[CategoryResult]) -> Literal["
         if c.grade in ("WARN", "FAIL"):
             return "APPROVED_WITH_SUGGESTIONS"
     return "APPROVED"
+
+
+def format_reviewer_comment(result: ReviewResult) -> str:
+    """Format ReviewResult as PR comment body per CONTEXT.md.
+
+    Header, rationale (if BLOCKED), sections per category, <!-- booty-reviewer --> marker.
+    """
+    lines: list[str] = []
+
+    # Header
+    lines.append(f"## Reviewer: {result.decision}")
+    if result.decision == "BLOCKED" and result.blocking_categories:
+        lines.append(f"Blocking: {', '.join(result.blocking_categories)}")
+    lines.append("")
+
+    # Build category map; use CATEGORY_ORDER for consistent ordering
+    by_name = {c.category: c for c in result.categories}
+    for cat_name in CATEGORY_ORDER:
+        c = by_name.get(cat_name)
+        grade = c.grade if c else "PASS"
+        lines.append(f"### {cat_name}")
+        lines.append(f"Status: {grade}")
+
+        if c and c.findings:
+            shown = c.findings[:3]
+            extra = len(c.findings) - 3
+            for f in shown:
+                paths = ", ".join(f.paths[:3]) if f.paths else "general"
+                bullet = f"- **{paths}**: {f.summary}"
+                if f.suggestion:
+                    bullet += f" — {f.suggestion}"
+                lines.append(bullet)
+            if extra > 0:
+                lines.append(f"(+{extra} more)")
+        lines.append("")
+
+    body = "\n".join(lines).strip()
+    return f"<!-- booty-reviewer -->\n\n{body}\n\n<!-- /booty-reviewer -->"
