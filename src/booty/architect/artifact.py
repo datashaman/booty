@@ -116,10 +116,12 @@ def get_plan_for_builder(
     issue_number: int,
     github_token: str | None = None,
     state_dir: Path | None = None,
+    builder_compat: bool = True,
 ) -> tuple[Plan | None, bool]:
-    """Resolve plan for Builder: Architect artifact first, then Planner plan.
+    """Resolve plan for Builder: Architect artifact first, then Planner plan when compat enabled.
 
     Returns (plan, unreviewed) where unreviewed=True means Planner plan without Architect review.
+    When builder_compat=False and no Architect artifact: returns (None, False) — no Planner fallback.
     """
     ap = load_architect_plan_for_issue(owner, repo, issue_number, state_dir)
     if ap is not None:
@@ -137,6 +139,8 @@ def get_plan_for_builder(
             metadata={"source": "architect"},
         )
         return (plan, False)
+    if not builder_compat:
+        return (None, False)
     plan = get_plan_for_issue(owner, repo, issue_number, github_token, state_dir)
     if plan is not None:
         return (plan, True)
