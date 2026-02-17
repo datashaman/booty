@@ -25,11 +25,11 @@
 
 ### Promotion Gating (PROMO)
 
-- [ ] **PROMO-01**: Promotion happens only when Verifier success AND (Reviewer success OR Reviewer fail-open OR Reviewer disabled)
-- [ ] **PROMO-02**: For agent PRs that originated from a plan, promotion requires Architect approval when Architect enabled
-- [ ] **PROMO-03**: Verifier is the only component that calls promote_to_ready_for_review
-- [ ] **PROMO-04**: "Second finisher promotes" logic is deterministic (Verifier checks all gates at promote-time; no race)
-- [ ] **PROMO-05**: promote_to_ready_for_review is idempotent (re-fetch draft state or rely on GitHub no-op; no double-promote)
+- [x] **PROMO-01**: Promotion happens only when Verifier success AND (Reviewer success OR Reviewer fail-open OR Reviewer disabled)
+- [x] **PROMO-02**: For agent PRs that originated from a plan, promotion requires Architect approval when Architect enabled
+- [x] **PROMO-03**: Verifier is the only component that calls promote_to_ready_for_review
+- [x] **PROMO-04**: "Second finisher promotes" logic is deterministic (Verifier checks all gates at promote-time; no race)
+- [x] **PROMO-05**: promote_to_ready_for_review is idempotent (re-fetch draft state or rely on GitHub no-op; no double-promote)
 
 ### Dedup and Cancel (DEDUP)
 
@@ -79,11 +79,11 @@ Deferred to later milestones:
 | WIRE-03 | 44 | Complete |
 | WIRE-04 | 44 | Complete |
 | WIRE-05 | 44 | Complete |
-| PROMO-01 | 45 | Pending |
-| PROMO-02 | 45 | Pending |
-| PROMO-03 | 45 | Pending |
-| PROMO-04 | 45 | Pending |
-| PROMO-05 | 45 | Pending |
+| PROMO-01 | 45 | Complete |
+| PROMO-02 | 45 | Complete |
+| PROMO-03 | 45 | Complete |
+| PROMO-04 | 45 | Complete |
+| PROMO-05 | 45 | Complete |
 | DEDUP-03 | 46 | Pending |
 | DEDUP-05 | 46 | Pending |
 | OPS-01 | 47 | Pending |
