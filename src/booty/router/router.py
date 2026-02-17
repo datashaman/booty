@@ -308,7 +308,7 @@ async def _route_pull_request(
     verifier_enqueued = False
     verifier_job_id = None
     if verifier_queue and should_run("verifier", internal.full_name, ctx, settings, booty_config):
-        if verifier_queue.is_duplicate(internal.pr_number, internal.head_sha):
+        if verifier_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
             logger.info(
                 "verifier_already_processed",
                 pr_number=internal.pr_number,
@@ -365,7 +365,7 @@ async def _route_pull_request(
     security_enqueued = False
     security_job_id = None
     if security_queue and should_run("security", internal.full_name, ctx, settings, booty_config):
-        if not security_queue.is_duplicate(internal.pr_number, internal.head_sha):
+        if not security_queue.is_duplicate(internal.full_name, internal.pr_number, internal.head_sha):
             security_job_id = f"security-{internal.pr_number}-{internal.head_sha[:7]}"
             base = payload.get("pull_request", {}).get("base", {})
             base_sha = base.get("sha", "") or ""
