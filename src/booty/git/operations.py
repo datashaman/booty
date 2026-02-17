@@ -3,6 +3,7 @@
 import asyncio
 
 import git
+from git import Actor
 
 from booty.logging import get_logger
 
@@ -14,6 +15,9 @@ def commit_changes(
     file_paths: list[str],
     message: str,
     deleted_paths: list[str] | None = None,
+    *,
+    author: Actor | None = None,
+    committer: Actor | None = None,
 ) -> str:
     """Commit changes to repository.
 
@@ -22,10 +26,16 @@ def commit_changes(
         file_paths: List of file paths to add
         message: Commit message
         deleted_paths: Optional list of file paths to remove
+        author: Optional commit author (default: Booty Agent)
+        committer: Optional committer (default: same as author)
 
     Returns:
         Commit SHA
     """
+    actor = author or committer or Actor("Booty Agent", "noreply@booty.dev")
+    author = author or actor
+    committer = committer or actor
+
     # Stage files to add
     if file_paths:
         repo.index.add(file_paths)
@@ -37,7 +47,7 @@ def commit_changes(
         logger.info("files_removed", count=len(deleted_paths))
 
     # Commit changes
-    commit = repo.index.commit(message)
+    commit = repo.index.commit(message, author=author, committer=committer)
     commit_sha = str(commit)
 
     logger.info("changes_committed", sha=commit_sha)
