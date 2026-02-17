@@ -35,9 +35,9 @@
 
 - [x] **DEDUP-01**: PR agents (Verifier, Reviewer, Security) use dedup key (repo_full_name, pr_number, head_sha)
 - [x] **DEDUP-02**: Issue agents use documented dedup keys (repo, issue_number, plan_hash or delivery_id as appropriate)
-- [ ] **DEDUP-03**: New head_sha for same PR supersedes old run — prior run marked cancelled; best-effort cooperative cancel in workers
+- [x] **DEDUP-03**: New head_sha for same PR supersedes old run — prior run marked cancelled; best-effort cooperative cancel in workers
 - [x] **DEDUP-04**: Verifier and Security queues accept repo in dedup; VerifierQueue/SecurityQueue signatures updated
-- [ ] **DEDUP-05**: Verifier runner checks cancel_event at phase boundaries; exits with conclusion=cancelled when superseded
+- [x] **DEDUP-05**: Verifier runner checks cancel_event at phase boundaries; exits with conclusion=cancelled when superseded
 
 ### Operator Visibility (OPS)
 
@@ -84,8 +84,8 @@ Deferred to later milestones:
 | PROMO-03 | 45 | Complete |
 | PROMO-04 | 45 | Complete |
 | PROMO-05 | 45 | Complete |
-| DEDUP-03 | 46 | Pending |
-| DEDUP-05 | 46 | Pending |
+| DEDUP-03 | 46 | Complete |
+| DEDUP-05 | 46 | Complete |
 | OPS-01 | 47 | Pending |
 | OPS-02 | 47 | Pending |
 | OPS-03 | 47 | Pending |
