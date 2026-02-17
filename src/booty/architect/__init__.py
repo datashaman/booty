@@ -1,5 +1,6 @@
 """Architect agent — validates and refines plans before Builder execution."""
 
+from booty.architect.output import ArchitectPlan, build_architect_plan
 from booty.architect.rewrite import (
     check_ambiguity,
     check_overreach,
@@ -16,7 +17,9 @@ from booty.architect.validation import (
 )
 
 __all__ = [
+    "ArchitectPlan",
     "ValidationResult",
+    "build_architect_plan",
     "check_ambiguity",
     "check_overreach",
     "compute_risk_from_touch_paths",
