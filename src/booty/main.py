@@ -48,6 +48,7 @@ from booty.release_governor.main_verify import (
     process_main_verification_job,
 )
 from booty.webhooks import router as webhook_router
+from booty.detail_pages import router as detail_pages_router
 from booty.architect.artifact import get_plan_for_builder, save_architect_artifact
 from booty.architect.jobs import (
     ArchitectJob,
@@ -876,6 +877,7 @@ app.add_middleware(CorrelationIdMiddleware)
 
 # Include routers
 app.include_router(webhook_router)
+app.include_router(detail_pages_router)
 
 
 @app.get("/internal/sentry-test")

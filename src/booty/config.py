@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     # Planner agent — set to false to disable agent-triggered handling
     PLANNER_ENABLED: bool = True
 
+    # Detail pages configuration
+    BOOTY_URL: str = ""  # Base URL for Booty-hosted detail pages (e.g. https://booty.example.com); empty = detail links disabled
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
