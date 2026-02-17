@@ -9,7 +9,9 @@ from datetime import datetime, timezone
 from github import Github
 
 from booty.architect.artifact import get_plan_for_builder
+from booty.architect.cache import architect_plan_hash
 from booty.architect.config import apply_architect_env_overrides, get_architect_config
+from booty.architect.jobs import ArchitectJob, architect_enqueue, architect_is_duplicate
 from booty.config import get_settings
 from booty.github.comments import post_builder_blocked_comment, post_self_modification_disabled_comment
 from booty.github.repo_config import load_booty_config_for_repo
@@ -64,7 +66,9 @@ async def route_github_event(
     Returns dict with status (accepted|ignored|already_processed), reason?, job_id?, etc.
     """
     if event_type == "issues":
-        return await _route_issues(payload, delivery_id, app_state)
+        return await _route_issues(
+            payload, delivery_id, app_state, background_tasks=background_tasks
+        )
     if event_type == "pull_request":
         return await _route_pull_request(payload, delivery_id, app_state)
     if event_type == "workflow_run":
@@ -83,7 +87,7 @@ async def route_github_event(
 
 
 async def _route_issues(
-    payload: dict, delivery_id: str | None, app_state
+    payload: dict, delivery_id: str | None, app_state, *, background_tasks=None
 ) -> dict:
     """Route issues events: planner | builder per routing rules."""
     settings = get_settings()
@@ -116,42 +120,18 @@ async def _route_issues(
         "has_trigger_label": has_trigger_label,
     }
 
-    booty_config = load_booty_config_for_repo(internal.repo_url, settings.GITHUB_TOKEN)
-    job_queue = getattr(app_state, "job_queue", None)
-
-    # Planner trigger
-    if has_trigger_label and should_run("planner", internal.full_name, ctx, settings, booty_config):
-        if delivery_id and planner_is_duplicate(delivery_id):
-            return {"status": "already_processed"}
-        job_id = f"planner-{internal.issue_number}-{delivery_id or 'no-delivery'}"
-        job = PlannerJob(
-            job_id=job_id,
-            issue_number=internal.issue_number,
-            issue_url=payload.get("issue", {}).get("html_url", ""),
-            repo_url=internal.repo_url,
-            owner=internal.owner,
-            repo=internal.repo_name,
-            payload=internal.raw_payload,
-        )
-        enqueued = await planner_enqueue(job)
-        if not enqueued:
-            logger.error("planner_enqueue_failed", job_id=job_id)
-            return {"status": "error", "event": "planner", "reason": "enqueue_failed"}
-        if delivery_id:
-            planner_mark_processed(delivery_id)
-        logger.info("planner_job_accepted", job_id=job_id, issue_number=internal.issue_number)
-        return {"status": "accepted", "event": "planner", "job_id": job_id}
-
-    # Builder trigger (requires plan)
     if not has_trigger_label:
         logger.info(
             "event_skip",
-            agent="planner",
+            agent=None,
             repo=internal.full_name,
             event_type="issues",
             reason="not_plan_or_builder_trigger",
         )
         return {"status": "ignored", "reason": "not_plan_or_builder_trigger"}
+
+    booty_config = load_booty_config_for_repo(internal.repo_url, settings.GITHUB_TOKEN)
+    job_queue = getattr(app_state, "job_queue", None)
 
     architect_config = get_architect_config(booty_config) if booty_config else None
     if architect_config:
@@ -164,18 +144,64 @@ async def _route_issues(
         github_token=settings.GITHUB_TOKEN,
         builder_compat=builder_compat,
     )
-    if architect_enabled and unreviewed:
-        plan = None
-    elif architect_enabled and plan is None:
-        pass
 
-    if plan is None:
-        # Safety net: enqueue Planner
-        if should_run("planner", internal.full_name, ctx, settings, booty_config):
-            if delivery_id and planner_is_duplicate(delivery_id):
+    def _do_builder_enqueue():
+        """Perform Builder enqueue checks and enqueue. Returns (status_dict, None) or (None, result)."""
+        if not job_queue:
+            return ({"status": "ignored", "reason": "no_job_queue"}, None)
+        if delivery_id and job_queue.is_duplicate(delivery_id):
+            return ({"status": "already_processed"}, None)
+        if job_queue.has_issue_in_queue(internal.repo_url, internal.issue_number):
+            return ({"status": "already_processed"}, None)
+        is_self = is_self_modification(internal.repo_url, settings.BOOTY_OWN_REPO_URL)
+        if is_self and not settings.BOOTY_SELF_MODIFY_ENABLED:
+            if background_tasks:
+                background_tasks.add_task(
+                    post_self_modification_disabled_comment,
+                    settings.GITHUB_TOKEN,
+                    internal.repo_url,
+                    internal.issue_number,
+                )
+            return ({
+                "status": "ignored",
+                "reason": "self_modification_disabled",
+                "issue_number": internal.issue_number,
+            }, None)
+        if delivery_id:
+            job_queue.mark_processed(delivery_id)
+        issue = payload["issue"]
+        job_id = f"{issue['number']}-{delivery_id}"
+        job = Job(
+            job_id=job_id,
+            issue_url=issue["html_url"],
+            issue_number=issue["number"],
+            payload=internal.raw_payload,
+            is_self_modification=is_self,
+            repo_url=internal.repo_url,
+        )
+        return (None, (job_id, job))
+
+    # Plan-state-first routing: resolve plan before any enqueue decision
+    if architect_enabled:
+        if plan and not unreviewed:
+            # Architect-approved plan -> Builder only
+            status_dict, builder_data = _do_builder_enqueue()
+            if status_dict is not None:
+                return status_dict
+            job_id, job = builder_data
+            enqueued = await job_queue.enqueue(job)
+            if not enqueued:
+                logger.error("enqueue_failed", job_id=job_id)
+                return {"status": "error", "reason": "enqueue_failed"}
+            logger.info("job_accepted", job_id=job_id, issue_number=internal.issue_number)
+            return {"status": "accepted", "job_id": job_id}
+        if plan and unreviewed:
+            # Unreviewed plan -> Architect (not Planner)
+            plan_hash = architect_plan_hash(plan)
+            if architect_is_duplicate(internal.full_name, plan_hash):
                 return {"status": "already_processed"}
-            job_id = f"planner-{internal.issue_number}-{delivery_id or 'no-delivery'}"
-            planner_job = PlannerJob(
+            job_id = f"architect-{internal.issue_number}-{delivery_id or 'no-delivery'}"
+            arch_job = ArchitectJob(
                 job_id=job_id,
                 issue_number=internal.issue_number,
                 issue_url=payload.get("issue", {}).get("html_url", ""),
@@ -183,74 +209,90 @@ async def _route_issues(
                 owner=internal.owner,
                 repo=internal.repo_name,
                 payload=internal.raw_payload,
+                plan_hash=plan_hash,
             )
-            enqueued = await planner_enqueue(planner_job)
-            if enqueued:
-                if delivery_id:
-                    planner_mark_processed(delivery_id)
-                logger.info(
-                    "planner_enqueued_for_builder_safety_net",
-                    issue_number=internal.issue_number,
-                    job_id=job_id,
+            enqueued = await architect_enqueue(arch_job)
+            if not enqueued:
+                logger.error("architect_enqueue_failed", job_id=job_id)
+                return {"status": "error", "event": "architect", "reason": "enqueue_failed"}
+            logger.info("architect_job_accepted", job_id=job_id, issue_number=internal.issue_number)
+            return {"status": "accepted", "event": "architect", "job_id": job_id}
+        # No plan -> Planner
+        if not should_run("planner", internal.full_name, ctx, settings, booty_config):
+            if background_tasks:
+                background_tasks.add_task(
+                    post_builder_blocked_comment,
+                    settings.GITHUB_TOKEN,
+                    internal.repo_url,
+                    internal.issue_number,
                 )
-                return {
-                    "status": "accepted",
-                    "event": "planner",
-                    "reason": "builder_needs_plan",
-                    "job_id": job_id,
-                }
-        if background_tasks:
-            background_tasks.add_task(
-                post_builder_blocked_comment,
-                settings.GITHUB_TOKEN,
-                internal.repo_url,
-                internal.issue_number,
-            )
-        logger.info("builder_blocked_no_plan", issue_number=internal.issue_number)
-        return {"status": "ignored", "reason": "builder_blocked_no_plan"}
-
-    if not job_queue:
-        return {"status": "ignored", "reason": "no_job_queue"}
-
-    if delivery_id and job_queue.is_duplicate(delivery_id):
-        return {"status": "already_processed"}
-    if job_queue.has_issue_in_queue(internal.repo_url, internal.issue_number):
-        return {"status": "already_processed"}
-
-    is_self = is_self_modification(internal.repo_url, settings.BOOTY_OWN_REPO_URL)
-    if is_self and not settings.BOOTY_SELF_MODIFY_ENABLED:
-        if background_tasks:
-            background_tasks.add_task(
-                post_self_modification_disabled_comment,
-                settings.GITHUB_TOKEN,
-                internal.repo_url,
-                internal.issue_number,
-            )
-        return {
-            "status": "ignored",
-            "reason": "self_modification_disabled",
-            "issue_number": internal.issue_number,
-        }
-
-    if delivery_id:
-        job_queue.mark_processed(delivery_id)
-
-    issue = payload["issue"]
-    job_id = f"{issue['number']}-{delivery_id}"
-    job = Job(
-        job_id=job_id,
-        issue_url=issue["html_url"],
-        issue_number=issue["number"],
-        payload=internal.raw_payload,
-        is_self_modification=is_self,
-        repo_url=internal.repo_url,
-    )
-    enqueued = await job_queue.enqueue(job)
-    if not enqueued:
-        logger.error("enqueue_failed", job_id=job_id)
-        return {"status": "error", "reason": "enqueue_failed"}
-    logger.info("job_accepted", job_id=job_id, issue_number=issue["number"])
-    return {"status": "accepted", "job_id": job_id}
+            logger.info("builder_blocked_no_plan", issue_number=internal.issue_number)
+            return {"status": "ignored", "reason": "builder_blocked_no_plan"}
+        if delivery_id and planner_is_duplicate(delivery_id):
+            return {"status": "already_processed"}
+        job_id = f"planner-{internal.issue_number}-{delivery_id or 'no-delivery'}"
+        planner_job = PlannerJob(
+            job_id=job_id,
+            issue_number=internal.issue_number,
+            issue_url=payload.get("issue", {}).get("html_url", ""),
+            repo_url=internal.repo_url,
+            owner=internal.owner,
+            repo=internal.repo_name,
+            payload=internal.raw_payload,
+        )
+        enqueued = await planner_enqueue(planner_job)
+        if not enqueued:
+            logger.error("planner_enqueue_failed", job_id=job_id)
+            return {"status": "error", "event": "planner", "reason": "enqueue_failed"}
+        if delivery_id:
+            planner_mark_processed(delivery_id)
+        logger.info("planner_job_accepted", job_id=job_id, issue_number=internal.issue_number)
+        return {"status": "accepted", "event": "planner", "job_id": job_id}
+    else:
+        # Architect disabled
+        if plan:
+            # Plan exists (any) -> Builder (Architect skipped)
+            status_dict, builder_data = _do_builder_enqueue()
+            if status_dict is not None:
+                return status_dict
+            job_id, job = builder_data
+            enqueued = await job_queue.enqueue(job)
+            if not enqueued:
+                logger.error("enqueue_failed", job_id=job_id)
+                return {"status": "error", "reason": "enqueue_failed"}
+            logger.info("job_accepted", job_id=job_id, issue_number=internal.issue_number)
+            return {"status": "accepted", "job_id": job_id}
+        # No plan -> Planner
+        if not should_run("planner", internal.full_name, ctx, settings, booty_config):
+            if background_tasks:
+                background_tasks.add_task(
+                    post_builder_blocked_comment,
+                    settings.GITHUB_TOKEN,
+                    internal.repo_url,
+                    internal.issue_number,
+                )
+            logger.info("builder_blocked_no_plan", issue_number=internal.issue_number)
+            return {"status": "ignored", "reason": "builder_blocked_no_plan"}
+        if delivery_id and planner_is_duplicate(delivery_id):
+            return {"status": "already_processed"}
+        job_id = f"planner-{internal.issue_number}-{delivery_id or 'no-delivery'}"
+        planner_job = PlannerJob(
+            job_id=job_id,
+            issue_number=internal.issue_number,
+            issue_url=payload.get("issue", {}).get("html_url", ""),
+            repo_url=internal.repo_url,
+            owner=internal.owner,
+            repo=internal.repo_name,
+            payload=internal.raw_payload,
+        )
+        enqueued = await planner_enqueue(planner_job)
+        if not enqueued:
+            logger.error("planner_enqueue_failed", job_id=job_id)
+            return {"status": "error", "event": "planner", "reason": "enqueue_failed"}
+        if delivery_id:
+            planner_mark_processed(delivery_id)
+        logger.info("planner_job_accepted", job_id=job_id, issue_number=internal.issue_number)
+        return {"status": "accepted", "event": "planner", "job_id": job_id}
 
 
 async def _route_pull_request(
