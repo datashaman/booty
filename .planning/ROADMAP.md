@@ -11,7 +11,15 @@
 
 ## Next Milestone
 
-TBD — Run `/gsd:new-milestone` to define v1.10+
+**v1.10 Pipeline Correctness** — Phases 42–47 — [Full details](milestones/v1.10-ROADMAP.md)
+
+**Phases:**
+- 42. Event Router — ROUTE-01 to ROUTE-05
+- 43. Dedup Alignment — DEDUP-01, DEDUP-02, DEDUP-04
+- 44. Planner→Architect→Builder Wiring — WIRE-01 to WIRE-05
+- 45. Promotion Gate Hardening — PROMO-01 to PROMO-05
+- 46. Cancel Semantics — DEDUP-03, DEDUP-05
+- 47. Operator Visibility — OPS-01 to OPS-04
 
 ---
-*Last updated: 2026-02-17 — v1.9 milestone complete*
+*Last updated: 2026-02-17 — v1.10 milestone roadmap created*
