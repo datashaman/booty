@@ -9,11 +9,11 @@
 
 ### Event Router (ROUTE)
 
-- [ ] **ROUTE-01**: Operator can observe a single canonical event router that normalizes GitHub events into internal events before enqueue
-- [ ] **ROUTE-02**: issues.labeled/opened with agent label maps to planner.enqueue or builder.enqueue per routing rules
-- [ ] **ROUTE-03**: pull_request (opened/synchronize/reopened) maps to reviewer.enqueue, verifier.enqueue, security.enqueue per agent config
-- [ ] **ROUTE-04**: workflow_run (verify-main, deploy) maps to governor.evaluate or governor.observe_deploy
-- [ ] **ROUTE-05**: Single should_run(agent, repo, context) decision point with config+env precedence governs all enqueue decisions
+- [x] **ROUTE-01**: Operator can observe a single canonical event router that normalizes GitHub events into internal events before enqueue
+- [x] **ROUTE-02**: issues.labeled/opened with agent label maps to planner.enqueue or builder.enqueue per routing rules
+- [x] **ROUTE-03**: pull_request (opened/synchronize/reopened) maps to reviewer.enqueue, verifier.enqueue, security.enqueue per agent config
+- [x] **ROUTE-04**: workflow_run (verify-main, deploy) maps to governor.evaluate or governor.observe_deploy
+- [x] **ROUTE-05**: Single should_run(agent, repo, context) decision point with config+env precedence governs all enqueue decisions
 
 ### Planner→Architect→Builder Wiring (WIRE)
 
@@ -66,11 +66,11 @@ Deferred to later milestones:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ROUTE-01 | 42 | Pending |
-| ROUTE-02 | 42 | Pending |
-| ROUTE-03 | 42 | Pending |
-| ROUTE-04 | 42 | Pending |
-| ROUTE-05 | 42 | Pending |
+| ROUTE-01 | 42 | Complete |
+| ROUTE-02 | 42 | Complete |
+| ROUTE-03 | 42 | Complete |
+| ROUTE-04 | 42 | Complete |
+| ROUTE-05 | 42 | Complete |
 | DEDUP-01 | 43 | Pending |
 | DEDUP-02 | 43 | Pending |
 | DEDUP-04 | 43 | Pending |
