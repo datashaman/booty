@@ -121,6 +121,38 @@ def create_security_check_run(
     return repo.create_check_run(**kwargs)
 
 
+def create_reviewer_check_run(
+    owner: str,
+    repo_name: str,
+    head_sha: str,
+    installation_id: int,
+    settings: Settings,
+    *,
+    status: str = "queued",
+    output: dict[str, Any] | None = None,
+    details_url: str | None = None,
+) -> "CheckRun | None":
+    """Create a booty/reviewer check run on a commit.
+
+    Returns None if GitHub App credentials are missing. Uses same App as Verifier.
+    """
+    repo = get_verifier_repo(owner, repo_name, installation_id, settings)
+    if repo is None:
+        return None
+
+    output = output or {"title": "Booty Reviewer", "summary": "Queued for review…"}
+    kwargs: dict[str, Any] = {
+        "name": "booty/reviewer",
+        "head_sha": head_sha,
+        "status": status,
+        "output": output,
+    }
+    if details_url is not None:
+        kwargs["details_url"] = details_url
+
+    return repo.create_check_run(**kwargs)
+
+
 def edit_check_run(
     check_run: "CheckRun",
     *,
