@@ -249,11 +249,25 @@ class BootyConfigV1(BaseModel):
         default=None,
         description="Optional architect config; raw dict, validated by get_architect_config",
     )
+    reviewer: dict | None = Field(
+        default=None,
+        description="Optional reviewer config; raw dict, validated by get_reviewer_config",
+    )
 
     @field_validator("architect", mode="before")
     @classmethod
     def validate_architect_block(cls, v: object) -> dict | None:
         """Keep architect as raw dict; validation at get_architect_config only."""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return v
+        return None
+
+    @field_validator("reviewer", mode="before")
+    @classmethod
+    def validate_reviewer_block(cls, v: object) -> dict | None:
+        """Keep reviewer as raw dict; validation at get_reviewer_config only."""
         if v is None:
             return None
         if isinstance(v, dict):
