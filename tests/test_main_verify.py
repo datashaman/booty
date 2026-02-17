@@ -126,13 +126,14 @@ async def test_process_main_verification_job_skips_governor_disabled():
         repo_url="https://github.com/owner/repo",
         delivery_id="del-1",
     )
-    mock_config = MagicMock()
-    mock_config.release_governor = ReleaseGovernorConfig(
+    gov_config_disabled = ReleaseGovernorConfig(
         enabled=False,
         deploy_workflow_name="deploy.yml",
         verification_workflow_name="",
         max_deploys_per_hour=6,
     )
+    mock_config = MagicMock()
+    mock_config.release_governor = gov_config_disabled
 
     with patch(
         "booty.release_governor.main_verify.has_delivery_id", return_value=False
@@ -141,7 +142,11 @@ async def test_process_main_verification_job_skips_governor_disabled():
             "booty.release_governor.main_verify.load_booty_config_for_repo",
             return_value=mock_config,
         ):
-            await process_main_verification_job(job)
+            with patch(
+                "booty.release_governor.main_verify.apply_release_governor_env_overrides",
+                return_value=gov_config_disabled,
+            ):
+                await process_main_verification_job(job)
 
 
 @pytest.mark.asyncio
