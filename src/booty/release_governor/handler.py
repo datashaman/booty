@@ -75,7 +75,12 @@ def simulate_decision_for_cli(
 
     degraded: bool | None = None
 
-    raw_val = os.environ.get("RELEASE_GOVERNOR_APPROVED", "").strip().lower()
+    raw_val = (
+        os.environ.get("RELEASE_GOVERNOR_APPROVED", "")
+        .strip()
+        .strip('"\'')
+        .lower()
+    )
     env_approved = raw_val in ("1", "true", "yes")
     approval_context = {
         "env_approved": env_approved,
@@ -147,7 +152,12 @@ def handle_workflow_run(
 
     degraded: bool | None = None  # Stub; future Sentry integration
 
-    raw_val = os.environ.get("RELEASE_GOVERNOR_APPROVED", "").strip().lower()
+    raw_val = (
+        os.environ.get("RELEASE_GOVERNOR_APPROVED", "")
+        .strip()
+        .strip('"\'')
+        .lower()
+    )
     env_approved = raw_val in ("1", "true", "yes")
     approval_context = {
         "env_approved": env_approved,

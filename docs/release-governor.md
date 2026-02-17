@@ -198,7 +198,7 @@ For first deploy with `require_approval_for_first_deploy: true`, same rules appl
 
 5. **Decision is ALLOW, not HOLD**
    - `.github/workflows/**` and similar paths → HIGH risk → HOLD unless approved.
-   - Set `RELEASE_GOVERNOR_APPROVED=true` in **Booty server** environment (e.g. `/etc/booty/secrets.env` or `/opt/booty/.env`), then restart: `sudo systemctl restart booty`. Simulate uses your local env; the server uses its own.
+   - Set `RELEASE_GOVERNOR_APPROVED=true` in **Booty server** environment (e.g. `/opt/booty/.env` or `/etc/booty/secrets.env`), then restart: `sudo systemctl restart booty`. Use `true` without quotes. Simulate uses your local env; the server uses its own.
    - Or run `booty governor simulate <sha>` to see decision and reason.
 
 6. **Repos with custom verification workflow**
