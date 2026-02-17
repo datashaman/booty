@@ -332,6 +332,63 @@ def post_architect_invalid_config_comment(
         raise
 
 
+def get_plan_comment_body(
+    github_token: str,
+    repo_url: str,
+    issue_number: int,
+) -> str | None:
+    """Return body of comment containing <!-- booty-plan -->, or None if not found.
+
+    Iterates issue comments (same order as update_plan_comment_with_architect_section).
+    """
+    try:
+        repo = _get_repo(github_token, repo_url)
+        issue = repo.get_issue(issue_number)
+        for comment in issue.get_comments():
+            body = comment.body or ""
+            if "<!-- booty-plan -->" in body:
+                return body
+        return None
+    except GithubException as e:
+        logger.error(
+            "get_plan_comment_body_failed",
+            issue_number=issue_number,
+            error=str(e),
+            status=e.status,
+        )
+        raise
+
+
+def update_plan_comment_with_architect_section_if_changed(
+    github_token: str,
+    repo_url: str,
+    issue_number: int,
+    architect_section: str,
+) -> bool:
+    """Update plan comment only if booty-architect block differs.
+
+    Fetches current body, extracts existing <!-- booty-architect --> block,
+    compares with architect_section. If identical, returns False (no update).
+    Otherwise calls update_plan_comment_with_architect_section and returns True.
+    Returns False if no plan comment found.
+    """
+    body = get_plan_comment_body(github_token, repo_url, issue_number)
+    if not body:
+        return False
+    match = re.search(
+        r"<!-- booty-architect -->.*?<!-- /booty-architect -->",
+        body,
+        re.DOTALL,
+    )
+    existing_block = match.group(0) if match else None
+    if existing_block == architect_section:
+        return False
+    update_plan_comment_with_architect_section(
+        github_token, repo_url, issue_number, architect_section
+    )
+    return True
+
+
 def update_plan_comment_with_architect_section(
     github_token: str,
     repo_url: str,
