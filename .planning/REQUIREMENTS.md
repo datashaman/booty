@@ -23,7 +23,7 @@ Requirements for Reviewer Agent milestone. Each maps to roadmap phases.
 - [ ] **REV-06**: APPROVED → check success, no comment required
 - [ ] **REV-07**: APPROVED_WITH_SUGGESTIONS → check success + comment with suggestions
 - [ ] **REV-08**: BLOCKED → check failure + comment with reasons and guidance; blocks promotion
-- [ ] **REV-09**: Fail-open: infra/LLM/tooling failure yields check success with "Reviewer unavailable (fail-open)"; increments reviewer_fail_open
+- [x] **REV-09**: Fail-open: infra/LLM/tooling failure yields check success with "Reviewer unavailable (fail-open)"; increments reviewer_fail_open
 
 ### PR Comment
 
@@ -44,7 +44,7 @@ Requirements for Reviewer Agent milestone. Each maps to roadmap phases.
 
 ### Metrics
 
-- [ ] **REV-15**: Emit reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open; structured logs with repo, pr, sha, outcome, blocked_categories, suggestion_count
+- [x] **REV-15**: Emit reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open; structured logs with repo, pr, sha, outcome, blocked_categories, suggestion_count
 
 ## Future Requirements
 
@@ -80,8 +80,8 @@ Deferred to later milestones.
 | REV-08 | 39 | Complete |
 | REV-11 | 39 | Complete |
 | REV-14 | 40 | Complete |
-| REV-09 | 41 | Pending |
-| REV-15 | 41 | Pending |
+| REV-09 | 41 | Complete |
+| REV-15 | 41 | Complete |
 
 **Coverage:**
 - v1.9 requirements: 15 total
