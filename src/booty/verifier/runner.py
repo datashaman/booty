@@ -42,6 +42,15 @@ from booty.reviewer.config import (
     apply_reviewer_env_overrides,
     get_reviewer_config,
 )
+from booty.architect.config import (
+    ArchitectConfigError,
+    apply_architect_env_overrides,
+    get_architect_config,
+)
+from booty.verifier.promotion_gates import (
+    architect_approved_for_issue,
+    is_plan_originated_pr,
+)
 from booty.verifier.limits import (
     check_diff_limits,
     format_limit_failures,
@@ -530,6 +539,44 @@ async def process_verifier_job(
                                 job_id=job.job_id,
                                 pr_number=job.pr_number,
                             )
+
+                    architect_enabled = False
+                    try:
+                        ac = get_architect_config(config) if config else None
+                        if ac is not None:
+                            ac = apply_architect_env_overrides(ac)
+                            architect_enabled = ac.enabled
+                    except ArchitectConfigError as e:
+                        architect_enabled = False
+                        logger.warning(
+                            "architect_config_error",
+                            job_id=job.job_id,
+                            pr_number=job.pr_number,
+                            error=str(e),
+                        )
+
+                    if architect_enabled and can_promote and repo is not None:
+                        if job.issue_number is not None:
+                            is_plan_orig = is_plan_originated_pr(
+                                settings.GITHUB_TOKEN,
+                                job.repo_url,
+                                job.issue_number,
+                            )
+                            if is_plan_orig:
+                                architect_ok = architect_approved_for_issue(
+                                    settings.GITHUB_TOKEN,
+                                    job.repo_url,
+                                    job.issue_number,
+                                    job.owner,
+                                    job.repo_name,
+                                )
+                                if not architect_ok:
+                                    can_promote = False
+                                    logger.info(
+                                        "promotion_waiting_architect",
+                                        job_id=job.job_id,
+                                        pr_number=job.pr_number,
+                                    )
 
                     if can_promote:
                         try:
