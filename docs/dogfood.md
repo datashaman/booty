@@ -35,7 +35,6 @@ gh api "repos/${REPO}/labels" -X POST -f name="self-modification" -f description
 ## Memory: "security_block" in related history
 
 When a PR touches sensitive paths (e.g. `.github/workflows/**`), Security **ESCALATE**s — the check **passes** (conclusion=success) but Memory stores a `security_block` record for related history. The PR comment "Memory: related history" surfaces this. It is informational, not a failure. Governor uses it for deploy risk (HIGH when override present).
-
 ## Verify PR Workflow
 
 The `verify-pr.yml` workflow is **disabled** so only Booty agents run verification:

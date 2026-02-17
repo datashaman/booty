@@ -1,5 +1,8 @@
 # Runs verifier (tests) on every PR so you can see results in the Actions tab.
 # Booty App also posts booty/verifier and booty/security checks — those run on the server.
+#
+# DISABLED FOR DOGFOODING: Booty Verifier runs checks; avoid duplicate verification.
+# To re-enable (e.g. for repos without Booty), remove the if: false below.
 name: Verify PR
 
 on:
@@ -7,6 +10,7 @@ on:
 
 jobs:
   verify:
+    if: false  # Disabled for dogfooding — Booty agents handle verification
     name: Verify
     runs-on: ubuntu-latest
     steps:
