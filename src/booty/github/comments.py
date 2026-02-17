@@ -178,6 +178,49 @@ def post_verifier_failure_comment(
         raise
 
 
+REVIEWER_COMMENT_MARKER = "<!-- booty-reviewer -->"
+
+
+def post_reviewer_comment(
+    github_token: str,
+    repo_url: str,
+    pr_number: int,
+    body: str,
+) -> None:
+    """Post or update Reviewer comment on a PR.
+
+    Finds existing comment with '<!-- booty-reviewer -->' and edits it;
+    otherwise creates new. Keeps a single Reviewer comment per PR.
+    Caller must include the marker block in body for find-and-edit to work.
+
+    Args:
+        github_token: GitHub authentication token
+        repo_url: Repository URL
+        pr_number: PR number (PRs share number with issues)
+        body: Comment body (must include <!-- booty-reviewer --> marker)
+    """
+    try:
+        repo = _get_repo(github_token, repo_url)
+        issue = repo.get_issue(pr_number)
+
+        for comment in issue.get_comments():
+            if REVIEWER_COMMENT_MARKER in (comment.body or ""):
+                comment.edit(body)
+                logger.info("reviewer_comment_updated", pr_number=pr_number)
+                return
+
+        issue.create_comment(body)
+        logger.info("reviewer_comment_posted", pr_number=pr_number)
+    except GithubException as e:
+        logger.error(
+            "reviewer_comment_post_failed",
+            pr_number=pr_number,
+            error=str(e),
+            status=e.status,
+        )
+        raise
+
+
 def post_memory_comment(
     github_token: str,
     repo_url: str,
