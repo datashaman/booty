@@ -65,6 +65,7 @@ def generate_code_changes(
     issue_title: str,
     issue_body: str,
     test_conventions: str = "",
+    limits_constraint: str = "",
 ) -> CodeGenerationPlan:
     """Generate code changes as complete file contents.
 
@@ -74,6 +75,7 @@ def generate_code_changes(
         issue_title: Issue title text
         issue_body: Issue body/description text
         test_conventions: Formatted test conventions string (empty if none detected)
+        limits_constraint: Formatted diff limits for prompt (from format_limits_for_prompt)
 
     Returns:
         CodeGenerationPlan with complete file contents for all changes
@@ -82,7 +84,7 @@ def generate_code_changes(
     file_contents_formatted = _format_file_contents(file_contents)
 
     return _generate_code_changes_impl(
-        analysis_summary, file_contents_formatted, issue_title, issue_body, test_conventions
+        analysis_summary, file_contents_formatted, issue_title, issue_body, test_conventions, limits_constraint
     )
 
 
@@ -118,6 +120,7 @@ Requirements:
 5. Follow the existing code style and conventions visible in the provided files
 6. Ensure all imports are present and correct
 7. Include clear explanations of what changed and why
+{limits_constraint}
 
 Test Generation (when test conventions are provided above):
 - Generate unit test files for all changed source files
@@ -138,6 +141,7 @@ def _generate_code_changes_impl(
     issue_title: str,
     issue_body: str,
     test_conventions: str,
+    limits_constraint: str = "",
 ) -> CodeGenerationPlan:
     """Internal implementation of code generation with formatted file contents.
 
@@ -194,6 +198,7 @@ Requirements:
 4. Follow the existing code style and conventions
 5. Ensure all imports are present and correct; use paths from previously generated files
 6. Include a brief explanation of what this file does or what changed
+{limits_constraint}
 
 CRITICAL: The `content` field must contain ONLY the actual file text. Never include meta-text.
 """,
@@ -209,6 +214,7 @@ def generate_single_file(
     issue_title: str,
     issue_body: str,
     test_conventions: str = "",
+    limits_constraint: str = "",
 ) -> FileChange:
     """Generate a single file (incremental code generation).
 

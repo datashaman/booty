@@ -5,6 +5,7 @@ test_command: .venv/bin/pytest
 timeout_seconds: 600
 max_files_changed: 30
 max_diff_loc: 1500
+max_loc_per_file: 800  # detail_pages.py and similar modules can be 700+ LOC
 
 security:
   enabled: true
