@@ -33,10 +33,10 @@
 
 ### Dedup and Cancel (DEDUP)
 
-- [ ] **DEDUP-01**: PR agents (Verifier, Reviewer, Security) use dedup key (repo_full_name, pr_number, head_sha)
-- [ ] **DEDUP-02**: Issue agents use documented dedup keys (repo, issue_number, plan_hash or delivery_id as appropriate)
+- [x] **DEDUP-01**: PR agents (Verifier, Reviewer, Security) use dedup key (repo_full_name, pr_number, head_sha)
+- [x] **DEDUP-02**: Issue agents use documented dedup keys (repo, issue_number, plan_hash or delivery_id as appropriate)
 - [ ] **DEDUP-03**: New head_sha for same PR supersedes old run — prior run marked cancelled; best-effort cooperative cancel in workers
-- [ ] **DEDUP-04**: Verifier and Security queues accept repo in dedup; VerifierQueue/SecurityQueue signatures updated
+- [x] **DEDUP-04**: Verifier and Security queues accept repo in dedup; VerifierQueue/SecurityQueue signatures updated
 - [ ] **DEDUP-05**: Verifier runner checks cancel_event at phase boundaries; exits with conclusion=cancelled when superseded
 
 ### Operator Visibility (OPS)
@@ -71,9 +71,9 @@ Deferred to later milestones:
 | ROUTE-03 | 42 | Complete |
 | ROUTE-04 | 42 | Complete |
 | ROUTE-05 | 42 | Complete |
-| DEDUP-01 | 43 | Pending |
-| DEDUP-02 | 43 | Pending |
-| DEDUP-04 | 43 | Pending |
+| DEDUP-01 | 43 | Complete |
+| DEDUP-02 | 43 | Complete |
+| DEDUP-04 | 43 | Complete |
 | WIRE-01 | 44 | Pending |
 | WIRE-02 | 44 | Pending |
 | WIRE-03 | 44 | Pending |
