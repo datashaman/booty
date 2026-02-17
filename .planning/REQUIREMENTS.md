@@ -42,16 +42,16 @@ Requirements for Architect Agent milestone. Each maps to roadmap phases.
 
 ### Output
 
-- [ ] **ARCH-16**: Architect produces ArchitectPlan (plan_version, goal, steps, touch_paths, risk_level, handoff_to_builder, architect_notes)
-- [ ] **ARCH-17**: architect_notes is optional and not consumed by Builder
-- [ ] **ARCH-18**: Architect updates existing plan comment with <!-- booty-architect --> section (Approved or Rewritten)
+- [x] **ARCH-16**: Architect produces ArchitectPlan (plan_version, goal, steps, touch_paths, risk_level, handoff_to_builder, architect_notes)
+- [x] **ARCH-17**: architect_notes is optional and not consumed by Builder
+- [x] **ARCH-18**: Architect updates existing plan comment with <!-- booty-architect --> section (Approved or Rewritten)
 
 ### Failure Handling
 
-- [ ] **ARCH-19**: When plan cannot be safely rewritten, Architect posts "Architect review required — plan is structurally unsafe."
-- [ ] **ARCH-20**: Architect applies agent:architect-review label on block
-- [ ] **ARCH-21**: Architect does NOT trigger Builder when blocked
-- [ ] **ARCH-22**: No automatic retries on block
+- [x] **ARCH-19**: When plan cannot be safely rewritten, Architect posts "Architect review required — plan is structurally unsafe."
+- [x] **ARCH-20**: Architect applies agent:architect-review label on block
+- [x] **ARCH-21**: Architect does NOT trigger Builder when blocked
+- [x] **ARCH-22**: No automatic retries on block
 
 ### Idempotency
 
@@ -117,13 +117,13 @@ Deferred to later milestones.
 | ARCH-13 | 33 | Complete |
 | ARCH-14 | 33 | Complete |
 | ARCH-15 | 33 | Complete |
-| ARCH-16 | 34 | Pending |
-| ARCH-17 | 34 | Pending |
-| ARCH-18 | 34 | Pending |
-| ARCH-19 | 34 | Pending |
-| ARCH-20 | 34 | Pending |
-| ARCH-21 | 34 | Pending |
-| ARCH-22 | 34 | Pending |
+| ARCH-16 | 34 | Complete |
+| ARCH-17 | 34 | Complete |
+| ARCH-18 | 34 | Complete |
+| ARCH-19 | 34 | Complete |
+| ARCH-20 | 34 | Complete |
+| ARCH-21 | 34 | Complete |
+| ARCH-22 | 34 | Complete |
 | ARCH-23 | 35 | Pending |
 | ARCH-24 | 35 | Pending |
 | ARCH-25 | 35 | Pending |
