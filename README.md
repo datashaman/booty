@@ -34,4 +34,4 @@ booty verifier check-test --repo owner/repo --sha <commit-sha> --installation-id
 
 **Config:** Add a `security` block to `.booty.yml` in your repo. See [docs/security-agent.md](docs/security-agent.md).
 
-**Status:** `booty status` prints `verifier: enabled` or `verifier: disabled`. `booty reviewer status` shows Reviewer config and 24h metrics (reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open).
+**Status:** `booty status` shows all agents (verifier, security, planner, architect, governor, memory, builder, reviewer) with enabled state, last_run_completed_at, and queue_depth. Use `booty status --json` for machine-readable output. `booty reviewer status` shows Reviewer config and 24h metrics (reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open).

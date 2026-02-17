@@ -84,6 +84,12 @@ When `builder_compat` is **false**, Builder requires an Architect artifact. Unre
 
 ---
 
+## Operator Visibility (OPS-01, OPS-02)
+
+When the router ignores an event, it emits a structured log with `decision=skip` and a five-bucket reason vocabulary: `disabled`, `not_agent_pr`, `missing_config`, `dedup_hit`, `normalize_failed`. Operator-actionable skips (disabled, missing_config, normalize_failed) use INFO; high-volume skips (not_agent_pr, dedup_hit) use DEBUG. See [capabilities-summary.md](capabilities-summary.md).
+
+---
+
 ## Related
 
 - [Planner](planner.md)

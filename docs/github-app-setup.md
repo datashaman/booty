@@ -126,7 +126,7 @@ Open the `url` in a browser — the check should appear on the commit in the Git
 
 When `GITHUB_APP_ID` or `GITHUB_APP_PRIVATE_KEY` is empty:
 - **Verifier, Security, and Reviewer are disabled**
-- `booty status` shows `verifier: disabled`
+- `booty status` shows `verifier: disabled`, `security: disabled`, `reviewer: disabled` (plus other agents with their state, last_run_completed_at, queue_depth)
 - Webhooks accept events but skip check runs
 - `booty verifier check-test` exits with error
 

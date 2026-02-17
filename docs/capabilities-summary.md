@@ -1,4 +1,4 @@
-# Booty Capabilities Summary (v1.9)
+# Booty Capabilities Summary (v1.10)
 
 Booty is a self-managing software builder powered by AI. GitHub is the interface — issues in, PRs out. No custom UI.
 
