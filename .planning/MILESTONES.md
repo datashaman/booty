@@ -1,5 +1,33 @@
 # Project Milestones: Booty
 
+## v1.9 Reviewer Agent (Shipped: 2026-02-17)
+
+**Delivered:** Reviewer Agent performs AI-driven code quality review on Builder PRs before promotion. Evaluates maintainability, overengineering, duplication, test quality, naming, architectural drift. Sits between Builder and Verifier. Blocks promotion on structural issues; fail-open on infra/LLM failure.
+
+**Phases completed:** 37–41 (12 plans total)
+
+**Key accomplishments:**
+
+- Reviewer module skeleton, ReviewerConfig, booty/reviewer check lifecycle, single comment upsert (Phase 37)
+- ReviewerJob, ReviewerQueue, pull_request webhook, agent PR filtering, dedup/cancel (Phase 38)
+- Review engine: Magentic prompt, block_on mapping, APPROVED/APPROVED_WITH_SUGGESTIONS/BLOCKED (Phase 39)
+- Promotion gating: Verifier requires booty/reviewer success when Reviewer enabled (Phase 40)
+- Fail-open handling, metrics (reviews_total, blocked, suggestions, fail_open), booty reviewer status CLI (Phase 41)
+- 15/15 v1.9 requirements; milestone audit passed
+
+**Stats:**
+
+- 67 files changed (v1.8..v1.9)
+- 20,260 lines of Python (total)
+- 5 phases, 12 plans
+- 1 day from v1.8 to ship (2026-02-17)
+
+**Git range:** `3716834` (feat(37-01)) → `5591818` (Merge PR #36)
+
+**What's next:** Run `/gsd:new-milestone` to define v1.10+
+
+---
+
 ## v1.8 Architect Agent (Shipped: 2026-02-17)
 
 **Delivered:** Architect Agent validates and refines plans before Builder executes. Sits between Planner and Builder. Structural validation, path consistency, risk recompute, ambiguity/overreach detection. ArchitectPlan artifact; Builder triggers only after Architect approval. Block unsafe plans with agent:architect-review.

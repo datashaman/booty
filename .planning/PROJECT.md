@@ -44,6 +44,14 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
+### Validated (v1.9)
+
+- ✓ Reviewer runs on pull_request opened/synchronize; agent PRs only — v1.9
+- ✓ booty/reviewer check lifecycle; APPROVED/APPROVED_WITH_SUGGESTIONS/BLOCKED — v1.9
+- ✓ Single updatable PR comment `<!-- booty-reviewer -->`; fail-open on infra/LLM — v1.9
+- ✓ .booty.yml reviewer block (enabled, block_on); Builder promotion requires reviewer success — v1.9
+- ✓ 15/15 v1.9 requirements; milestone audit passed — v1.9
+
 ### Validated (v1.8)
 
 - ✓ Architect runs only after Planner completion; never from GitHub labels — v1.8
@@ -121,8 +129,9 @@ Shipped v1.3 with deploy automation (GitHub Actions → SSH → deploy.sh), Sent
 Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, approval policy, workflow_dispatch deploy, HOLD/ALLOW UX, release state store, booty governor CLI.
 Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
 Shipped v1.6 with Memory Agent — append-only memory.jsonl, ingestion from Observability/Governor/Security/Verifier/Revert, deterministic lookup, PR/Governor/incident surfacing, booty memory status|query.
+Shipped v1.9 with Reviewer Agent — booty/reviewer check, pull_request webhook, Magentic review engine, block_on mapping, promotion gating, fail-open + metrics.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0 through v1.8 requirements satisfied; Architect Agent complete.
+All v1.0 through v1.9 requirements satisfied; Reviewer Agent complete.
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -178,26 +187,23 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Architect runs only after Planner | Planner worker invokes Architect; never from GitHub labels | ✓ Good — v1.8 |
 | Builder triggers from Architect approval | agent:builder retired when architect enabled; artifact required | ✓ Good — v1.8 |
 | architect.plan.approved event naming | Requirement said planner.plan.approved; impl uses architect for clarity | ✓ Good — v1.8 |
+| Reviewer disabled by default when block missing | Avoid surprising required checks on existing repos | ✓ Good — v1.9 |
+| Fail-open for Reviewer | Quality tooling never halts delivery due to infra/LLM | ✓ Good — v1.9 |
 
 ## Current Milestone
 
-**v1.9 Reviewer Agent** — AI-driven code quality review on Builder PRs before promotion.
-
-**Goal:** Reviewer evaluates engineering quality (maintainability, overengineering, duplication, test quality, naming, architectural drift). Sits between Builder and Verifier. Blocks promotion on structural issues; fail-open on infra/LLM failure.
-
-**Target features:**
-- booty/reviewer required check (queued → in_progress → success|failure)
-- Decisions: APPROVED, APPROVED_WITH_SUGGESTIONS, BLOCKED
-- Single updatable PR comment with `<!-- booty-reviewer -->`
-- .booty.yml reviewer block (enabled, block_on); disabled by default
-- Builder promotion requires reviewer success for agent PRs
-- Metrics: reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open
-
-**Flow:** Planner → Architect → Builder → Reviewer → Verifier → Security → Governor → Deploy
+TBD — Run `/gsd:new-milestone` to define v1.10+
 
 ## Current State
 
-**Shipped:** v1.8 (2026-02-17) | **Next:** v1.9 Reviewer Agent
+**Shipped:** v1.9 (2026-02-17) | **Next:** TBD
+
+**What shipped in v1.9:**
+- Reviewer Agent: ReviewerConfig, booty/reviewer check, pull_request webhook, ReviewerQueue (Phase 37–38)
+- Review engine: Magentic prompt, block_on mapping, APPROVED/APPROVED_WITH_SUGGESTIONS/BLOCKED (Phase 39)
+- Promotion gating: Verifier requires reviewer success when enabled (Phase 40)
+- Fail-open, metrics, booty reviewer status CLI (Phase 41)
+- 15/15 v1.9 requirements; milestone audit passed
 
 **What shipped in v1.8:**
 - Architect Agent: ArchitectConfig, .booty.yml architect block, Planner worker integration (Phase 32)
@@ -218,7 +224,17 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 
 ## Next Milestone Goals
 
-v1.9 Reviewer Agent — in progress (Phases 37–41).
+TBD — Run `/gsd:new-milestone` to define.
+
+<details>
+<summary>v1.9 Reviewer Agent (shipped 2026-02-17)</summary>
+
+**What shipped in v1.9:**
+- Reviewer Agent: ReviewerConfig, booty/reviewer check, pull_request webhook
+- Review engine with block_on mapping; promotion gating; fail-open + metrics
+- 15/15 v1.9 requirements; milestone audit passed
+
+</details>
 
 <details>
 <summary>v1.8 Architect Agent (shipped 2026-02-17)</summary>
@@ -270,4 +286,4 @@ v1.9 Reviewer Agent — in progress (Phases 37–41).
 </details>
 
 ---
-*Last updated: 2026-02-17 after v1.9 milestone start*
+*Last updated: 2026-02-17 after v1.9 milestone completion*
