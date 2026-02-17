@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-16)
+See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Idle — v1.7 complete; Builder–Planner integration audited and documented
+**Current focus:** v1.8 Architect Agent — defining requirements
 
 ## Current Position
 
-Phase: —
+Phase: Not started (defining requirements)
 Plan: —
-Status: v1.7 milestone complete ✓
-Last activity: 2026-02-17 — PLAN-22 closed; Builder–Planner audit
+Status: Defining requirements
+Last activity: 2026-02-17 — Milestone v1.8 Architect Agent started
 
 ## Accumulated Context
 
@@ -30,6 +30,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: v1.7 milestone complete
-Next step: `/gsd:new-milestone` when ready — Builder integration done; consider other priorities
+Last session: 2026-02-17
+Stopped at: v1.8 milestone started
+Next step: Requirements defined; roadmap created. Run `/gsd:discuss-phase 32` or `/gsd:plan-phase 32` to begin.

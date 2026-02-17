@@ -167,6 +167,18 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | 2+ incident markers for Observability heuristics | Severity + Sentry; avoids false positives | ✓ Good — v1.7 |
 | Stdlib-only lookup; derive paths_hash from candidate paths | No new deps; verifier_cluster matches when caller has paths | ✓ Good — v1.6 |
 
+## Current Milestone: v1.8 Architect Agent
+
+**Goal:** Architect validates and refines plans before Builder executes — preventing structurally risky work and ensuring technically sound blueprints.
+
+**Target features:**
+- Architect Agent between Planner and Builder (advisory, authoritative on structure)
+- Plan validation: structural integrity, path consistency, risk accuracy, ambiguity/overreach detection
+- Architect-approved Plan artifact; Builder triggers only after Architect approval
+- Block unsafe plans with agent:architect-review label; no Builder trigger
+- CLI: booty architect status | review --issue N
+- Config: .booty.yml architect block
+
 ## Current State
 
 **Shipped:** v1.7 (2026-02-16)
@@ -182,7 +194,7 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 
 ## Next Milestone Goals
 
-TBD — run `/gsd:new-milestone` when ready. Builder integration done; consider plan quality, Observability refinements, or other priorities.
+v1.8 Architect Agent — see Current Milestone section above.
 
 <details>
 <summary>v1.6 Memory Agent (shipped 2026-02-16)</summary>
@@ -221,4 +233,4 @@ TBD — run `/gsd:new-milestone` when ready. Builder integration done; consider 
 </details>
 
 ---
-*Last updated: 2026-02-17 — v1.7 complete; PLAN-22 closed; Builder–Planner integration audited*
+*Last updated: 2026-02-17 — Milestone v1.8 Architect Agent started*

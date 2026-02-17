@@ -1,5 +1,23 @@
 # Project Milestones: Booty
 
+## v1.8 Architect Agent (In Progress)
+
+**Goal:** Architect validates and refines plans before Builder executes. Sits between Planner and Builder.
+
+**Phases:** 32–36 (5 phases)
+
+**Key scope:**
+- Architect subscribes to Planner completion; never from GitHub labels
+- Validation: structural integrity, path consistency, risk accuracy, ambiguity/overreach
+- ArchitectPlan artifact; Builder triggers only after Architect approval
+- Block unsafe plans with agent:architect-review
+- CLI: booty architect status | review
+- Config: .booty.yml architect block
+
+**What's next:** Phase 32 — Architect Foundation
+
+---
+
 ## v1.7 Planner Agent (Shipped: 2026-02-16)
 
 **Delivered:** Planner Agent turns GitHub issues, Observability incidents, and operator CLI prompts into structured Plan JSON with goal, steps, risk_level, touch_paths, handoff_to_builder — ready for Builder consumption. Idempotent within 24h.
