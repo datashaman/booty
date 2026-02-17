@@ -49,9 +49,10 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Planner accepts GitHub issue, Observability incident, CLI text inputs — v1.7
 - ✓ Planner produces Plan JSON (schema, max 12 steps, handoff_to_builder) — v1.7
 - ✓ Risk classification (HIGH/MEDIUM/LOW) from touch_paths — v1.7
-- ✓ Triggers: webhook agent:plan, booty plan --issue, booty plan --text — v1.7
+- ✓ Triggers: webhook agent, booty plan --issue, booty plan --text — v1.7
 - ✓ Output: issue comment + artifact plans/<issue_id>.json — v1.7
 - ✓ Idempotency: plan_hash, cache within 24h — v1.7
+- ✓ Builder consumes Planner output (plan-driven execution; audit 2026-02-17) — v1.7
 
 ### Validated (v1.6)
 
@@ -112,7 +113,7 @@ Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, appro
 Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
 Shipped v1.6 with Memory Agent — append-only memory.jsonl, ingestion from Observability/Governor/Security/Verifier/Revert, deterministic lookup, PR/Governor/incident surfacing, booty memory status|query.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0 through v1.7 requirements satisfied (PLAN-22 deferred).
+All v1.0 through v1.7 requirements satisfied (PLAN-22 closed 2026-02-17; see docs/builder-planner-integration-audit.md).
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -171,16 +172,17 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 **Shipped:** v1.7 (2026-02-16)
 
 **What shipped in v1.7:**
-- Planner Agent: Plan schema (Pydantic), storage, PlannerConfig, webhook agent:plan, booty plan CLI
+- Planner Agent: Plan schema (Pydantic), storage, PlannerConfig, webhook agent, booty plan CLI
 - Input normalization: GitHub issue, Observability incident, CLI text; get_repo_context
 - Plan generation: Magentic prompt, derive_touch_paths, classify_risk_from_paths
 - Output: format_plan_comment, post_plan_comment, issue comment + artifact
 - Idempotency: input_hash, plan_hash, cache within 24h (issue + ad-hoc)
-- 25/26 v1.7 requirements; PLAN-22 deferred until Builder integrates
+- Builder–Planner integration: plan-driven execution, autonomous handoff, get_plan_for_issue (local + GitHub comments)
+- 26/26 v1.7 requirements (PLAN-22 satisfied 2026-02-17; audit: docs/builder-planner-integration-audit.md)
 
 ## Next Milestone Goals
 
-TBD — run `/gsd:new-milestone` to define v1.8+ (questioning → research → requirements → roadmap). Candidate: Builder integration consuming Planner output.
+TBD — run `/gsd:new-milestone` when ready. Builder integration done; consider plan quality, Observability refinements, or other priorities.
 
 <details>
 <summary>v1.6 Memory Agent (shipped 2026-02-16)</summary>
@@ -219,4 +221,4 @@ TBD — run `/gsd:new-milestone` to define v1.8+ (questioning → research → r
 </details>
 
 ---
-*Last updated: 2026-02-16 — v1.7 milestone complete*
+*Last updated: 2026-02-17 — v1.7 complete; PLAN-22 closed; Builder–Planner integration audited*
