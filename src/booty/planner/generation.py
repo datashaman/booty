@@ -4,6 +4,7 @@ from magentic import prompt
 
 from booty.planner.input import PlannerInput
 from booty.planner.schema import HandoffToBuilder, Plan, Step
+from booty.verifier.limits import LimitsConfig, format_limits_for_prompt
 
 
 def derive_touch_paths(steps: list[Step]) -> list[str]:
@@ -58,6 +59,9 @@ RULES:
 - No exploratory or research step without a specified artifact path.
 - handoff_to_builder: branch_name_hint (e.g. issue-N-short-slug), commit_message_hint (conventional commit), pr_title (include issue ref when available), pr_body_outline (bullets for technical items).
 
+Diff limits (Verifier will reject the PR otherwise; plan must respect these):
+{limits_constraint}
+
 Examples:
 - P1 read: path="src/auth.py", acceptance="File inspected, structure understood"
 - P2 edit: path="src/auth.py", acceptance="Validation added, tests pass"
@@ -68,16 +72,26 @@ Produce a valid Plan with steps, handoff_to_builder, and touch_paths (union of r
     max_retries=3,
 )
 def _generate_plan_impl(
-    goal: str, body: str, repo_tree: str
+    goal: str, body: str, repo_tree: str, limits_constraint: str
 ) -> Plan:
     """LLM produces Plan. Internal — use generate_plan()."""
     ...
 
 
-def generate_plan(inp: PlannerInput) -> Plan:
-    """Generate Plan from normalized PlannerInput. Overwrites touch_paths from steps."""
+def generate_plan(inp: PlannerInput, limits_constraint: str = "") -> Plan:
+    """Generate Plan from normalized PlannerInput. Overwrites touch_paths from steps.
+
+    Args:
+        inp: Normalized planner input
+        limits_constraint: Formatted diff limits for prompt (from format_limits_for_prompt).
+            When empty, uses default LimitsConfig.
+    """
+    if not limits_constraint:
+        limits_constraint = format_limits_for_prompt(LimitsConfig())
     repo_tree = _format_repo_tree(inp.repo_context)
-    plan = _generate_plan_impl(goal=inp.goal, body=inp.body, repo_tree=repo_tree)
+    plan = _generate_plan_impl(
+        goal=inp.goal, body=inp.body, repo_tree=repo_tree, limits_constraint=limits_constraint
+    )
     plan = plan.model_copy(
         update={"touch_paths": derive_touch_paths(plan.steps)}
     )

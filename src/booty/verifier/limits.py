@@ -139,10 +139,23 @@ def format_limit_failures(failures: list[LimitFailure]) -> str:
     return "\n\n".join(blocks)
 
 
+def format_limits_for_prompt(limits: LimitsConfig) -> str:
+    """Format limits as human-readable constraint for Planner/Builder prompts."""
+    parts = [
+        f"- Max {limits.max_files_changed} files changed",
+        f"- Max {limits.max_diff_loc} total diff LOC (additions + deletions)",
+    ]
+    if limits.max_loc_per_file is not None:
+        parts.append(f"- Max {limits.max_loc_per_file} LOC per file (excl. tests, .github, docs)")
+    return "\n".join(parts) + "\n- Split large modules into multiple files to stay under per-file limit."
+
+
 def limits_config_from_booty_config(
-    config: BootyConfig | BootyConfigV1,
+    config: BootyConfig | BootyConfigV1 | None,
 ) -> LimitsConfig:
     """Extract LimitsConfig from BootyConfig/BootyConfigV1; use defaults when None."""
+    if config is None:
+        return LimitsConfig()
     max_files = getattr(config, "max_files_changed", None)
     max_diff = getattr(config, "max_diff_loc", None)
     max_loc = getattr(config, "max_loc_per_file", None)

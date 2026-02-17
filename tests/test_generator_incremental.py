@@ -61,6 +61,7 @@ def test_generate_code_incremental_calls_generate_single_file_per_step(tmp_path)
             issue_title="Add X",
             issue_body="Body",
             test_conventions_text="",
+            limits_constraint="- Max 250 LOC per file",
         )
 
     assert call_count == 2
@@ -110,6 +111,7 @@ def test_generate_code_incremental_classifies_test_files(tmp_path):
             "Title",
             "Body",
             "",
+            limits_constraint="- Max 250 LOC per file",
         )
 
     assert len(result.changes) == 1

@@ -31,6 +31,7 @@ from booty.logging import get_logger
 from booty.repositories import Workspace
 from booty.self_modification.safety import validate_changes_against_protected_paths
 from booty.test_runner.config import load_booty_config
+from booty.verifier.limits import limits_config_from_booty_config, format_limits_for_prompt
 from booty.test_runner.quality import run_quality_checks
 
 logger = get_logger()
@@ -48,6 +49,7 @@ def _generate_code_incremental(
     issue_title: str,
     issue_body: str,
     test_conventions_text: str,
+    limits_constraint: str,
 ) -> CodeGenerationPlan:
     """Generate code one file at a time (step-wise) to avoid max_tokens truncation."""
     changes: list[FileChange] = []
@@ -93,6 +95,7 @@ def _generate_code_incremental(
             issue_title=issue_title,
             issue_body=issue_body,
             test_conventions=test_conv,
+            limits_constraint=limits_constraint,
         )
         approach_parts.append(change.explanation)
 
@@ -336,6 +339,8 @@ async def process_issue_to_pr(
             logger.info("token_budget_skipped", reason="incremental_generation")
 
         # Step 7: Generate code (incremental for large plans, batch for small)
+        limits = limits_config_from_booty_config(booty_config)
+        limits_constraint = format_limits_for_prompt(limits)
         if use_incremental:
             logger.info("generating_code_incremental", file_count=total_file_changes)
             plan = _generate_code_incremental(
@@ -345,6 +350,7 @@ async def process_issue_to_pr(
                 issue_title,
                 issue_body,
                 test_conventions_text,
+                limits_constraint,
             )
         else:
             logger.info("generating_code_changes")
@@ -354,6 +360,7 @@ async def process_issue_to_pr(
                 issue_title,
                 issue_body,
                 test_conventions=test_conventions_text,
+                limits_constraint=limits_constraint,
             )
         logger.info(
             "code_generated",
