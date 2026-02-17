@@ -22,6 +22,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from booty.code_gen.generator import process_issue_to_pr
 from booty.config import get_settings, security_enabled, verifier_enabled
+from booty.github.repo_config import load_booty_config_for_repo
 from booty.github.comments import (
     get_plan_comment_body,
     post_architect_blocked_comment,
@@ -44,12 +45,20 @@ from booty.verifier.queue import VerifierQueue
 from booty.verifier.runner import process_verifier_job
 from booty.webhooks import router as webhook_router
 from booty.architect.artifact import get_plan_for_builder, save_architect_artifact
+from booty.architect.jobs import (
+    ArchitectJob,
+    architect_enqueue,
+    architect_is_duplicate,
+    architect_mark_processed,
+    architect_queue,
+)
 from booty.architect.cache import (
     architect_plan_hash,
     find_cached_architect_result,
     save_architect_result,
 )
 from booty.architect.config import (
+    ArchitectConfig,
     ArchitectConfigError,
     apply_architect_env_overrides,
     get_architect_config,
@@ -63,9 +72,12 @@ from booty.architect.metrics import (
 )
 from booty.architect.output import build_architect_plan, format_architect_section
 from booty.architect.worker import process_architect_input
+from booty.architect.input import ArchitectInput
+from booty.architect.worker import process_architect_input
 from booty.planner.cache import input_hash as planner_input_hash
 from booty.planner.jobs import planner_queue
 from booty.planner.schema import Plan
+from booty.planner.store import get_plan_for_issue
 from booty.planner.worker import process_planner_job
 from booty.test_runner.config import load_booty_config_from_content
 
@@ -656,6 +668,140 @@ async def lifespan(app: FastAPI):
     planner_worker_task = asyncio.create_task(_planner_worker_loop())
     app.state.planner_worker_task = planner_worker_task
 
+    app.state.architect_queue = architect_queue
+
+    async def _architect_worker_loop() -> None:
+        while True:
+            try:
+                job = await architect_queue.get()
+                try:
+                    plan = get_plan_for_issue(
+                        job.owner, job.repo, job.issue_number,
+                        github_token=settings.GITHUB_TOKEN,
+                    )
+                    if plan is None:
+                        get_logger().info(
+                            "architect_skip_no_plan",
+                            issue_number=job.issue_number,
+                            owner=job.owner,
+                            repo=job.repo,
+                        )
+                        architect_queue.task_done()
+                        continue
+
+                    inp = ArchitectInput(
+                        plan=plan,
+                        normalized_input=None,
+                        repo_context=None,
+                        issue_metadata={"issue_number": job.issue_number},
+                    )
+
+                    booty_config = load_booty_config_for_repo(
+                        job.repo_url, settings.GITHUB_TOKEN
+                    )
+                    try:
+                        architect_config = get_architect_config(booty_config) if booty_config else None
+                    except ArchitectConfigError:
+                        post_architect_invalid_config_comment(
+                            settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                        )
+                        add_architect_review_label(
+                            settings.GITHUB_TOKEN, job.repo_url, job.issue_number
+                        )
+                        architect_queue.task_done()
+                        continue
+
+                    if architect_config is None:
+                        architect_config = ArchitectConfig()
+                    architect_config = apply_architect_env_overrides(architect_config)
+
+                    arch_result = process_architect_input(architect_config, inp)
+                    repo_full_name = f"{job.owner}/{job.repo}"
+
+                    if arch_result.approved:
+                        architect_plan = build_architect_plan(
+                            arch_result.plan, arch_result.architect_notes
+                        )
+                        save_architect_artifact(
+                            job.owner,
+                            job.repo,
+                            job.issue_number,
+                            architect_plan,
+                            input_hash=None,
+                        )
+                        architect_mark_processed(repo_full_name, job.plan_hash)
+
+                        builder_job_id = f"{job.issue_number}-architect-approved-{id(job)}"
+                        builder_job = Job(
+                            job_id=builder_job_id,
+                            issue_url=job.payload.get("issue", {}).get("html_url", ""),
+                            issue_number=job.issue_number,
+                            payload=job.payload,
+                            is_self_modification=is_self_modification(
+                                job.repo_url, settings.BOOTY_OWN_REPO_URL
+                            ),
+                            repo_url=job.repo_url,
+                        )
+                        enqueued = await job_queue.enqueue(builder_job)
+                        if enqueued:
+                            architect_section = format_architect_section(
+                                "approved",
+                                risk_level=architect_plan.risk_level,
+                                architect_notes=architect_plan.architect_notes,
+                            )
+                            try:
+                                update_plan_comment_with_architect_section_if_changed(
+                                    settings.GITHUB_TOKEN,
+                                    job.repo_url,
+                                    job.issue_number,
+                                    architect_section,
+                                )
+                            except GithubException as e:
+                                get_logger().warning(
+                                    "architect_plan_comment_update_failed",
+                                    issue_number=job.issue_number,
+                                    error=str(e),
+                                )
+                            get_logger().info(
+                                "builder_enqueued_after_architect",
+                                issue_number=job.issue_number,
+                                job_id=builder_job_id,
+                            )
+                    else:
+                        notes = arch_result.architect_notes or ""
+                        reason = ""
+                        if "(" in notes and ")" in notes:
+                            start = notes.rfind("(") + 1
+                            end = notes.rfind(")")
+                            if end > start:
+                                reason = notes[start:end]
+                        post_architect_blocked_comment(
+                            settings.GITHUB_TOKEN,
+                            job.repo_url,
+                            job.issue_number,
+                            reason=reason,
+                        )
+                        add_architect_review_label(
+                            settings.GITHUB_TOKEN,
+                            job.repo_url,
+                            job.issue_number,
+                        )
+                        architect_mark_processed(repo_full_name, job.plan_hash)
+                except Exception as e:
+                    get_logger().error(
+                        "architect_job_failed",
+                        job_id=job.job_id,
+                        error=str(e),
+                        exc_info=True,
+                    )
+                finally:
+                    architect_queue.task_done()
+            except asyncio.CancelledError:
+                break
+
+    architect_worker_task = asyncio.create_task(_architect_worker_loop())
+    app.state.architect_worker_task = architect_worker_task
+
     logger.info("app_started")
 
     yield
@@ -675,6 +821,13 @@ async def lifespan(app: FastAPI):
         planner_worker_task.cancel()
         try:
             await planner_worker_task
+        except asyncio.CancelledError:
+            pass
+    architect_worker_task = getattr(app.state, "architect_worker_task", None)
+    if architect_worker_task:
+        architect_worker_task.cancel()
+        try:
+            await architect_worker_task
         except asyncio.CancelledError:
             pass
     logger.info("app_stopped")
