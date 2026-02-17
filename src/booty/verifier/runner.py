@@ -512,8 +512,14 @@ async def process_verifier_job(
                         if rc is not None:
                             rc = apply_reviewer_env_overrides(rc)
                             reviewer_enabled = rc.enabled
-                    except ReviewerConfigError:
+                    except ReviewerConfigError as e:
                         reviewer_enabled = False
+                        logger.warning(
+                            "reviewer_config_error",
+                            job_id=job.job_id,
+                            pr_number=job.pr_number,
+                            error=str(e),
+                        )
 
                     can_promote = True
                     if reviewer_enabled and repo is not None:

@@ -37,7 +37,12 @@ def run_review(
     """
     diff_truncated = diff[:DIFF_MAX_CHARS] if len(diff) > DIFF_MAX_CHARS else diff
     if len(diff) > DIFF_MAX_CHARS:
-        diff_truncated += "\n\n[... diff truncated ...]"
+        truncated_chars = len(diff) - DIFF_MAX_CHARS
+        approx_lines = truncated_chars // 60  # typical diff line length
+        diff_truncated += (
+            f"\n\n[... diff truncated at {DIFF_MAX_CHARS:,} chars; "
+            f"~{approx_lines:,} lines omitted ...]"
+        )
 
     pr_title = pr_meta.get("title", "")
     pr_body = pr_meta.get("body", "") or ""

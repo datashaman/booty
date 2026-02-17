@@ -57,5 +57,12 @@ def _review_diff_impl(
     base_sha: str,
     head_sha: str,
 ) -> _ReviewLLMOutput:
-    """LLM evaluates diff and returns 6 category grades. Internal — use run_review."""
+    """LLM evaluates diff and returns 6 category grades. Internal — use run_review.
+
+    Magentic @prompt decorator injects the implementation: the function body is a
+    placeholder. The LLM is instructed to produce exactly 6 CategoryResult entries
+    (Overengineering, Architectural drift, Tests, Duplication, Maintainability,
+    Naming/API), each with grade (PASS/WARN/FAIL), findings (up to 3 per category
+    with summary, detail, paths, optional suggestion), and confidence (low/med/high).
+    """
     ...

@@ -1,4 +1,8 @@
-"""Reviewer metrics — reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open (REV-09, REV-15)."""
+"""Reviewer metrics — reviews_total, reviews_blocked, reviews_suggestions, reviewer_fail_open (REV-09, REV-15).
+
+Uses same base state dir as Planner/Architect (get_planner_state_dir) for consistent
+~/.booty/state layout; PLANNER_STATE_DIR env applies. Stored under state_dir/reviewer/.
+"""
 
 import json
 import os
@@ -19,7 +23,7 @@ FAIL_OPEN_BUCKETS = frozenset({
 
 
 def get_reviewer_metrics_dir(state_dir: Path | None = None) -> Path:
-    """Return reviewer metrics directory: state_dir/reviewer or get_planner_state_dir()/reviewer."""
+    """Return reviewer metrics directory: state_dir/reviewer or shared base state/reviewer."""
     sd = state_dir or get_planner_state_dir()
     return sd / "reviewer"
 

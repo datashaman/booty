@@ -258,6 +258,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
         reviewer_queue = getattr(request.app.state, "reviewer_queue", None)
         verifier_ok = verifier_queue is not None and verifier_enabled(settings)
         security_ok = security_queue is not None and security_enabled(settings)
+        # Reviewer uses same GitHub App as Verifier; no reviewer without App credentials
         reviewer_ok = reviewer_queue is not None and verifier_enabled(settings)
         if not verifier_ok and not security_ok and not reviewer_ok:
             logger.info(
