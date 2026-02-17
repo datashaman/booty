@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-17)
 
 **Core value:** A Builder agent that can take a GitHub issue and produce a working PR with tested code — the foundation everything else builds on.
-**Current focus:** Planning next milestone (v1.10+)
+**Current focus:** v1.10 Pipeline Correctness
 
 ## Current Position
 
-Phase: 41 (Complete)
-Plan: Not started
-Status: Ready to plan next milestone
-Last activity: 2026-02-17 — v1.9 milestone complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-17 — Milestone v1.10 started
 
 ## Accumulated Context
 
@@ -36,5 +36,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: v1.9 milestone complete; tagged v1.9
-Next step: `/gsd:new-milestone` to define v1.10+
+Stopped at: v1.10 milestone started
+Next step: Requirements → Roadmap → `/gsd:plan-phase [N]`

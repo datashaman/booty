@@ -190,13 +190,20 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | Reviewer disabled by default when block missing | Avoid surprising required checks on existing repos | ✓ Good — v1.9 |
 | Fail-open for Reviewer | Quality tooling never halts delivery due to infra/LLM | ✓ Good — v1.9 |
 
-## Current Milestone
+## Current Milestone: v1.10 Pipeline Correctness
 
-TBD — Run `/gsd:new-milestone` to define v1.10+
+**Goal:** Given any relevant GitHub event, Booty runs exactly the right agents exactly once, promotes correctly, and never stalls silently.
+
+**Target features:**
+- Single canonical event router (normalize GitHub events → internal events; single should_run decision)
+- Planner→Architect→Builder correctness (route by plan/architect artifact; Builder consumes Architect first)
+- Promotion gating correctness (verifier + reviewer + architect; deterministic second-finisher logic)
+- Dedup + cancel semantics aligned (standard keys per agent; new head_sha supersedes old)
+- Operator-visible state (structured skip logs; booty status for pipeline health)
 
 ## Current State
 
-**Shipped:** v1.9 (2026-02-17) | **Next:** TBD
+**Shipped:** v1.9 (2026-02-17) | **Next:** v1.10
 
 **What shipped in v1.9:**
 - Reviewer Agent: ReviewerConfig, booty/reviewer check, pull_request webhook, ReviewerQueue (Phase 37–38)
@@ -224,7 +231,7 @@ TBD — Run `/gsd:new-milestone` to define v1.10+
 
 ## Next Milestone Goals
 
-TBD — Run `/gsd:new-milestone` to define.
+**v1.10 Pipeline Correctness:** Event routing, Planner→Architect→Builder wiring, promotion gating, dedup/cancel semantics, operator visibility.
 
 <details>
 <summary>v1.9 Reviewer Agent (shipped 2026-02-17)</summary>
@@ -286,4 +293,4 @@ TBD — Run `/gsd:new-milestone` to define.
 </details>
 
 ---
-*Last updated: 2026-02-17 after v1.9 milestone completion*
+*Last updated: 2026-02-17 — v1.10 milestone started*
