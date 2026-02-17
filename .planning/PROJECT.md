@@ -44,6 +44,15 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
+### Validated (v1.8)
+
+- ✓ Architect runs only after Planner completion; never from GitHub labels — v1.8
+- ✓ Architect validates structural integrity, path consistency, risk accuracy, ambiguity/overreach — v1.8
+- ✓ ArchitectPlan output; comment updates (Approved/Rewritten/Blocked); agent:architect-review on block — v1.8
+- ✓ Architect plan_hash cache, 24h idempotency; comment diff-before-update — v1.8
+- ✓ Architect persists artifact; Builder triggers only after Architect approval; booty architect status | review — v1.8
+- ✓ 34/34 v1.8 requirements; milestone audit passed — v1.8
+
 ### Validated (v1.7)
 
 - ✓ Planner accepts GitHub issue, Observability incident, CLI text inputs — v1.7
@@ -113,7 +122,7 @@ Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, appro
 Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
 Shipped v1.6 with Memory Agent — append-only memory.jsonl, ingestion from Observability/Governor/Security/Verifier/Revert, deterministic lookup, PR/Governor/incident surfacing, booty memory status|query.
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0 through v1.7 requirements satisfied (PLAN-22 closed 2026-02-17; see docs/builder-planner-integration-audit.md).
+All v1.0 through v1.8 requirements satisfied; Architect Agent complete.
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -166,22 +175,25 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | touch_paths overwritten from derive_touch_paths | LLM output not trusted for paths | ✓ Good — v1.7 |
 | 2+ incident markers for Observability heuristics | Severity + Sentry; avoids false positives | ✓ Good — v1.7 |
 | Stdlib-only lookup; derive paths_hash from candidate paths | No new deps; verifier_cluster matches when caller has paths | ✓ Good — v1.6 |
+| Architect runs only after Planner | Planner worker invokes Architect; never from GitHub labels | ✓ Good — v1.8 |
+| Builder triggers from Architect approval | agent:builder retired when architect enabled; artifact required | ✓ Good — v1.8 |
+| architect.plan.approved event naming | Requirement said planner.plan.approved; impl uses architect for clarity | ✓ Good — v1.8 |
 
-## Current Milestone: v1.8 Architect Agent
+## Current Milestone
 
-**Goal:** Architect validates and refines plans before Builder executes — preventing structurally risky work and ensuring technically sound blueprints.
-
-**Target features:**
-- Architect Agent between Planner and Builder (advisory, authoritative on structure)
-- Plan validation: structural integrity, path consistency, risk accuracy, ambiguity/overreach detection
-- Architect-approved Plan artifact; Builder triggers only after Architect approval
-- Block unsafe plans with agent:architect-review label; no Builder trigger
-- CLI: booty architect status | review --issue N
-- Config: .booty.yml architect block
+v1.8 shipped. Run `/gsd:new-milestone` to define next.
 
 ## Current State
 
-**Shipped:** v1.7 (2026-02-16)
+**Shipped:** v1.8 (2026-02-17)
+
+**What shipped in v1.8:**
+- Architect Agent: ArchitectConfig, .booty.yml architect block, Planner worker integration (Phase 32)
+- Validation: structural, path consistency, risk recompute, ambiguity/overreach, < 5s (Phase 33)
+- ArchitectPlan, comment updates (Approved/Rewritten/Blocked), agent:architect-review (Phase 34)
+- plan_hash cache, find/save, 24h TTL, comment diff-before-update (Phase 35)
+- Artifact persistence, architect.plan.approved event, Builder handoff gate, booty architect status | review (Phase 36)
+- 34/34 v1.8 requirements; milestone audit passed
 
 **What shipped in v1.7:**
 - Planner Agent: Plan schema (Pydantic), storage, PlannerConfig, webhook agent, booty plan CLI
@@ -194,7 +206,20 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 
 ## Next Milestone Goals
 
-v1.8 Architect Agent — see Current Milestone section above.
+Run `/gsd:new-milestone` to define v1.9+.
+
+<details>
+<summary>v1.8 Architect Agent (shipped 2026-02-17)</summary>
+
+**What shipped in v1.8:**
+- Architect Agent: ArchitectConfig, .booty.yml block, Planner worker integration
+- Validation: structural, path consistency, risk recompute, ambiguity/overreach, < 5s
+- ArchitectPlan, comment updates (Approved/Rewritten/Blocked), agent:architect-review
+- plan_hash cache, 24h idempotency
+- Artifact persistence, Builder handoff gate, booty architect status | review
+- 34/34 v1.8 requirements; milestone audit passed
+
+</details>
 
 <details>
 <summary>v1.6 Memory Agent (shipped 2026-02-16)</summary>
@@ -233,4 +258,4 @@ v1.8 Architect Agent — see Current Milestone section above.
 </details>
 
 ---
-*Last updated: 2026-02-17 — Milestone v1.8 Architect Agent started*
+*Last updated: 2026-02-17 after v1.8 milestone*
