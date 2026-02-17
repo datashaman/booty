@@ -71,10 +71,10 @@ Deferred to later milestones.
 | REV-10 | 37 | Complete |
 | REV-12 | 37 | Complete |
 | REV-13 | 37 | Complete |
-| REV-01 | 38 | Pending |
-| REV-02 | 38 | Pending |
-| REV-03 | 38 | Pending |
-| REV-05 | 38 | Pending |
+| REV-01 | 38 | Complete |
+| REV-02 | 38 | Complete |
+| REV-03 | 38 | Complete |
+| REV-05 | 38 | Complete |
 | REV-06 | 39 | Pending |
 | REV-07 | 39 | Pending |
 | REV-08 | 39 | Pending |
