@@ -37,10 +37,11 @@ def _builder_bullets(handoff: HandoffToBuilder) -> list[str]:
     return bullets
 
 
-def format_plan_comment(plan: Plan) -> str:
+def format_plan_comment(plan: Plan, architect_section: str | None = None) -> str:
     """Format plan as markdown for GitHub issue comment.
 
-    Sections: Goal, Risk, Steps, Builder instructions, collapsed JSON.
+    Sections: Goal, Risk, Steps, Builder instructions, optional booty-architect section, collapsed JSON.
+    architect_section: when provided, inserted between Builder instructions and <details>.
     Ends with <!-- booty-plan --> for find-and-edit.
     """
     sections = []
@@ -54,6 +55,9 @@ def format_plan_comment(plan: Plan) -> str:
     bullets = _builder_bullets(plan.handoff_to_builder)
     if bullets:
         sections.append("## Builder instructions\n\n" + "\n".join(bullets))
+
+    if architect_section:
+        sections.append(architect_section)
 
     raw_json = json.dumps(
         plan.model_dump(),
