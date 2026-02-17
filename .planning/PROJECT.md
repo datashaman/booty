@@ -44,6 +44,15 @@ A Builder agent that can take a GitHub issue and produce a working PR with teste
 - ✓ Filtering: severity threshold, error fingerprint dedup, cooldown per fingerprint — v1.3
 - ✓ Auto-created GitHub issues with agent:builder label, severity, repro breadcrumbs — v1.3
 
+### Validated (v1.10)
+
+- ✓ Canonical event router; normalize → should_run → enqueue; ROUTE-01 through ROUTE-05 — v1.10
+- ✓ Planner→Architect→Builder wiring; plan-state-first; docs/routing.md; WIRE-01 through WIRE-05 — v1.10
+- ✓ Promotion gating: idempotent promote; Architect gate for plan PRs; Verifier-only promote; PROMO-01 through PROMO-05 — v1.10
+- ✓ Dedup alignment: (repo, pr_number, head_sha) for PR agents; Verifier/Security repo-scoped; cancel semantics; DEDUP-01 through DEDUP-05 — v1.10
+- ✓ Operator visibility: structured skip logs, five-bucket vocabulary, booty status, promotion_waiting_reviewer; OPS-01 through OPS-04 — v1.10
+- ✓ 23/23 v1.10 requirements; milestone audit passed — v1.10
+
 ### Validated (v1.9)
 
 - ✓ Reviewer runs on pull_request opened/synchronize; agent PRs only — v1.9
@@ -130,8 +139,9 @@ Shipped v1.4 with Release Governor — workflow_run trigger, risk scoring, appro
 Shipped v1.5 with Security Agent — pull_request check booty/security, secret scanning (gitleaks/trufflehog), dependency audit (pip/npm/composer/cargo), permission drift → ESCALATE to Governor.
 Shipped v1.6 with Memory Agent — append-only memory.jsonl, ingestion from Observability/Governor/Security/Verifier/Revert, deterministic lookup, PR/Governor/incident surfacing, booty memory status|query.
 Shipped v1.9 with Reviewer Agent — booty/reviewer check, pull_request webhook, Magentic review engine, block_on mapping, promotion gating, fail-open + metrics.
+Shipped v1.10 with Pipeline Correctness — canonical event router, Planner→Architect→Builder wiring, promotion gates, dedup/cancel semantics, operator visibility (23/23 requirements).
 Tech stack: FastAPI, magentic, PyGithub, structlog, Pydantic Settings, sentry-sdk.
-All v1.0 through v1.9 requirements satisfied; Reviewer Agent complete.
+All v1.0 through v1.10 requirements satisfied.
 Self-modification capability active with Verifier gates and protected paths.
 Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with release correlation.
 
@@ -189,21 +199,23 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 | architect.plan.approved event naming | Requirement said planner.plan.approved; impl uses architect for clarity | ✓ Good — v1.8 |
 | Reviewer disabled by default when block missing | Avoid surprising required checks on existing repos | ✓ Good — v1.9 |
 | Fail-open for Reviewer | Quality tooling never halts delivery due to infra/LLM | ✓ Good — v1.9 |
-
-## Current Milestone: v1.10 Pipeline Correctness
-
-**Goal:** Given any relevant GitHub event, Booty runs exactly the right agents exactly once, promotes correctly, and never stalls silently.
-
-**Target features:**
-- Single canonical event router (normalize GitHub events → internal events; single should_run decision)
-- Planner→Architect→Builder correctness (route by plan/architect artifact; Builder consumes Architect first)
-- Promotion gating correctness (verifier + reviewer + architect; deterministic second-finisher logic)
-- Dedup + cancel semantics aligned (standard keys per agent; new head_sha supersedes old)
-- Operator-visible state (structured skip logs; booty status for pipeline health)
+| Plan-state-first routing | Resolve plan via get_plan_for_builder before enqueue; no Planner-first branch | ✓ Good — v1.10 |
+| builder_compat defaults True | Safe migration; Architect disabled implies compat | ✓ Good — v1.10 |
+| Verifier sole caller of promote | grep-verified; clear ownership | ✓ Good — v1.10 |
+| record_agent_completed in queue workers | Ensures recording on all exit paths including exceptions | ✓ Good — v1.10 |
 
 ## Current State
 
-**Shipped:** v1.9 (2026-02-17) | **Next:** v1.10
+**Shipped:** v1.10 (2026-02-17) | **Next:** v1.11
+
+**What shipped in v1.10:**
+- Event Router: router package (events, normalizer, should_run, router); webhook delegation; ROUTE-01 through ROUTE-05
+- Dedup Alignment: Verifier/Security repo-scoped dedup; documented dedup keys; DEDUP-01, DEDUP-02, DEDUP-04
+- Planner→Architect→Builder: Architect standalone worker; builder_compat; plan-state-first routing; docs/routing.md; WIRE-01 through WIRE-05
+- Promotion Gates: idempotent promote; promotion_gates.py; Architect gate; PROMO-01 through PROMO-05
+- Cancel Semantics: VerifierQueue request_cancel; cancel_event at phase boundaries; DEDUP-03, DEDUP-05
+- Operator Visibility: skip_reasons.py; booty status; promotion_waiting_reviewer; OPS-01 through OPS-04
+- 23/23 v1.10 requirements; milestone audit passed
 
 **What shipped in v1.9:**
 - Reviewer Agent: ReviewerConfig, booty/reviewer check, pull_request webhook, ReviewerQueue (Phase 37–38)
@@ -231,7 +243,7 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 
 ## Next Milestone Goals
 
-**v1.10 Pipeline Correctness:** Event routing, Planner→Architect→Builder wiring, promotion gating, dedup/cancel semantics, operator visibility.
+Planning next milestone — run `/gsd:new-milestone` to define v1.11 requirements and roadmap.
 
 <details>
 <summary>v1.9 Reviewer Agent (shipped 2026-02-17)</summary>
@@ -293,4 +305,4 @@ Deployed on DigitalOcean via GitHub Actions workflow; Sentry error tracking with
 </details>
 
 ---
-*Last updated: 2026-02-17 — v1.10 milestone started*
+*Last updated: 2026-02-17 after v1.10 milestone*

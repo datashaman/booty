@@ -1,5 +1,34 @@
 # Project Milestones: Booty
 
+## v1.10 Pipeline Correctness (Shipped: 2026-02-17)
+
+**Delivered:** Given any relevant GitHub event, Booty runs exactly the right agents exactly once, promotes correctly, and never stalls silently. Canonical event router, Planner→Architect→Builder wiring, promotion gating, dedup/cancel alignment, operator visibility.
+
+**Phases completed:** 42–47 (16 plans total)
+
+**Key accomplishments:**
+
+- Event Router: Internal events (IssueEvent, PREvent, WorkflowRunEvent), normalizer, should_run(agent, repo, context), route_github_event — ROUTE-01 through ROUTE-05
+- Dedup Alignment: VerifierQueue/SecurityQueue repo-scoped dedup (repo, pr_number, head_sha); documented dedup keys — DEDUP-01, DEDUP-02, DEDUP-04
+- Planner→Architect→Builder: Architect standalone worker, builder_compat, plan-state-first routing, docs/routing.md — WIRE-01 through WIRE-05
+- Promotion Gates: Idempotent promote_to_ready_for_review; promotion_gates.py (is_plan_originated_pr, architect_approved_for_issue); Architect gate in Verifier — PROMO-01 through PROMO-05
+- Cancel Semantics: VerifierQueue request_cancel, VerifierJob cancel_event, runner checks at phase boundaries — DEDUP-03, DEDUP-05
+- Operator Visibility: skip_reasons.py five-bucket vocabulary, booty status (last_run, six agents), promotion_waiting_reviewer — OPS-01 through OPS-04
+- 23/23 v1.10 requirements; milestone audit passed
+
+**Stats:**
+
+- 89 files changed (v1.9..v1.10)
+- 21,371 lines of Python (total)
+- 6 phases, 16 plans
+- 1 day from v1.9 to ship (2026-02-17)
+
+**Git range:** `v1.9` → `6582208`
+
+**What's next:** Run `/gsd:new-milestone` to define v1.11+
+
+---
+
 ## v1.9 Reviewer Agent (Shipped: 2026-02-17)
 
 **Delivered:** Reviewer Agent performs AI-driven code quality review on Builder PRs before promotion. Evaluates maintainability, overengineering, duplication, test quality, naming, architectural drift. Sits between Builder and Verifier. Blocks promotion on structural issues; fail-open on infra/LLM failure.
